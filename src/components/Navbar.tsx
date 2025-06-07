@@ -1,15 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Menu as MenuIcon, X, User } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { Menu, MenuItem, ProductMenu, HoveredLink } from './Menu';
+import { supabase } from '../lib/supabaseClient';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [activeItem, setActiveItem] = useState<string | null>(null);
+  const [scrolled, setScrolled] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const isHomePage = window.location.pathname === '/';
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollPosition = window.scrollY;
+      if (scrollPosition > 50) {
+        setScrolled(true);
+      } else {
+        setScrolled(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    
+    // Initialize scroll state on mount
+    handleScroll();
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
 
   const handleSignOut = async () => {
     await signOut();
@@ -40,16 +63,28 @@ const Navbar = () => {
     }
   };
 
+  const navbarClasses = `fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+    scrolled 
+      ? 'bg-white shadow-md border-b border-gray-100' 
+      : isHomePage 
+        ? 'bg-transparent border-transparent' 
+        : 'bg-white border-b border-gray-100'
+  }`;
+
+  const textColorClass = (!scrolled && isHomePage) ? 'text-white' : 'text-gray-700';
+  const logoHeight = scrolled ? 'h-12 md:h-16' : 'h-12 md:h-20';
+  const navHeight = scrolled ? 'h-16 md:h-20' : 'h-16 md:h-24';
+
   return (
-    <nav className="fixed top-0 left-0 right-0 bg-white z-50 border-b border-gray-100">
+    <nav className={navbarClasses}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16 md:h-24">
+        <div className={`flex justify-between items-center ${navHeight}`}>
           <div className="flex-shrink-0">
             <Link to="/" className="block">
               <img 
                 src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//clearpathlogo.png" 
                 alt="Clearpath Motors Logo" 
-                className="h-12 w-auto md:h-20"
+                className={`w-auto ${logoHeight} transition-all duration-300`}
               />
             </Link>
           </div>
@@ -81,7 +116,7 @@ const Navbar = () => {
               <div className="relative">
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="ml-2 flex items-center space-x-2 bg-gray-100 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-200 transition-colors text-base font-medium"
+                  className={`ml-2 flex items-center space-x-2 bg-gray-100 ${textColorClass} px-4 py-3 rounded-lg hover:bg-gray-200 transition-colors text-base font-medium`}
                 >
                   <User className="h-5 w-5" />
                   <span>Account</span>
@@ -109,13 +144,13 @@ const Navbar = () => {
               <>
                 <Link
                   to="/login"
-                  className="px-4 py-3 text-gray-700 hover:text-[#3BAA75] hover:bg-gray-50 rounded-lg transition-colors text-base font-medium"
+                  className={`px-4 py-3 ${textColorClass} hover:text-[#3BAA75] hover:bg-gray-50 rounded-lg transition-colors text-base font-medium`}
                 >
                   Login
                 </Link>
                 <Link
                   to="/signup"
-                  className="px-4 py-3 text-gray-700 hover:text-[#3BAA75] hover:bg-gray-50 rounded-lg transition-colors text-base font-medium"
+                  className={`px-4 py-3 ${textColorClass} hover:text-[#3BAA75] hover:bg-gray-50 rounded-lg transition-colors text-base font-medium`}
                 >
                   Sign Up
                 </Link>
@@ -133,7 +168,7 @@ const Navbar = () => {
           <div className="md:hidden flex items-center">
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="text-gray-700 hover:text-[#3BAA75] transition-colors p-2 rounded-lg hover:bg-gray-50"
+              className={`${textColorClass} hover:text-[#3BAA75] transition-colors p-2 rounded-lg hover:bg-gray-50`}
               aria-label="Toggle menu"
             >
               {isOpen ? <X className="h-6 w-6" /> : <MenuIcon className="h-6 w-6" />}

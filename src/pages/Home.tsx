@@ -10,6 +10,7 @@ import { LogoScroll } from '../components/LogoScroll';
 const Home = () => {
   const [rotatingWord, setRotatingWord] = useState('Financing');
   const words = ['Financing', 'Credit', 'Approval'];
+  const [isMobile, setIsMobile] = useState(false);
 
   const vehicleTypes = [
     {
@@ -49,7 +50,18 @@ const Home = () => {
       });
     }, 3000);
     
-    return () => clearInterval(wordInterval);
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // Check on mount and when window resizes
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => {
+      clearInterval(wordInterval);
+      window.removeEventListener('resize', checkMobile);
+    };
   }, []);
 
   const stats = [
@@ -83,13 +95,24 @@ const Home = () => {
     <div className="bg-gradient-to-b from-white via-[#3BAA75]/5 to-white">
       {/* Hero Section */}
       <div className="relative min-h-[72vh] md:min-h-[80vh] flex items-center">
-        {/* Background Image */}
+        {/* Video Background */}
         <div className="absolute inset-0 w-full h-full overflow-hidden">
-          <img 
-            src="" 
-            alt="Hero background" 
-            className="w-full h-full object-cover"
-          />
+          {isMobile ? (
+            // Static image for mobile
+            <div className="absolute inset-0 bg-gradient-to-b from-[#2A7A5B] to-[#3BAA75]"></div>
+          ) : (
+            // Video for desktop
+            <video
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="absolute top-0 left-0 w-full h-full object-cover"
+            >
+              <source src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//0607.mp4" type="video/mp4" />
+            </video>
+          )}
+          {/* Overlay for better text readability */}
           <div className="absolute inset-0 bg-black/40"></div>
         </div>
 
@@ -434,7 +457,7 @@ const Home = () => {
               {[
                 {
                   icon: <Calculator className="h-16 w-16 text-[#3BAA75]" />,
-                  title: <>Build Your <Link to="/calculator\" className="text-[#3BAA75] hover:text-[#2D8259] transition-colors">Financing Plan</Link></>,
+                  title: <>Build Your <Link to="/calculator" className="text-[#3BAA75] hover:text-[#2D8259] transition-colors">Financing Plan</Link></>,
                   description: "Start with our payment calculator. Tweak the numbers, explore possibilities, and discover a monthly payment that fits your budget like a glove."
                 },
                 {

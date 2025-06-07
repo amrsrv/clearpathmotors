@@ -29,7 +29,7 @@ export const MenuItem = ({
     <div onMouseEnter={() => setActive(item)} className="relative">
       <motion.p
         transition={{ duration: 0.3 }}
-        className="cursor-pointer text-gray-700 hover:text-[#3BAA75] transition-colors"
+        className="cursor-pointer text-inherit hover:text-[#3BAA75] transition-colors"
       >
         {item}
       </motion.p>
@@ -68,7 +68,7 @@ export const Menu = ({
   return (
     <nav
       onMouseLeave={() => setActive(null)}
-      className="relative rounded-full border border-gray-200 bg-white shadow-sm flex justify-center space-x-4 px-8 py-4"
+      className="relative rounded-full border border-gray-200 bg-white/80 backdrop-blur-sm shadow-sm flex justify-center space-x-4 px-8 py-4"
     >
       {children}
     </nav>
