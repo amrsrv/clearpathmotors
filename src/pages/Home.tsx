@@ -82,85 +82,139 @@ const Home = () => {
   return (
     <div className="bg-gradient-to-b from-white via-[#3BAA75]/5 to-white">
       {/* Hero Section */}
-      <div className="relative min-h-[72vh] md:min-h-[80vh] flex items-center">
-        {/* Background Image */}
+      <div className="relative min-h-[80vh] md:min-h-[90vh] flex items-center">
+        {/* Background Image with Overlay */}
         <div className="absolute inset-0 w-full h-full overflow-hidden">
           <img 
-            src="" 
-            alt="Hero background" 
+            src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//2.jpg" 
+            alt="Scenic road with luxury car" 
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-black/40"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/40 to-black/30"></div>
+          
+          {/* Subtle Parallax Effect */}
+          <motion.div 
+            initial={{ y: 0 }}
+            animate={{ 
+              y: [0, -10, 0],
+              transition: { 
+                repeat: Infinity, 
+                duration: 20,
+                ease: "easeInOut" 
+              }
+            }}
+            className="absolute inset-0 w-full h-full"
+          >
+            <div className="absolute inset-0 bg-[#3BAA75]/10 mix-blend-overlay"></div>
+          </motion.div>
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full py-8 md:py-12">
           <div className="grid md:grid-cols-2 items-center gap-8">
-            {/* Left Column - Mobile optimized */}
+            {/* Left Column - Content */}
             <div className="space-y-6">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
+                transition={{ duration: 0.8 }}
                 className="space-y-4"
               >
                 <div className="flex flex-col items-start gap-4">
-                  <span className="inline-flex items-center bg-white/20 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm">
+                  <motion.span 
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3, duration: 0.6 }}
+                    className="inline-flex items-center bg-white/20 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm border border-white/10"
+                  >
                     <Clock3 className="w-4 h-4 mr-2" />
-                    Quick Approval Process
-                  </span>
-                  <h1 className="text-4xl md:text-5xl font-bold leading-tight tracking-tight text-white">
-                    Easy{' '}
-                    <AnimatePresence mode="wait">
-                      <motion.span
-                        key={rotatingWord}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        className="text-[#3BAA75] relative inline-block"
-                      >
-                        {rotatingWord}
-                      </motion.span>
-                    </AnimatePresence>
-                  </h1>
+                    Pre-Approval in Minutes
+                  </motion.span>
+                  
+                  <motion.h1 
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4, duration: 0.8 }}
+                    className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight tracking-tight text-white"
+                  >
+                    Your Path to <br />
+                    <span className="relative">
+                      <span className="relative z-10">
+                        <AnimatePresence mode="wait">
+                          <motion.span
+                            key={rotatingWord}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -20 }}
+                            className="text-[#3BAA75] relative inline-block"
+                          >
+                            {rotatingWord}
+                          </motion.span>
+                        </AnimatePresence>
+                      </span>
+                      <span className="absolute -bottom-2 left-0 right-0 h-3 bg-[#3BAA75]/20 rounded-full blur-sm"></span>
+                    </span>
+                    <br />
+                    Made Clear
+                  </motion.h1>
                 </div>
                 
-                <div className="mt-6 space-y-4">
-                  <p className="text-lg md:text-xl text-white font-medium">
-                    Pre-approval in under a minute.
+                <motion.div 
+                  initial={{ opacity: 0, y: 30 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.6, duration: 0.8 }}
+                  className="mt-6 space-y-4"
+                >
+                  <p className="text-lg md:text-xl text-white/90 font-medium">
+                    Auto financing that puts you in the driver's seat.
                   </p>
                   <ul className="space-y-3">
-                    <li className="flex items-center text-white bg-black/30 backdrop-blur-sm rounded-lg p-3 shadow-sm">
+                    <motion.li 
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.7, duration: 0.5 }}
+                      className="flex items-center text-white bg-black/30 backdrop-blur-sm rounded-lg p-3 shadow-sm border border-white/10"
+                    >
                       <CheckCircle className="h-5 w-5 text-[#3BAA75] mr-3 flex-shrink-0" />
                       <span className="text-base">95% approval rate for all credit situations</span>
-                    </li>
-                    <li className="flex items-center text-white bg-black/30 backdrop-blur-sm rounded-lg p-3 shadow-sm">
+                    </motion.li>
+                    <motion.li 
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.8, duration: 0.5 }}
+                      className="flex items-center text-white bg-black/30 backdrop-blur-sm rounded-lg p-3 shadow-sm border border-white/10"
+                    >
                       <Clock className="h-5 w-5 text-[#3BAA75] mr-3 flex-shrink-0" />
                       <span className="text-base">Quick online application, instant decision</span>
-                    </li>
-                    <li className="flex items-center text-white bg-black/30 backdrop-blur-sm rounded-lg p-3 shadow-sm">
+                    </motion.li>
+                    <motion.li 
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.9, duration: 0.5 }}
+                      className="flex items-center text-white bg-black/30 backdrop-blur-sm rounded-lg p-3 shadow-sm border border-white/10"
+                    >
                       <Calendar className="h-5 w-5 text-[#3BAA75] mr-3 flex-shrink-0" />
                       <span className="text-base">Flexible terms up to 84 months</span>
-                    </li>
+                    </motion.li>
                   </ul>
-                </div>
+                </motion.div>
               </motion.div>
 
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
+                transition={{ duration: 0.6, delay: 1.0 }}
                 className="flex flex-col sm:flex-row gap-4"
               >
                 <Link
                   to="/get-approved"
-                  className="w-full sm:w-auto bg-[#3BAA75] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#A3D9B1] transition-colors group inline-flex items-center justify-center shadow-lg hover:shadow-xl"
+                  className="w-full sm:w-auto bg-[#3BAA75] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#2D8259] transition-all duration-300 group inline-flex items-center justify-center shadow-lg hover:shadow-xl border border-[#3BAA75]/50"
                 >
                   Get Started
                   <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </Link>
                 <Link
                   to="/calculator"
-                  className="w-full sm:w-auto bg-white text-gray-800 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-colors inline-flex items-center justify-center border-2 border-gray-200"
+                  className="w-full sm:w-auto bg-white/10 backdrop-blur-sm text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white/20 transition-all duration-300 inline-flex items-center justify-center border border-white/20"
                 >
                   Calculate Payment
                 </Link>
@@ -169,21 +223,24 @@ const Home = () => {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.4 }}
+                transition={{ duration: 0.6, delay: 1.2 }}
                 className="flex items-center gap-6 pt-4"
               >
                 <div className="flex -space-x-3">
                   {avatars.map((avatar, i) => (
-                    <div
+                    <motion.div
                       key={i}
-                      className="w-12 h-12 rounded-full border-2 border-white bg-gray-200 overflow-hidden shadow-md"
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 1.2 + (i * 0.1), duration: 0.4 }}
+                      className="w-12 h-12 rounded-full border-2 border-white/80 bg-gray-200 overflow-hidden shadow-md"
                     >
                       <img
                         src={avatar}
                         alt={`Happy customer ${i + 1}`}
                         className="w-full h-full object-cover"
                       />
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
                 <div>
@@ -192,8 +249,46 @@ const Home = () => {
                 </div>
               </motion.div>
             </div>
+            
+            {/* Right Column - Empty space for desktop, hidden on mobile */}
+            <div className="hidden md:block">
+              {/* This space intentionally left empty to balance the layout */}
+            </div>
           </div>
         </div>
+        
+        {/* Decorative Elements */}
+        <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white to-transparent"></div>
+        
+        {/* Scroll Indicator */}
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ 
+            opacity: [0, 1, 0], 
+            y: [0, 10, 0] 
+          }}
+          transition={{ 
+            repeat: Infinity, 
+            duration: 2,
+            delay: 2
+          }}
+          className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-white flex flex-col items-center"
+        >
+          <div className="w-1 h-10 relative">
+            <div className="absolute inset-0 bg-white/50 rounded-full"></div>
+            <motion.div 
+              className="absolute top-0 w-full bg-white rounded-full"
+              initial={{ height: 0 }}
+              animate={{ height: '100%' }}
+              transition={{ 
+                repeat: Infinity,
+                duration: 2,
+                ease: "easeInOut"
+              }}
+            ></motion.div>
+          </div>
+          <span className="text-xs mt-2 font-light tracking-wider">SCROLL</span>
+        </motion.div>
       </div>
 
       {/* Stats Section */}
@@ -434,7 +529,7 @@ const Home = () => {
               {[
                 {
                   icon: <Calculator className="h-16 w-16 text-[#3BAA75]" />,
-                  title: <>Build Your <Link to="/calculator\" className="text-[#3BAA75] hover:text-[#2D8259] transition-colors">Financing Plan</Link></>,
+                  title: <>Build Your <Link to="/calculator" className="text-[#3BAA75] hover:text-[#2D8259] transition-colors">Financing Plan</Link></>,
                   description: "Start with our payment calculator. Tweak the numbers, explore possibilities, and discover a monthly payment that fits your budget like a glove."
                 },
                 {
