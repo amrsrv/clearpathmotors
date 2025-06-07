@@ -236,8 +236,8 @@ const Dashboard = () => {
     try {
       const document = await uploadDocument(file, category);
       if (document) {
-        // No need to manually update documents state here
-        // The real-time subscription will handle this
+        // Update the documents state immediately with the new document
+        setDocuments(prevDocuments => [document, ...prevDocuments]);
         toast.success('Document uploaded successfully');
       }
     } catch (error) {
@@ -249,7 +249,8 @@ const Dashboard = () => {
   const handleDocumentDelete = async (documentId: string) => {
     try {
       await deleteDocument(documentId);
-      // The real-time subscription will handle updating the documents state
+      // Update the documents state immediately by removing the deleted document
+      setDocuments(prevDocuments => prevDocuments.filter(doc => doc.id !== documentId));
       toast.success('Document deleted successfully');
     } catch (error) {
       console.error('Error deleting document:', error);
