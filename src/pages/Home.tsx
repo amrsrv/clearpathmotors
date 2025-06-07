@@ -82,7 +82,7 @@ const Home = () => {
   return (
     <div className="bg-gradient-to-b from-white via-[#3BAA75]/5 to-white">
       {/* Hero Section */}
-      <div className="relative min-h-[80vh] md:min-h-[90vh] flex items-center">
+      <div className="relative min-h-[80vh] flex items-center">
         {/* Background Image with Overlay */}
         <div className="absolute inset-0 w-full h-full overflow-hidden">
           {/* Desktop Background */}
@@ -92,7 +92,7 @@ const Home = () => {
               alt="Scenic road with luxury car" 
               className="w-full h-full object-cover"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/40 to-black/30"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/40"></div>
           </div>
           
           {/* Mobile Background - Solid gradient instead of video */}
@@ -101,26 +101,10 @@ const Home = () => {
               <div className="w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
             </div>
           </div>
-          
-          {/* Subtle Parallax Effect - Desktop only */}
-          <motion.div 
-            initial={{ y: 0 }}
-            animate={{ 
-              y: [0, -10, 0],
-              transition: { 
-                repeat: Infinity, 
-                duration: 20,
-                ease: "easeInOut" 
-              }
-            }}
-            className="absolute inset-0 w-full h-full hidden md:block"
-          >
-            <div className="absolute inset-0 bg-[#3BAA75]/10 mix-blend-overlay"></div>
-          </motion.div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full py-8 md:py-12">
-          <div className="grid md:grid-cols-12 items-center gap-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full py-12 md:py-16">
+          <div className="grid md:grid-cols-12 gap-8 items-center">
             {/* Left Column - Content (spans 7 columns on desktop) */}
             <div className="md:col-span-7 space-y-8">
               <motion.div
@@ -163,7 +147,7 @@ const Home = () => {
                     <span className="absolute -bottom-2 left-0 right-0 h-3 bg-[#3BAA75]/20 rounded-full blur-sm"></span>
                   </span>
                   <br className="hidden md:block" />
-                  Made Clear
+                  Made Simple
                 </motion.h1>
               </motion.div>
               
@@ -538,7 +522,7 @@ const Home = () => {
               {[
                 {
                   icon: <Calculator className="h-16 w-16 text-[#3BAA75]" />,
-                  title: <>Build Your <Link to="/calculator\" className="text-[#3BAA75] hover:text-[#2D8259] transition-colors">Financing Plan</Link></>,
+                  title: <>Build Your <Link to="/calculator" className="text-[#3BAA75] hover:text-[#2D8259] transition-colors">Financing Plan</Link></>,
                   description: "Start with our payment calculator. Tweak the numbers, explore possibilities, and discover a monthly payment that fits your budget like a glove."
                 },
                 {
