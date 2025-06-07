@@ -93,7 +93,7 @@ const Home = () => {
             className="absolute top-0 left-0 w-full h-full object-cover opacity-85"
             style={{ transform: 'scaleX(-1)' }}
           >
-            <source src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//No%20Credit%20Presentation.jpg" type="video/mp4" />
+            <source src="https://yorkdalefinecars.org/wp-content/uploads/2025/06/Driving-in-Icelandic-Highlands-4K-1.mp4" type="video/mp4" />
           </video>
           {/* Gradient Overlay */}
           <div className="absolute inset-0 bg-gradient-to-r from-white/90 via-white/60 to-transparent" />
