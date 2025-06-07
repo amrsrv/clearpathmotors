@@ -41,8 +41,8 @@ const FAQ = () => {
   ];
 
   return (
-    <div className="bg-white min-h-screen py-12">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="bg-white min-h-screen pt-24 md:pt-28">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -50,7 +50,7 @@ const FAQ = () => {
           className="text-center mb-12"
         >
           <h1 className="text-4xl font-bold mb-4">Frequently Asked Questions</h1>
-          <p className="text-xl text-gray-600">Everything you need to know about auto financing with CrediSure</p>
+          <p className="text-xl text-gray-600">Everything you need to know about auto financing with Clearpath</p>
         </motion.div>
 
         <motion.div

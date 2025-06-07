@@ -16,6 +16,9 @@ const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Check if current page is home page
+  const isHomePage = location.pathname === '/';
+
   // Track scroll position for header transparency and text color
   useEffect(() => {
     const handleScroll = () => {
@@ -32,14 +35,20 @@ const Navbar = () => {
       }
     };
 
-    window.addEventListener('scroll', handleScroll);
-    // Initial check
-    handleScroll();
-    
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, [scrolled, pastHero]);
+    if (isHomePage) {
+      window.addEventListener('scroll', handleScroll);
+      // Initial check
+      handleScroll();
+      
+      return () => {
+        window.removeEventListener('scroll', handleScroll);
+      };
+    } else {
+      // If not home page, set scrolled to true to show solid background
+      setScrolled(true);
+      setPastHero(true);
+    }
+  }, [scrolled, pastHero, isHomePage]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -70,16 +79,23 @@ const Navbar = () => {
     }
   };
 
-  // Determine background style based on scroll position
-  const navBackground = scrolled 
-    ? pastHero 
-      ? 'bg-white/95 backdrop-blur-sm shadow-md border-b border-gray-100' 
-      : 'bg-black/30 backdrop-blur-sm'
-    : 'bg-transparent';
+  // Determine background style based on scroll position and page
+  const navBackground = isHomePage
+    ? scrolled 
+      ? pastHero 
+        ? 'bg-white/95 backdrop-blur-sm shadow-md border-b border-gray-100' 
+        : 'bg-black/30 backdrop-blur-sm'
+      : 'bg-transparent'
+    : 'bg-white shadow-sm border-b border-gray-100';
 
-  // Determine text color based on scroll position
-  const textColor = pastHero ? 'text-gray-900' : 'text-white';
-  const hoverTextColor = pastHero ? 'hover:text-[#3BAA75]' : 'hover:text-white/80';
+  // Determine text color based on scroll position and page
+  const textColor = isHomePage
+    ? pastHero ? 'text-gray-900' : 'text-white'
+    : 'text-gray-900';
+  
+  const hoverTextColor = isHomePage
+    ? pastHero ? 'hover:text-[#3BAA75]' : 'hover:text-white/80'
+    : 'hover:text-[#3BAA75]';
 
   return (
     <motion.nav 
@@ -131,9 +147,9 @@ const Navbar = () => {
                   <button
                     onClick={() => setShowUserMenu(!showUserMenu)}
                     className={`flex items-center space-x-2 px-4 py-2.5 rounded-lg transition-all duration-300 text-base font-medium ${
-                      pastHero 
-                        ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' 
-                        : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm'
+                      isHomePage && !pastHero
+                        ? 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
                     <User className="h-5 w-5" />
@@ -171,9 +187,9 @@ const Navbar = () => {
                 <Link
                   to="/login"
                   className={`px-5 py-2.5 rounded-lg transition-all duration-300 text-base font-medium ${
-                    pastHero 
-                      ? 'text-gray-700 hover:text-[#3BAA75] border border-gray-200 hover:border-[#3BAA75] hover:shadow-sm' 
-                      : 'text-white hover:bg-white/20 border border-white/30 hover:border-white'
+                    isHomePage && !pastHero
+                      ? 'text-white hover:bg-white/20 border border-white/30 hover:border-white'
+                      : 'text-gray-700 hover:text-[#3BAA75] border border-gray-200 hover:border-[#3BAA75] hover:shadow-sm'
                   }`}
                 >
                   Login
