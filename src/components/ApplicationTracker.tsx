@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle, Clock, FileText, Car, BadgeCheck, Award, PartyPopper } from 'lucide-react';
 import type { Application, ApplicationStage } from '../types/database';
@@ -8,7 +8,7 @@ interface ApplicationTrackerProps {
   stages: ApplicationStage[];
 }
 
-const stages = [
+const stageDefinitions = [
   {
     title: 'Application Submitted',
     icon: <FileText className="w-5 h-5" />,
@@ -46,7 +46,32 @@ const stages = [
   }
 ];
 
-export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({ application, stages: applicationStages }) => {
+// Map application status to stage number
+const statusToStageMap: Record<string, number> = {
+  'submitted': 1,
+  'under_review': 2,
+  'pending_documents': 3,
+  'pre_approved': 4,
+  'vehicle_selection': 5,
+  'final_approval': 6,
+  'finalized': 7
+};
+
+export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({ application, stages }) => {
+  // Derive current stage from application status
+  const [currentStage, setCurrentStage] = useState<number>(application.current_stage);
+  
+  // Update current stage whenever application status changes
+  useEffect(() => {
+    // First check if the status maps directly to a stage
+    if (application.status in statusToStageMap) {
+      setCurrentStage(statusToStageMap[application.status]);
+    } else {
+      // Fallback to the current_stage field
+      setCurrentStage(application.current_stage);
+    }
+  }, [application.status, application.current_stage]);
+
   return (
     <div className="bg-white rounded-xl shadow-lg p-6">
       <h2 className="text-2xl font-semibold mb-6">Application Progress</h2>
@@ -55,10 +80,11 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({ applicat
         {/* Vertical line */}
         <div className="absolute left-[21px] top-0 h-full w-px bg-gray-200" />
 
-        {stages.map((stage, index) => {
-          const stageData = applicationStages.find(s => s.stage_number === index + 1);
-          const isCompleted = application.current_stage > index + 1;
-          const isCurrent = application.current_stage === index + 1;
+        {stageDefinitions.map((stage, index) => {
+          const stageNumber = index + 1;
+          const stageData = stages.find(s => s.stage_number === stageNumber);
+          const isCompleted = currentStage > stageNumber;
+          const isCurrent = currentStage === stageNumber;
           
           return (
             <div key={index} className="relative flex items-start mb-8 last:mb-0">
