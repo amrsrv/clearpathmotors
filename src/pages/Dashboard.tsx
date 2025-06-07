@@ -63,10 +63,70 @@ const Dashboard = () => {
   }, [user, authLoading]);
 
   useEffect(() => {
-    if (!application?.id) return;
+    if (!application?.id || !user?.id) return;
+
+    // Set up real-time subscription for application updates
+    const applicationsChannel = supabase
+      .channel('application-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'applications',
+          filter: `id=eq.${application.id}`
+        },
+        async (payload) => {
+          console.log('Application update received:', payload);
+          
+          const oldStatus = application.status;
+          const newStatus = payload.new.status;
+          const oldStage = application.current_stage;
+          const newStage = payload.new.current_stage;
+          
+          // Update application state with new data
+          setApplication(payload.new as Application);
+          
+          // Reload stages and documents to ensure consistency
+          await loadStages(application.id);
+          await loadDocuments(application.id);
+          
+          // Create notification for status change
+          if (oldStatus !== newStatus) {
+            await createNotification(
+              `Application Status Updated`,
+              `Your application status has been updated from ${formatStatus(oldStatus)} to ${formatStatus(newStatus)}.`
+            );
+            
+            toast.success(`Application status updated to ${formatStatus(newStatus)}`);
+          }
+          
+          // Create notification for stage change
+          if (oldStage !== newStage) {
+            await createNotification(
+              `Application Stage Advanced`,
+              `Your application has moved to stage ${newStage} of 7.`
+            );
+            
+            toast.success(`Application advanced to stage ${newStage}`);
+          }
+          
+          // Update prequalification data if relevant fields changed
+          if (
+            payload.new.loan_amount_min !== application.loan_amount_min ||
+            payload.new.loan_amount_max !== application.loan_amount_max ||
+            payload.new.interest_rate !== application.interest_rate ||
+            payload.new.loan_term !== application.loan_term ||
+            payload.new.desired_monthly_payment !== application.desired_monthly_payment
+          ) {
+            updatePrequalificationData(payload.new as Application);
+          }
+        }
+      )
+      .subscribe();
 
     // Set up real-time subscription for documents
-    const documentsSubscription = supabase
+    const documentsChannel = supabase
       .channel('documents-changes')
       .on(
         'postgres_changes',
@@ -76,33 +136,46 @@ const Dashboard = () => {
           table: 'documents',
           filter: `application_id=eq.${application.id}`
         },
-        (payload) => {
+        async (payload) => {
           console.log('Document change received:', payload);
           
-          // Reload documents when changes occur
-          loadDocuments(application.id);
+          // Reload documents to get the latest state
+          await loadDocuments(application.id);
           
-          // Show toast notification
-          if (payload.eventType === 'INSERT') {
-            toast.success('Document uploaded successfully');
-          } else if (payload.eventType === 'UPDATE') {
+          // Handle document status changes
+          if (payload.eventType === 'UPDATE') {
+            const oldStatus = payload.old.status;
             const newStatus = payload.new.status;
-            if (newStatus === 'approved') {
-              toast.success('Document approved');
-            } else if (newStatus === 'rejected') {
-              toast.error('Document rejected');
-            } else {
-              toast.success('Document updated');
+            
+            if (oldStatus !== newStatus) {
+              const documentName = payload.new.filename.split('/').pop();
+              const category = payload.new.category.replace(/_/g, ' ');
+              
+              // Create notification for document status change
+              let notificationTitle = '';
+              let notificationMessage = '';
+              
+              if (newStatus === 'approved') {
+                notificationTitle = `Document Approved`;
+                notificationMessage = `Your ${category} document "${documentName}" has been approved.`;
+                toast.success(notificationMessage);
+              } else if (newStatus === 'rejected') {
+                notificationTitle = `Document Needs Attention`;
+                notificationMessage = `Your ${category} document "${documentName}" was not approved. ${payload.new.review_notes ? `Reason: ${payload.new.review_notes}` : 'Please upload a new document.'}`;
+                toast.error(notificationMessage);
+              }
+              
+              if (notificationTitle) {
+                await createNotification(notificationTitle, notificationMessage);
+              }
             }
-          } else if (payload.eventType === 'DELETE') {
-            toast.success('Document removed');
           }
         }
       )
       .subscribe();
 
     // Set up real-time subscription for notifications
-    const notificationsSubscription = supabase
+    const notificationsChannel = supabase
       .channel('notifications-changes')
       .on(
         'postgres_changes',
@@ -110,27 +183,80 @@ const Dashboard = () => {
           event: '*',
           schema: 'public',
           table: 'notifications',
-          filter: `user_id=eq.${user?.id}`
+          filter: `user_id=eq.${user.id}`
         },
-        (payload) => {
+        async (payload) => {
           console.log('Notification change received:', payload);
           
-          // Reload notifications when changes occur
-          loadNotifications(user?.id);
+          // Reload notifications to get the latest state
+          await loadNotifications(user.id);
+        }
+      )
+      .subscribe();
+
+    // Set up real-time subscription for application stages
+    const stagesChannel = supabase
+      .channel('stages-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'application_stages',
+          filter: `application_id=eq.${application.id}`
+        },
+        async (payload) => {
+          console.log('Stage change received:', payload);
           
-          // Show toast for new notifications
+          // Reload stages to get the latest state
+          await loadStages(application.id);
+          
+          // Create notification for new stage
           if (payload.eventType === 'INSERT') {
-            toast.success('New notification received');
+            const stageNumber = payload.new.stage_number;
+            const stageStatus = payload.new.status;
+            
+            await createNotification(
+              `Application Stage ${stageNumber} ${formatStatus(stageStatus)}`,
+              `Your application has ${stageStatus === 'completed' ? 'completed' : 'entered'} stage ${stageNumber}. ${payload.new.notes || ''}`
+            );
+            
+            toast.success(`Stage ${stageNumber} ${formatStatus(stageStatus)}`);
           }
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(documentsSubscription);
-      supabase.removeChannel(notificationsSubscription);
+      supabase.removeChannel(applicationsChannel);
+      supabase.removeChannel(documentsChannel);
+      supabase.removeChannel(notificationsChannel);
+      supabase.removeChannel(stagesChannel);
     };
   }, [application?.id, user?.id]);
+
+  const formatStatus = (status: string): string => {
+    return status
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, char => char.toUpperCase());
+  };
+
+  const createNotification = async (title: string, message: string) => {
+    if (!user) return;
+    
+    try {
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: user.id,
+          title,
+          message,
+          read: false
+        });
+    } catch (error) {
+      console.error('Error creating notification:', error);
+    }
+  };
 
   const loadDashboardData = async () => {
     try {
@@ -163,25 +289,29 @@ const Dashboard = () => {
       // Load notifications
       await loadNotifications(user.id);
 
-      // Set mock prequalification data (replace with real data in production)
-      if (applicationData) {
-        setPrequalificationData({
-          loanRange: {
-            min: applicationData.loan_amount_min || 15000,
-            max: applicationData.loan_amount_max || 35000,
-            rate: applicationData.interest_rate || 5.99
-          },
-          term: applicationData.loan_term || 60,
-          monthlyPayment: applicationData.desired_monthly_payment || 450,
-          status: applicationData.status
-        });
-      }
+      // Set prequalification data
+      updatePrequalificationData(applicationData);
 
     } catch (error: any) {
       console.error('Error loading dashboard data:', error);
       setError(error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const updatePrequalificationData = (applicationData: Application) => {
+    if (applicationData) {
+      setPrequalificationData({
+        loanRange: {
+          min: applicationData.loan_amount_min || 15000,
+          max: applicationData.loan_amount_max || 35000,
+          rate: applicationData.interest_rate || 5.99
+        },
+        term: applicationData.loan_term || 60,
+        monthlyPayment: applicationData.desired_monthly_payment || 450,
+        status: applicationData.status
+      });
     }
   };
 
