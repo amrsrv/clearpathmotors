@@ -94,7 +94,8 @@ const Home = () => {
           >
             <source src="https://yorkdalefinecars.org/wp-content/uploads/2025/06/Driving-in-Icelandic-Highlands-4K-1.mp4" type="video/mp4" />
           </video>
-  
+          {/* Gradient Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/70" />
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full py-8 md:py-12">
@@ -438,12 +439,12 @@ const Home = () => {
               {[
                 {
                   icon: <Calculator className="h-16 w-16 text-[#3BAA75]" />,
-                  title: <>Build Your <Link to="/calculator\" className="text-[#3BAA75] hover:text-[#2D8259] transition-colors">Financing Plan</Link></>,
+                  title: <>Build Your <Link to="/calculator\" className=\"text-[#3BAA75] hover:text-[#2D8259] transition-colors">Financing Plan</Link></>,
                   description: "Start with our payment calculator. Tweak the numbers, explore possibilities, and discover a monthly payment that fits your budget like a glove."
                 },
                 {
                   icon: <FileText className="h-16 w-16 text-[#3BAA75]" />,
-                  title: <>Secure Your <Link to="/get-approved" className="text-[#3BAA75] hover:text-[#2D8259] transition-colors">Pre-Approval</Link></>,
+                  title: <>Secure Your <Link to="/get-approved\" className="text-[#3BAA75] hover:text-[#2D8259] transition-colors">Pre-Approval</Link></>,
                   description: "We mirror the underwriting systems used by banks — reviewing income, debt ratios, credit behavior, and loan-to-value — to deliver a real-world pre-approval you can trust."
                 },
                 {
