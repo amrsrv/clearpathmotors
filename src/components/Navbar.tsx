@@ -1,15 +1,33 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Menu as MenuIcon, X, User } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { Menu, MenuItem, ProductMenu, HoveredLink } from './Menu';
+import { supabase } from '../lib/supabaseClient';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [activeItem, setActiveItem] = useState<string | null>(null);
+  const [scrolled, setScrolled] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Track scroll position for header transparency
+  useEffect(() => {
+    const handleScroll = () => {
+      const isScrolled = window.scrollY > 50;
+      if (isScrolled !== scrolled) {
+        setScrolled(isScrolled);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [scrolled]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -41,7 +59,13 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 bg-white z-50 border-b border-gray-100">
+    <nav 
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        scrolled 
+          ? 'bg-white/95 backdrop-blur-sm shadow-sm border-b border-gray-100' 
+          : 'bg-transparent'
+      }`}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 md:h-24">
           <div className="flex-shrink-0">
@@ -55,7 +79,7 @@ const Navbar = () => {
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-1">
+          <div className="hidden md:flex items-center">
             <Menu setActive={setActiveItem}>
               <MenuItem setActive={setActiveItem} active={activeItem} item="Products">
                 <ProductMenu />
@@ -77,68 +101,77 @@ const Navbar = () => {
               </MenuItem>
             </Menu>
 
-            {user ? (
-              <div className="relative">
-                <button
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="ml-2 flex items-center space-x-2 bg-gray-100 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-200 transition-colors text-base font-medium"
-                >
-                  <User className="h-5 w-5" />
-                  <span>Account</span>
-                </button>
+            <div className="flex items-center ml-4">
+              {user ? (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-colors text-base font-medium ${
+                      scrolled 
+                        ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' 
+                        : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm'
+                    }`}
+                  >
+                    <User className="h-5 w-5" />
+                    <span>Account</span>
+                  </button>
 
-                {showUserMenu && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50">
-                    <Link
-                      to="/dashboard"
-                      className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
-                      onClick={() => setShowUserMenu(false)}
-                    >
-                      Dashboard
-                    </Link>
-                    <button
-                      onClick={handleSignOut}
-                      className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100"
-                    >
-                      Sign Out
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <>
+                  {showUserMenu && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50">
+                      <Link
+                        to="/dashboard"
+                        className="block px-4 py-2 text-gray-700 hover:bg-gray-100"
+                        onClick={() => setShowUserMenu(false)}
+                      >
+                        Dashboard
+                      </Link>
+                      <button
+                        onClick={handleSignOut}
+                        className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-100"
+                      >
+                        Sign Out
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
                 <Link
                   to="/login"
-                  className="px-4 py-3 text-gray-700 hover:text-[#3BAA75] hover:bg-gray-50 rounded-lg transition-colors text-base font-medium"
+                  className={`px-4 py-3 rounded-lg transition-colors text-base font-medium ${
+                    scrolled 
+                      ? 'text-gray-700 hover:text-[#3BAA75] hover:bg-gray-50' 
+                      : 'text-white hover:bg-white/20'
+                  }`}
                 >
                   Login
                 </Link>
-                <Link
-                  to="/signup"
-                  className="px-4 py-3 text-gray-700 hover:text-[#3BAA75] hover:bg-gray-50 rounded-lg transition-colors text-base font-medium"
-                >
-                  Sign Up
-                </Link>
-                <Link
-                  to="/get-approved"
-                  className="ml-2 bg-[#3BAA75] text-white px-6 py-3 rounded-lg hover:bg-[#2D8259] transition-colors text-base font-semibold shadow-sm hover:shadow-md"
-                >
-                  Get Started
-                </Link>
-              </>
-            )}
+              )}
+            </div>
           </div>
 
-          {/* Mobile menu button */}
           <div className="md:hidden flex items-center">
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="text-gray-700 hover:text-[#3BAA75] transition-colors p-2 rounded-lg hover:bg-gray-50"
+              className={`p-2 rounded-lg transition-colors ${
+                scrolled 
+                  ? 'text-gray-700 hover:text-[#3BAA75] hover:bg-gray-50' 
+                  : 'text-white hover:bg-white/20'
+              }`}
               aria-label="Toggle menu"
             >
               {isOpen ? <X className="h-6 w-6" /> : <MenuIcon className="h-6 w-6" />}
             </button>
           </div>
+        </div>
+
+        {/* Get Started Button - Outside the navigation bar */}
+        <div className="absolute right-4 top-1/2 transform -translate-y-1/2 hidden md:block">
+          <Link
+            to="/get-approved"
+            className="bg-[#3BAA75] text-white px-6 py-3 rounded-lg hover:bg-[#2D8259] transition-colors text-base font-semibold shadow-sm hover:shadow-md"
+          >
+            Get Started
+          </Link>
         </div>
 
         {/* Mobile Navigation */}
@@ -207,13 +240,6 @@ const Navbar = () => {
                     onClick={() => setIsOpen(false)}
                   >
                     Login
-                  </Link>
-                  <Link
-                    to="/signup"
-                    className="block px-4 py-3 text-gray-700 hover:text-[#3BAA75] hover:bg-gray-50 rounded-lg transition-colors"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    Sign Up
                   </Link>
                   <Link
                     to="/get-approved"

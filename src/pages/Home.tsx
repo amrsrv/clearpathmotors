@@ -82,134 +82,92 @@ const Home = () => {
   return (
     <div className="bg-gradient-to-b from-white via-[#3BAA75]/5 to-white">
       {/* Hero Section */}
-      <div className="relative min-h-[80vh] flex items-center">
-        {/* Background Video/Gradient */}
+      <div className="relative min-h-[100vh] flex items-center">
+        {/* Video Background */}
         <div className="absolute inset-0 w-full h-full overflow-hidden">
-          {/* Desktop Background Video */}
-          <div className="hidden md:block w-full h-full">
-            <video
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="absolute top-0 left-0 w-full h-full object-cover"
-            >
-              <source src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//0607.mp4" type="video/mp4" />
-            </video>
-            <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/40"></div>
-          </div>
+          <div className="absolute inset-0 bg-black/40 z-10"></div>
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute top-0 left-0 w-full h-full object-cover hidden md:block"
+          >
+            <source src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//0607.mp4" type="video/mp4" />
+          </video>
           
-          {/* Mobile Background - Gradient */}
-          <div className="md:hidden w-full h-full bg-gradient-to-b from-[#1F5F3F] to-[#3BAA75]">
-            <div className="absolute inset-0 opacity-10">
-              <div className="w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
-            </div>
-          </div>
+          {/* Mobile Gradient Background */}
+          <div className="absolute inset-0 bg-gradient-to-b from-[#2A7A5B] to-[#1F5F3F] md:hidden"></div>
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full py-12 md:py-16">
-          <div className="grid md:grid-cols-12 gap-8 items-center">
-            {/* Left Column - Content (spans 7 columns on desktop) */}
-            <div className="md:col-span-7 space-y-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20 w-full py-8 md:py-12">
+          <div className="grid md:grid-cols-2 items-center gap-8">
+            {/* Left Column - Mobile optimized */}
+            <div className="space-y-6">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8 }}
-                className="space-y-6"
+                transition={{ duration: 0.6 }}
+                className="space-y-4"
               >
-                <motion.span 
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3, duration: 0.6 }}
-                  className="inline-flex items-center bg-white/20 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm border border-white/10"
-                >
-                  <Clock3 className="w-4 h-4 mr-2" />
-                  Pre-Approval in Minutes
-                </motion.span>
-                
-                <motion.h1 
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4, duration: 0.8 }}
-                  className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight tracking-tight text-white"
-                >
-                  Your Path to <br className="hidden md:block" />
-                  <span className="relative inline-block">
-                    <span className="relative z-10">
-                      <AnimatePresence mode="wait">
-                        <motion.span
-                          key={rotatingWord}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -20 }}
-                          className="text-[#3BAA75] relative inline-block"
-                        >
-                          {rotatingWord}
-                        </motion.span>
-                      </AnimatePresence>
-                    </span>
-                    <span className="absolute -bottom-2 left-0 right-0 h-3 bg-[#3BAA75]/20 rounded-full blur-sm"></span>
+                <div className="flex flex-col items-start gap-4">
+                  <span className="inline-flex items-center bg-white/20 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm">
+                    <Clock3 className="w-4 h-4 mr-2" />
+                    Quick Approval Process
                   </span>
-                  <br className="hidden md:block" />
-                  Made Simple
-                </motion.h1>
-              </motion.div>
-              
-              <motion.div 
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6, duration: 0.8 }}
-                className="space-y-6"
-              >
-                <p className="text-lg md:text-xl text-white/90 font-medium max-w-xl">
-                  Auto financing that puts you in the driver's seat. Get pre-qualified in minutes with rates from 4.99%.
-                </p>
+                  <h1 className="text-4xl md:text-5xl font-bold leading-tight tracking-tight text-white">
+                    Easy{' '}
+                    <AnimatePresence mode="wait">
+                      <motion.span
+                        key={rotatingWord}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -20 }}
+                        className="text-[#3BAA75] relative inline-block"
+                      >
+                        {rotatingWord}
+                      </motion.span>
+                    </AnimatePresence>
+                  </h1>
+                </div>
                 
-                <div className="space-y-4">
-                  {[
-                    {
-                      icon: <CheckCircle className="h-5 w-5 text-[#3BAA75]" />,
-                      text: "95% approval rate for all credit situations"
-                    },
-                    {
-                      icon: <Clock className="h-5 w-5 text-[#3BAA75]" />,
-                      text: "Quick online application, instant decision"
-                    },
-                    {
-                      icon: <Calendar className="h-5 w-5 text-[#3BAA75]" />,
-                      text: "Flexible terms up to 84 months"
-                    }
-                  ].map((item, index) => (
-                    <motion.div 
-                      key={index}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.7 + (index * 0.1), duration: 0.5 }}
-                      className="flex items-center text-white bg-black/30 backdrop-blur-sm rounded-lg p-3 shadow-sm border border-white/10 max-w-md"
-                    >
-                      <div className="mr-3 flex-shrink-0">{item.icon}</div>
-                      <span className="text-base">{item.text}</span>
-                    </motion.div>
-                  ))}
+                <div className="mt-6 space-y-4">
+                  <p className="text-lg md:text-xl text-white font-medium">
+                    Pre-approval in under a minute.
+                  </p>
+                  <ul className="space-y-3">
+                    <li className="flex items-center text-white bg-black/30 backdrop-blur-sm rounded-lg p-3 shadow-sm">
+                      <CheckCircle className="h-5 w-5 text-[#3BAA75] mr-3 flex-shrink-0" />
+                      <span className="text-base">95% approval rate for all credit situations</span>
+                    </li>
+                    <li className="flex items-center text-white bg-black/30 backdrop-blur-sm rounded-lg p-3 shadow-sm">
+                      <Clock className="h-5 w-5 text-[#3BAA75] mr-3 flex-shrink-0" />
+                      <span className="text-base">Quick online application, instant decision</span>
+                    </li>
+                    <li className="flex items-center text-white bg-black/30 backdrop-blur-sm rounded-lg p-3 shadow-sm">
+                      <Calendar className="h-5 w-5 text-[#3BAA75] mr-3 flex-shrink-0" />
+                      <span className="text-base">Flexible terms up to 84 months</span>
+                    </li>
+                  </ul>
                 </div>
               </motion.div>
 
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 1.0 }}
-                className="flex flex-col sm:flex-row gap-4 pt-2"
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="flex flex-col sm:flex-row gap-4"
               >
                 <Link
                   to="/get-approved"
-                  className="w-full sm:w-auto bg-[#3BAA75] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#2D8259] transition-all duration-300 group inline-flex items-center justify-center shadow-lg hover:shadow-xl border border-[#3BAA75]/50"
+                  className="w-full sm:w-auto bg-[#3BAA75] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#A3D9B1] transition-colors group inline-flex items-center justify-center shadow-lg hover:shadow-xl"
                 >
                   Get Started
                   <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </Link>
                 <Link
                   to="/calculator"
-                  className="w-full sm:w-auto bg-white/10 backdrop-blur-sm text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white/20 transition-all duration-300 inline-flex items-center justify-center border border-white/20"
+                  className="w-full sm:w-auto bg-white text-gray-800 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-colors inline-flex items-center justify-center border-2 border-gray-200"
                 >
                   Calculate Payment
                 </Link>
@@ -218,24 +176,21 @@ const Home = () => {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 1.2 }}
+                transition={{ duration: 0.6, delay: 0.4 }}
                 className="flex items-center gap-6 pt-4"
               >
                 <div className="flex -space-x-3">
                   {avatars.map((avatar, i) => (
-                    <motion.div
+                    <div
                       key={i}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: 1.2 + (i * 0.1), duration: 0.4 }}
-                      className="w-12 h-12 rounded-full border-2 border-white/80 bg-gray-200 overflow-hidden shadow-md"
+                      className="w-12 h-12 rounded-full border-2 border-white bg-gray-200 overflow-hidden shadow-md"
                     >
                       <img
                         src={avatar}
                         alt={`Happy customer ${i + 1}`}
                         className="w-full h-full object-cover"
                       />
-                    </motion.div>
+                    </div>
                   ))}
                 </div>
                 <div>
@@ -244,46 +199,8 @@ const Home = () => {
                 </div>
               </motion.div>
             </div>
-            
-            {/* Right Column - Empty space for desktop, hidden on mobile */}
-            <div className="hidden md:block md:col-span-5">
-              {/* This space intentionally left empty to balance the layout */}
-            </div>
           </div>
         </div>
-        
-        {/* Decorative Elements */}
-        <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-white to-transparent"></div>
-        
-        {/* Scroll Indicator */}
-        <motion.div 
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ 
-            opacity: [0, 1, 0], 
-            y: [0, 10, 0] 
-          }}
-          transition={{ 
-            repeat: Infinity, 
-            duration: 2,
-            delay: 2
-          }}
-          className="absolute bottom-8 left-1/2 transform -translate-x-1/2 text-white flex flex-col items-center"
-        >
-          <div className="w-1 h-10 relative">
-            <div className="absolute inset-0 bg-white/50 rounded-full"></div>
-            <motion.div 
-              className="absolute top-0 w-full bg-white rounded-full"
-              initial={{ height: 0 }}
-              animate={{ height: '100%' }}
-              transition={{ 
-                repeat: Infinity,
-                duration: 2,
-                ease: "easeInOut"
-              }}
-            ></motion.div>
-          </div>
-          <span className="text-xs mt-2 font-light tracking-wider">SCROLL</span>
-        </motion.div>
       </div>
 
       {/* Stats Section */}
@@ -397,9 +314,7 @@ const Home = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <ScrollReveal>
             <div className="text-center mb-12">
-              <h2 className="text-4xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-700">
-                Coverage That Moves With You
-              </h2>
+              <h2 className="text-4xl font-bold mb-6">Coverage That Moves With You</h2>
               <p className="text-xl text-gray-600 max-w-3xl mx-auto">
                 When you secure your vehicle through ClearPath Motors, you build real protection into your financing — focused on the parts of your car that matter most.
               </p>
@@ -619,7 +534,7 @@ const Home = () => {
             </p>
             <Link
               to="/get-approved"
-              className="inline-flex items-center justify-center bg-[#3BAA75] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#2D8259] transition-colors group"
+              className="inline-flex items-center justify-center bg-[#3BAA75] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#A3D9B1] transition-colors group"
             >
               Apply Now
               <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
