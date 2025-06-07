@@ -87,7 +87,7 @@ const Home = () => {
         <div className="absolute inset-0 w-full h-full overflow-hidden">
           <div className="hidden md:block absolute inset-0">
             <img 
-              src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//2.jpg" 
+              src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//pexels-jessef11-1213292.jpg" 
               alt="Hero background" 
               className="w-full h-full object-cover"
             />
