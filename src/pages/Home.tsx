@@ -86,7 +86,7 @@ const Home = () => {
         {/* Background Image */}
         <div className="absolute inset-0 w-full h-full overflow-hidden">
           <img 
-            src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//2.jpg" 
+            src="" 
             alt="Hero background" 
             className="w-full h-full object-cover"
           />
