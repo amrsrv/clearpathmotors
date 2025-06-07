@@ -78,10 +78,13 @@ const App = () => {
     }
   }, [location.pathname]);
 
+  // Check if current page is admin page
+  const isAdminPage = location.pathname.startsWith('/admin');
+
   return (
     <div className="min-h-screen bg-secondary-50 text-gray-900 font-sans">
-      {!location.pathname.startsWith('/admin') && <Navbar />}
-      <main className={location.pathname.startsWith('/admin') ? '' : 'pt-16 md:pt-24'}>
+      {!isAdminPage && <Navbar />}
+      <main className={isAdminPage ? '' : 'pt-0'}>
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<Home />} />
@@ -162,7 +165,7 @@ const App = () => {
           </Routes>
         </AnimatePresence>
       </main>
-      {!location.pathname.startsWith('/admin') && <Footer />}
+      {!isAdminPage && <Footer />}
     </div>
   );
 };

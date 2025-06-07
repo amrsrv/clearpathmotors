@@ -10,24 +10,35 @@ const Navbar = () => {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [activeItem, setActiveItem] = useState<string | null>(null);
   const [scrolled, setScrolled] = useState(false);
+  const [pastHero, setPastHero] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Track scroll position for header transparency
+  // Track scroll position for header transparency and text color
   useEffect(() => {
     const handleScroll = () => {
-      const isScrolled = window.scrollY > 50;
+      // For transparency effect
+      const isScrolled = window.scrollY > 20;
       if (isScrolled !== scrolled) {
         setScrolled(isScrolled);
+      }
+      
+      // For text color change - check if we've scrolled past hero section
+      const isPastHero = window.scrollY > window.innerHeight - 100;
+      if (isPastHero !== pastHero) {
+        setPastHero(isPastHero);
       }
     };
 
     window.addEventListener('scroll', handleScroll);
+    // Initial check
+    handleScroll();
+    
     return () => {
       window.removeEventListener('scroll', handleScroll);
     };
-  }, [scrolled]);
+  }, [scrolled, pastHero]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -58,11 +69,17 @@ const Navbar = () => {
     }
   };
 
+  // Determine text color based on scroll position
+  const textColor = pastHero ? 'text-gray-900' : 'text-white';
+  const hoverTextColor = pastHero ? 'hover:text-[#3BAA75]' : 'hover:text-white/80';
+
   return (
     <nav 
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled 
-          ? 'bg-white/95 backdrop-blur-sm shadow-sm border-b border-gray-100' 
+          ? pastHero 
+            ? 'bg-white/95 backdrop-blur-sm shadow-sm border-b border-gray-100' 
+            : 'bg-black/20 backdrop-blur-sm'
           : 'bg-transparent'
       }`}
     >
@@ -107,7 +124,7 @@ const Navbar = () => {
                   <button
                     onClick={() => setShowUserMenu(!showUserMenu)}
                     className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-colors text-base font-medium ${
-                      scrolled 
+                      pastHero 
                         ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' 
                         : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm'
                     }`}
@@ -138,7 +155,7 @@ const Navbar = () => {
                 <Link
                   to="/login"
                   className={`px-4 py-3 rounded-lg transition-colors text-base font-medium ${
-                    scrolled 
+                    pastHero 
                       ? 'text-gray-700 hover:text-[#3BAA75] hover:bg-gray-50' 
                       : 'text-white hover:bg-white/20'
                   }`}
@@ -153,7 +170,7 @@ const Navbar = () => {
             <button
               onClick={() => setIsOpen(!isOpen)}
               className={`p-2 rounded-lg transition-colors ${
-                scrolled 
+                pastHero 
                   ? 'text-gray-700 hover:text-[#3BAA75] hover:bg-gray-50' 
                   : 'text-white hover:bg-white/20'
               }`}

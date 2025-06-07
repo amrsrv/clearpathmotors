@@ -30,7 +30,7 @@ export const MenuItem = ({
       <motion.p
         transition={{ duration: 0.3 }}
         className="cursor-pointer transition-colors"
-        style={{ color: active === item ? '#3BAA75' : 'white' }}
+        style={{ color: active === item ? '#3BAA75' : 'inherit' }}
       >
         {item}
       </motion.p>
