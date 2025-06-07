@@ -29,7 +29,7 @@ export const MenuItem = ({
     <div onMouseEnter={() => setActive(item)} className="relative">
       <motion.p
         transition={{ duration: 0.3 }}
-        className="cursor-pointer transition-colors"
+        className="cursor-pointer transition-colors font-medium"
         style={{ color: active === item ? '#3BAA75' : 'inherit' }}
       >
         {item}
@@ -45,7 +45,7 @@ export const MenuItem = ({
               <motion.div
                 transition={transition}
                 layoutId="active"
-                className="bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-xl"
+                className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-xl"
               >
                 <motion.div layout className="w-max h-full p-4">
                   {children}
@@ -69,7 +69,7 @@ export const Menu = ({
   return (
     <nav
       onMouseLeave={() => setActive(null)}
-      className="relative rounded-full border border-white/30 bg-white/10 backdrop-blur-sm shadow-sm flex justify-center space-x-4 px-8 py-4"
+      className="relative rounded-full border border-white/30 bg-white/10 backdrop-blur-sm shadow-sm flex justify-center space-x-8 px-8 py-4"
     >
       {children}
     </nav>
@@ -88,9 +88,11 @@ export const ProductItem = ({
   icon: React.ReactNode;
 }) => {
   return (
-    <button 
+    <motion.button 
       onClick={onClick}
-      className="flex space-x-4 items-start p-2 rounded-lg hover:bg-gray-50 transition-colors w-full text-left"
+      className="flex space-x-4 items-start p-3 rounded-lg hover:bg-gray-50 transition-colors w-full text-left"
+      whileHover={{ x: 5 }}
+      transition={{ duration: 0.2 }}
     >
       <div className="p-2 bg-[#3BAA75]/10 rounded-lg">
         {icon}
@@ -103,7 +105,7 @@ export const ProductItem = ({
           {description}
         </p>
       </div>
-    </button>
+    </motion.button>
   );
 };
 
