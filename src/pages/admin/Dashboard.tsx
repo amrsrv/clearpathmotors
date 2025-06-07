@@ -382,37 +382,25 @@ const AdminDashboard: React.FC<AdminDashboardProps> = () => {
         throw activityError;
       }
 
-      // Get unique user IDs from activity log
-      const userIds = [...new Set(activityData?.map(activity => activity.user_id).filter(Boolean) || [])];
-      
-      // Create a map to store user data
-      const userMap: Record<string, {id: string, email: string, isAdmin: boolean}> = {};
-      
-      // Fetch user data for each unique user ID
-      for (const userId of userIds) {
-        try {
-          const { data: { user }, error: userError } = await supabase.auth.admin.getUserById(userId);
-          
-          if (userError) {
-            console.error(`Error fetching user ${userId}:`, userError);
-            continue;
-          }
-          
-          if (user) {
-            userMap[userId] = {
-              id: user.id,
-              email: user.email || '',
-              isAdmin: user.app_metadata?.is_admin === true
-            };
-          }
-        } catch (error) {
-          console.error(`Error fetching user ${userId}:`, error);
-        }
-      }
-      
-      // Format activity data
+      // Format activity data without fetching user details from admin API
       const formattedActivity = (activityData || []).map(activity => {
-        const user = activity.user_id ? userMap[activity.user_id] : null;
+        // Create a user object based on available data
+        const isAdmin = activity.is_admin_action === true;
+        const userId = activity.user_id || 'system';
+        
+        // Generate a display name and email based on user_id and admin status
+        let displayName: string;
+        let displayEmail: string;
+        
+        if (userId === 'system' || !activity.user_id) {
+          displayName = 'System';
+          displayEmail = 'system@clearpathmotors.com';
+        } else {
+          // Create a generic display name from user ID
+          const shortId = userId.substring(0, 8);
+          displayName = isAdmin ? `Admin ${shortId}` : `User ${shortId}`;
+          displayEmail = isAdmin ? `admin-${shortId}@clearpathmotors.com` : `user-${shortId}@clearpathmotors.com`;
+        }
         
         return {
           id: activity.id,
@@ -420,16 +408,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = () => {
           details: activity.details,
           timestamp: activity.created_at,
           applicationId: activity.application_id,
-          user: user ? {
-            id: user.id,
-            name: user.email.split('@')[0],
-            email: user.email,
-            isAdmin: user.isAdmin
-          } : {
-            id: 'system',
-            name: 'System',
-            email: 'system@clearpathmotors.com',
-            isAdmin: true
+          user: {
+            id: userId,
+            name: displayName,
+            email: displayEmail,
+            isAdmin: isAdmin
           }
         };
       });
