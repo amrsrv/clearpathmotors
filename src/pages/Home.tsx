@@ -83,19 +83,23 @@ const Home = () => {
     <div className="bg-gradient-to-b from-white via-[#3BAA75]/5 to-white">
       {/* Hero Section */}
       <div className="relative min-h-[80vh] flex items-center">
-        {/* Background Image with Overlay */}
+        {/* Background Video/Gradient */}
         <div className="absolute inset-0 w-full h-full overflow-hidden">
-          {/* Desktop Background */}
+          {/* Desktop Background Video */}
           <div className="hidden md:block w-full h-full">
-            <img 
-              src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//2.jpg" 
-              alt="Scenic road with luxury car" 
-              className="w-full h-full object-cover"
-            />
+            <video
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="absolute top-0 left-0 w-full h-full object-cover"
+            >
+              <source src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//0607.mp4" type="video/mp4" />
+            </video>
             <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-black/40"></div>
           </div>
           
-          {/* Mobile Background - Solid gradient instead of video */}
+          {/* Mobile Background - Gradient */}
           <div className="md:hidden w-full h-full bg-gradient-to-b from-[#1F5F3F] to-[#3BAA75]">
             <div className="absolute inset-0 opacity-10">
               <div className="w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
@@ -522,7 +526,7 @@ const Home = () => {
               {[
                 {
                   icon: <Calculator className="h-16 w-16 text-[#3BAA75]" />,
-                  title: <>Build Your <Link to="/calculator\" className="text-[#3BAA75] hover:text-[#2D8259] transition-colors">Financing Plan</Link></>,
+                  title: <>Build Your <Link to="/calculator" className="text-[#3BAA75] hover:text-[#2D8259] transition-colors">Financing Plan</Link></>,
                   description: "Start with our payment calculator. Tweak the numbers, explore possibilities, and discover a monthly payment that fits your budget like a glove."
                 },
                 {
