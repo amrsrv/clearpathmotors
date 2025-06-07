@@ -83,31 +83,30 @@ const Home = () => {
     <div className="bg-gradient-to-b from-white via-[#3BAA75]/5 to-white">
       {/* Hero Section */}
       <div className="relative min-h-[72vh] md:min-h-[80vh] flex items-center">
-        {/* Video Background - Desktop */}
-        <div className="absolute inset-0 w-full h-full overflow-hidden hidden md:block">
-          <video
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="absolute top-0 left-0 w-full h-full object-cover opacity-85"
-            style={{ transform: 'scaleX(-1)' }}
-          >
-            <source src="https://res.cloudinary.com/dqxvfzvo0/video/upload/v1744597207/video_fjnl38.mp4" type="video/mp4" />
-          </video>
-          {/* Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-r from-white/90 via-white/60 to-transparent" />
-        </div>
-
-        {/* Mobile Background */}
-        <div className="absolute inset-0 w-full h-full overflow-hidden md:hidden">
-          <img
-            src="https://res.cloudinary.com/dqxvfzvo0/image/upload/v1744592780/CREDISURE_fnno4o.jpg"
-            alt="Luxury car"
-            className="absolute top-0 left-0 w-full h-full object-cover opacity-90"
-          />
-          {/* Gradient Overlay - Mobile */}
-          <div className="absolute inset-0 bg-gradient-to-b from-white/95 via-white/70 to-white/90" />
+        {/* Background Image - Desktop */}
+        <div className="absolute inset-0 w-full h-full overflow-hidden">
+          <div className="hidden md:block absolute inset-0">
+            <img 
+              src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//2.jpg" 
+              alt="Hero background" 
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-black/40"></div>
+          </div>
+          
+          {/* Video Background - Mobile only */}
+          <div className="md:hidden absolute inset-0">
+            <video
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="absolute top-0 left-0 w-full h-full object-cover"
+            >
+              <source src="https://yorkdalefinecars.org/wp-content/uploads/2025/06/Driving-in-Icelandic-Highlands-4K-1.mp4" type="video/mp4" />
+            </video>
+            <div className="absolute inset-0 bg-black/40"></div>
+          </div>
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full py-8 md:py-12">
@@ -121,11 +120,11 @@ const Home = () => {
                 className="space-y-4"
               >
                 <div className="flex flex-col items-start gap-4">
-                  <span className="inline-flex items-center bg-[#3BAA75]/20 text-[#3BAA75] px-4 py-2 rounded-full text-sm font-medium">
+                  <span className="inline-flex items-center bg-white/20 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm">
                     <Clock3 className="w-4 h-4 mr-2" />
                     Quick Approval Process
                   </span>
-                  <h1 className="text-4xl md:text-5xl font-bold leading-tight tracking-tight text-gray-900">
+                  <h1 className="text-4xl md:text-5xl font-bold leading-tight tracking-tight text-white">
                     Easy{' '}
                     <AnimatePresence mode="wait">
                       <motion.span
@@ -142,19 +141,19 @@ const Home = () => {
                 </div>
                 
                 <div className="mt-6 space-y-4">
-                  <p className="text-lg md:text-xl text-gray-800 font-medium">
+                  <p className="text-lg md:text-xl text-white font-medium">
                     Pre-approval in under a minute.
                   </p>
                   <ul className="space-y-3">
-                    <li className="flex items-center text-gray-800 bg-white/50 backdrop-blur-sm rounded-lg p-3 shadow-sm">
+                    <li className="flex items-center text-white bg-black/30 backdrop-blur-sm rounded-lg p-3 shadow-sm">
                       <CheckCircle className="h-5 w-5 text-[#3BAA75] mr-3 flex-shrink-0" />
                       <span className="text-base">95% approval rate for all credit situations</span>
                     </li>
-                    <li className="flex items-center text-gray-800 bg-white/50 backdrop-blur-sm rounded-lg p-3 shadow-sm">
+                    <li className="flex items-center text-white bg-black/30 backdrop-blur-sm rounded-lg p-3 shadow-sm">
                       <Clock className="h-5 w-5 text-[#3BAA75] mr-3 flex-shrink-0" />
                       <span className="text-base">Quick online application, instant decision</span>
                     </li>
-                    <li className="flex items-center text-gray-800 bg-white/50 backdrop-blur-sm rounded-lg p-3 shadow-sm">
+                    <li className="flex items-center text-white bg-black/30 backdrop-blur-sm rounded-lg p-3 shadow-sm">
                       <Calendar className="h-5 w-5 text-[#3BAA75] mr-3 flex-shrink-0" />
                       <span className="text-base">Flexible terms up to 84 months</span>
                     </li>
@@ -204,8 +203,8 @@ const Home = () => {
                   ))}
                 </div>
                 <div>
-                  <div className="font-semibold text-lg">Trusted by 2,000+</div>
-                  <div className="text-gray-600">Happy drivers</div>
+                  <div className="font-semibold text-lg text-white">Trusted by 2,000+</div>
+                  <div className="text-white/80">Happy drivers</div>
                 </div>
               </motion.div>
             </div>
