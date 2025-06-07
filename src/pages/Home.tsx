@@ -85,7 +85,9 @@ const Home = () => {
       <div className="relative min-h-[100vh] flex items-center">
         {/* Video Background */}
         <div className="absolute inset-0 w-full h-full overflow-hidden">
-          <div className="absolute inset-0 bg-black/40 z-10"></div>
+          {/* Overlay for better text readability */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-black/40 z-10"></div>
+          
           <video
             autoPlay
             loop
@@ -98,24 +100,33 @@ const Home = () => {
           
           {/* Mobile Gradient Background */}
           <div className="absolute inset-0 bg-gradient-to-b from-[#2A7A5B] to-[#1F5F3F] md:hidden"></div>
+          
+          {/* Subtle pattern overlay */}
+          <div className="absolute inset-0 bg-black/10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] z-10 opacity-30"></div>
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20 w-full py-8 md:py-12">
           <div className="grid md:grid-cols-2 items-center gap-8">
-            {/* Left Column - Mobile optimized */}
-            <div className="space-y-6">
+            {/* Left Column - Content */}
+            <div className="space-y-8 mt-16 md:mt-0">
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-                className="space-y-4"
+                transition={{ duration: 0.8, ease: "easeOut" }}
+                className="space-y-6"
               >
                 <div className="flex flex-col items-start gap-4">
-                  <span className="inline-flex items-center bg-white/20 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm">
+                  <motion.span 
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.3, duration: 0.6 }}
+                    className="inline-flex items-center bg-white/20 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm border border-white/30"
+                  >
                     <Clock3 className="w-4 h-4 mr-2" />
                     Quick Approval Process
-                  </span>
-                  <h1 className="text-4xl md:text-5xl font-bold leading-tight tracking-tight text-white">
+                  </motion.span>
+                  
+                  <h1 className="text-5xl md:text-6xl font-bold leading-tight tracking-tight text-white drop-shadow-md">
                     Easy{' '}
                     <AnimatePresence mode="wait">
                       <motion.span
@@ -132,42 +143,57 @@ const Home = () => {
                 </div>
                 
                 <div className="mt-6 space-y-4">
-                  <p className="text-lg md:text-xl text-white font-medium">
+                  <motion.p 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5, duration: 0.8 }}
+                    className="text-xl md:text-2xl text-white font-medium drop-shadow-sm"
+                  >
                     Pre-approval in under a minute.
-                  </p>
-                  <ul className="space-y-3">
-                    <li className="flex items-center text-white bg-black/30 backdrop-blur-sm rounded-lg p-3 shadow-sm">
-                      <CheckCircle className="h-5 w-5 text-[#3BAA75] mr-3 flex-shrink-0" />
-                      <span className="text-base">95% approval rate for all credit situations</span>
-                    </li>
-                    <li className="flex items-center text-white bg-black/30 backdrop-blur-sm rounded-lg p-3 shadow-sm">
-                      <Clock className="h-5 w-5 text-[#3BAA75] mr-3 flex-shrink-0" />
-                      <span className="text-base">Quick online application, instant decision</span>
-                    </li>
-                    <li className="flex items-center text-white bg-black/30 backdrop-blur-sm rounded-lg p-3 shadow-sm">
-                      <Calendar className="h-5 w-5 text-[#3BAA75] mr-3 flex-shrink-0" />
-                      <span className="text-base">Flexible terms up to 84 months</span>
-                    </li>
-                  </ul>
+                  </motion.p>
+                  
+                  <motion.ul 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.7, duration: 0.8 }}
+                    className="space-y-4"
+                  >
+                    {[
+                      { icon: <CheckCircle className="h-5 w-5 text-[#3BAA75] mr-3 flex-shrink-0" />, text: "95% approval rate for all credit situations" },
+                      { icon: <Clock className="h-5 w-5 text-[#3BAA75] mr-3 flex-shrink-0" />, text: "Quick online application, instant decision" },
+                      { icon: <Calendar className="h-5 w-5 text-[#3BAA75] mr-3 flex-shrink-0" />, text: "Flexible terms up to 84 months" }
+                    ].map((item, index) => (
+                      <motion.li 
+                        key={index}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.8 + (index * 0.2), duration: 0.5 }}
+                        className="flex items-center text-white bg-black/30 backdrop-blur-sm rounded-lg p-4 shadow-md border border-white/10"
+                      >
+                        {item.icon}
+                        <span className="text-base md:text-lg">{item.text}</span>
+                      </motion.li>
+                    ))}
+                  </motion.ul>
                 </div>
               </motion.div>
 
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
+                transition={{ duration: 0.6, delay: 1.2 }}
                 className="flex flex-col sm:flex-row gap-4"
               >
                 <Link
                   to="/get-approved"
-                  className="w-full sm:w-auto bg-[#3BAA75] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#A3D9B1] transition-colors group inline-flex items-center justify-center shadow-lg hover:shadow-xl"
+                  className="w-full sm:w-auto bg-[#3BAA75] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#2D8259] transition-all duration-300 group inline-flex items-center justify-center shadow-lg hover:shadow-xl border border-[#3BAA75]/50"
                 >
                   Get Started
                   <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </Link>
                 <Link
                   to="/calculator"
-                  className="w-full sm:w-auto bg-white text-gray-800 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-colors inline-flex items-center justify-center border-2 border-gray-200"
+                  className="w-full sm:w-auto bg-white/10 backdrop-blur-sm text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-white/20 transition-all duration-300 inline-flex items-center justify-center border border-white/30"
                 >
                   Calculate Payment
                 </Link>
@@ -176,13 +202,16 @@ const Home = () => {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.4 }}
+                transition={{ duration: 0.6, delay: 1.4 }}
                 className="flex items-center gap-6 pt-4"
               >
                 <div className="flex -space-x-3">
                   {avatars.map((avatar, i) => (
-                    <div
+                    <motion.div
                       key={i}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 1.5 + (i * 0.1) }}
                       className="w-12 h-12 rounded-full border-2 border-white bg-gray-200 overflow-hidden shadow-md"
                     >
                       <img
@@ -190,7 +219,7 @@ const Home = () => {
                         alt={`Happy customer ${i + 1}`}
                         className="w-full h-full object-cover"
                       />
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
                 <div>
@@ -199,8 +228,95 @@ const Home = () => {
                 </div>
               </motion.div>
             </div>
+            
+            {/* Right Column - Decorative Element (Desktop only) */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 1, duration: 0.8 }}
+              className="hidden md:block"
+            >
+              <div className="relative">
+                <div className="absolute -inset-4 bg-[#3BAA75]/20 rounded-full blur-3xl"></div>
+                <div className="relative bg-white/10 backdrop-blur-md rounded-2xl p-8 border border-white/20 shadow-2xl">
+                  <div className="text-white space-y-6">
+                    <div className="flex items-center justify-between border-b border-white/20 pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-[#3BAA75] p-2 rounded-full">
+                          <Car className="h-5 w-5" />
+                        </div>
+                        <span className="font-semibold">Pre-Qualification</span>
+                      </div>
+                      <span className="text-[#3BAA75] font-bold">Approved</span>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-white/70 text-sm">Loan Amount</p>
+                          <p className="font-bold text-xl">$25,000</p>
+                        </div>
+                        <div>
+                          <p className="text-white/70 text-sm">Interest Rate</p>
+                          <p className="font-bold text-xl">4.99%</p>
+                        </div>
+                      </div>
+                      
+                      <div className="h-2 bg-white/20 rounded-full overflow-hidden">
+                        <motion.div 
+                          className="h-full bg-[#3BAA75]"
+                          initial={{ width: 0 }}
+                          animate={{ width: "75%" }}
+                          transition={{ delay: 1.5, duration: 1.5 }}
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-white/70 text-sm">Monthly Payment</p>
+                          <p className="font-bold text-xl">$450</p>
+                        </div>
+                        <div>
+                          <p className="text-white/70 text-sm">Term</p>
+                          <p className="font-bold text-xl">60 months</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="pt-4 border-t border-white/20">
+                      <Link
+                        to="/get-approved"
+                        className="block w-full bg-white text-[#3BAA75] text-center px-6 py-3 rounded-lg text-base font-semibold hover:bg-gray-100 transition-colors"
+                      >
+                        Apply Now
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
           </div>
         </div>
+        
+        {/* Scroll indicator */}
+        <motion.div 
+          className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-20"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 2, duration: 1 }}
+        >
+          <motion.div 
+            className="w-8 h-12 rounded-full border-2 border-white/50 flex items-center justify-center"
+            animate={{ y: [0, 10, 0] }}
+            transition={{ repeat: Infinity, duration: 1.5 }}
+          >
+            <motion.div 
+              className="w-1.5 h-3 bg-white rounded-full"
+              animate={{ y: [0, 5, 0] }}
+              transition={{ repeat: Infinity, duration: 1.5 }}
+            />
+          </motion.div>
+        </motion.div>
       </div>
 
       {/* Stats Section */}
@@ -314,7 +430,9 @@ const Home = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <ScrollReveal>
             <div className="text-center mb-12">
-              <h2 className="text-4xl font-bold mb-6">Coverage That Moves With You</h2>
+              <h2 className="text-4xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-700">
+                Coverage That Moves With You
+              </h2>
               <p className="text-xl text-gray-600 max-w-3xl mx-auto">
                 When you secure your vehicle through ClearPath Motors, you build real protection into your financing — focused on the parts of your car that matter most.
               </p>
