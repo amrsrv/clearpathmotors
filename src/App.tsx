@@ -78,23 +78,10 @@ const App = () => {
     }
   }, [location.pathname]);
 
-  // Check if current page is admin page
-  const isAdminPage = location.pathname.startsWith('/admin');
-  
-  // Check if current page is home page
-  const isHomePage = location.pathname === '/';
-  
-  // Check if current page is login, signup, or other auth pages
-  const isAuthPage = ['/login', '/signup', '/reset-password', '/update-password', '/create-account', '/auth/callback'].includes(location.pathname);
-
   return (
     <div className="min-h-screen bg-secondary-50 text-gray-900 font-sans">
-      {!isAdminPage && <Navbar />}
-      <main className={
-        isAdminPage ? '' : 
-        isHomePage ? '' : 
-        'pt-24 md:pt-28' // Add padding to all pages except admin and home
-      }>
+      {!location.pathname.startsWith('/admin') && <Navbar />}
+      <main className={location.pathname.startsWith('/admin') ? '' : 'pt-16 md:pt-24'}>
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<Home />} />
@@ -175,7 +162,7 @@ const App = () => {
           </Routes>
         </AnimatePresence>
       </main>
-      {!isAdminPage && <Footer />}
+      {!location.pathname.startsWith('/admin') && <Footer />}
     </div>
   );
 };

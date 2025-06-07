@@ -550,7 +550,7 @@ const Blog = () => {
 
   if (!post) {
     return (
-      <div className="min-h-screen bg-gray-50 py-12 pt-24 md:pt-28">
+      <div className="min-h-screen bg-gray-50 py-12">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <h1 className="text-4xl font-bold text-gray-900 mb-4">Blog Post Not Found</h1>
@@ -569,7 +569,7 @@ const Blog = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white py-12 pt-24 md:pt-28">
+    <div className="min-h-screen bg-white py-12">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <ScrollReveal>
           <Link

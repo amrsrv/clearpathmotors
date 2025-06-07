@@ -29,8 +29,7 @@ export const MenuItem = ({
     <div onMouseEnter={() => setActive(item)} className="relative">
       <motion.p
         transition={{ duration: 0.3 }}
-        className="cursor-pointer transition-colors font-medium"
-        style={{ color: active === item ? '#3BAA75' : 'inherit' }}
+        className="cursor-pointer text-gray-700 hover:text-[#3BAA75] transition-colors"
       >
         {item}
       </motion.p>
@@ -45,7 +44,7 @@ export const MenuItem = ({
               <motion.div
                 transition={transition}
                 layoutId="active"
-                className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-xl"
+                className="bg-white rounded-2xl overflow-hidden border border-gray-200 shadow-xl"
               >
                 <motion.div layout className="w-max h-full p-4">
                   {children}
@@ -69,7 +68,7 @@ export const Menu = ({
   return (
     <nav
       onMouseLeave={() => setActive(null)}
-      className="relative rounded-full border border-white/30 bg-white/10 backdrop-blur-sm shadow-sm flex justify-center space-x-8 px-8 py-4"
+      className="relative rounded-full border border-gray-200 bg-white shadow-sm flex justify-center space-x-4 px-8 py-4"
     >
       {children}
     </nav>
@@ -88,11 +87,9 @@ export const ProductItem = ({
   icon: React.ReactNode;
 }) => {
   return (
-    <motion.button 
+    <button 
       onClick={onClick}
-      className="flex space-x-4 items-start p-3 rounded-lg hover:bg-gray-50 transition-colors w-full text-left"
-      whileHover={{ x: 5 }}
-      transition={{ duration: 0.2 }}
+      className="flex space-x-4 items-start p-2 rounded-lg hover:bg-gray-50 transition-colors w-full text-left"
     >
       <div className="p-2 bg-[#3BAA75]/10 rounded-lg">
         {icon}
@@ -105,7 +102,7 @@ export const ProductItem = ({
           {description}
         </p>
       </div>
-    </motion.button>
+    </button>
   );
 };
 
