@@ -518,7 +518,7 @@ const Dashboard = () => {
             )}
 
             {/* Quick Actions */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {[
                 {
                   icon: <FileCheck className="h-6 w-6" />,
@@ -540,11 +540,6 @@ const Dashboard = () => {
                   icon: <Calendar className="h-6 w-6" />,
                   label: "Schedule Consultation",
                   action: () => document.getElementById('appointment-section')?.scrollIntoView({ behavior: 'smooth' })
-                },
-                {
-                  icon: <Car className="h-6 w-6" />,
-                  label: "Browse Vehicles",
-                  action: () => navigate('/vehicles')
                 }
               ].map((action, index) => (
                 <button
