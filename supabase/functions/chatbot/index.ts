@@ -1,6 +1,4 @@
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
-import OpenAI from 'npm:openai@4.33.0';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -22,95 +20,100 @@ serve(async (req) => {
 
     if (!userId || !userMessage) {
       return new Response(
-        JSON.stringify({ error: 'Missing userId or userMessage in request body' }),
+        JSON.stringify({ error: 'userId and userMessage are required' }),
         {
           status: 400,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders },
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
     }
 
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Simple response mapping for common questions
+    const responses: Record<string, string> = {
+      'hello': 'Hello! How can I help you with your auto financing needs today?',
+      'hi': 'Hi there! How can I assist you with your car financing journey?',
+      'help': 'I can help you with information about our auto financing options, application process, or answer questions about your existing application. What would you like to know?',
+      'rates': 'Our auto loan rates start from 4.99% APR for qualified borrowers. The exact rate depends on your credit score, income, and the vehicle you choose. Would you like to get pre-qualified to see your personalized rate?',
+      'credit': 'We work with all credit situations! Whether you have excellent credit, bad credit, or no credit history, we have financing options for you. Our approval rate is 95%, and we specialize in helping people with credit challenges.',
+      'documents': 'For your auto loan application, you\'ll typically need to provide: government-issued ID, proof of income (pay stubs), proof of residence (utility bill), and sometimes bank statements. You can upload these directly through your dashboard after starting an application.',
+      'process': 'Our process is simple: 1) Complete the online application (takes about 2 minutes), 2) Get pre-qualified instantly, 3) Upload required documents, 4) Receive final approval, 5) Choose your vehicle, and 6) Drive away! The entire process can be completed in as little as 24-48 hours.',
+      'contact': 'You can reach our customer support team at info@clearpathmotors.com or call us at (647) 451-3830. Our office hours are Monday-Friday, 9AM-6PM EST.',
+      'application': 'You can start your application by clicking the "Get Started" or "Apply Now" button on our website. The initial application takes just 2 minutes to complete, and you\'ll receive an instant pre-qualification decision.',
+      'down payment': 'Down payment requirements vary based on your credit profile and the vehicle you choose. While some customers may qualify with $0 down, we typically recommend at least 10% down payment for the best rates and terms.',
+      'approval': 'Our approval rate is 95%! We work with a network of lenders who specialize in all credit situations, including bad credit, no credit, and even bankruptcy.',
+      'time': 'The entire process from application to driving away in your new car can be as quick as 24-48 hours, depending on how quickly you provide the required documents and select your vehicle.',
+    };
+
+    // Process the message and generate a response
+    let response = "I'm not sure how to respond to that. Could you please ask about our auto financing options, application process, or required documents?";
+    
+    // Check for keyword matches
+    const lowercaseMessage = userMessage.toLowerCase();
+    for (const [keyword, reply] of Object.entries(responses)) {
+      if (lowercaseMessage.includes(keyword)) {
+        response = reply;
+        break;
       }
-    );
+    }
 
-    const openai = new OpenAI({
-      apiKey: Deno.env.get('OPENAI_API_KEY'),
-    });
-
-    // Fetch existing chat history
-    let { data: chat, error: fetchError } = await supabaseAdmin
+    // Save the conversation to the database
+    const { data: existingChat, error: fetchError } = await supabase
       .from('chats')
       .select('messages')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
-    if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 means no rows found
-      throw new Error(`Supabase fetch error: ${fetchError.message}`);
+    if (fetchError) {
+      console.error('Error fetching chat:', fetchError);
     }
 
-    let messages: { role: 'user' | 'assistant' | 'system'; content: string }[] = [];
+    const newUserMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: userMessage,
+      timestamp: new Date().toISOString(),
+    };
 
-    if (chat) {
-      messages = chat.messages;
-    } else {
-      // Initialize with system prompt if no chat exists
-      messages.push({
-        role: 'system',
-        content: 'You are a helpful assistant for car financing questions.',
-      });
-    }
+    const newAssistantMessage = {
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      content: response,
+      timestamp: new Date().toISOString(),
+    };
 
-    // Append user's message
-    messages.push({ role: 'user', content: userMessage });
+    const messages = existingChat?.messages || [];
+    const updatedMessages = [...messages, newUserMessage, newAssistantMessage];
 
-    // Call OpenAI API
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: messages,
-    });
-
-    const aiMessage = completion.choices[0].message?.content || 'No response from AI.';
-
-    // Append AI's response
-    messages.push({ role: 'assistant', content: aiMessage });
-
-    // Save updated chat history
-    const { error: upsertError } = await supabaseAdmin
+    const { error: upsertError } = await supabase
       .from('chats')
-      .upsert(
-        {
-          user_id: userId,
-          messages: messages,
-        },
-        { onConflict: 'user_id' }
-      );
+      .upsert({
+        user_id: userId,
+        messages: updatedMessages,
+      });
 
     if (upsertError) {
-      throw new Error(`Supabase upsert error: ${upsertError.message}`);
+      console.error('Error saving chat:', upsertError);
     }
 
     return new Response(
-      JSON.stringify({ aiMessage }),
+      JSON.stringify({ response }),
       {
         status: 200,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
-  } catch (error: any) {
-    console.error('Edge Function error:', error.message);
+  } catch (error) {
+    console.error('Error processing request:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
+      JSON.stringify({ error: error.message || 'An error occurred' }),
       {
         status: 500,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
   }
