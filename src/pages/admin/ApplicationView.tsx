@@ -56,6 +56,7 @@ interface ApplicationFlag {
   created_at: string;
   resolved_at: string | null;
   resolved_by: string | null;
+  resolved_by_email?: string;
 }
 
 interface ActivityLogItem {
@@ -76,6 +77,7 @@ interface AdminMessage {
   is_admin: boolean;
   read: boolean;
   created_at: string;
+  admin_email?: string;
 }
 
 const ApplicationView = () => {
@@ -216,21 +218,40 @@ const ApplicationView = () => {
 
   const loadFlags = async () => {
     try {
-      const { data, error } = await supabase
+      // First, get the flags without the join
+      const { data: flagsData, error } = await supabase
         .from('application_flags')
-        .select(`
-          *,
-          resolved_by (
-            id,
-            email
-          )
-        `)
+        .select('*')
         .eq('application_id', id)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
       
-      setFlags(data || []);
+      // Then, get user emails for resolved_by IDs
+      const flagsWithEmails = await Promise.all(
+        (flagsData || []).map(async (flag) => {
+          if (flag.resolved_by) {
+            try {
+              // Try to get user email from the list-users function
+              const { data: userData } = await supabase.functions.invoke('list-users');
+              const user = userData?.users?.find((u: any) => u.id === flag.resolved_by);
+              return {
+                ...flag,
+                resolved_by_email: user?.email || 'Unknown'
+              };
+            } catch (error) {
+              console.warn('Could not fetch user email for resolved_by:', error);
+              return {
+                ...flag,
+                resolved_by_email: 'Unknown'
+              };
+            }
+          }
+          return flag;
+        })
+      );
+      
+      setFlags(flagsWithEmails);
     } catch (error) {
       console.error('Error loading flags:', error);
     }
@@ -254,36 +275,63 @@ const ApplicationView = () => {
 
   const loadAdminUsers = async () => {
     try {
-      // Get admin users from auth.users table
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, email')
-        .eq('raw_app_meta_data->is_admin', true);
+      // Use the list-users edge function instead of querying public.users
+      const { data, error } = await supabase.functions.invoke('list-users');
       
       if (error) throw error;
       
-      setAdminUsers(data || []);
+      // Filter for admin users
+      const adminUsers = (data?.users || [])
+        .filter((user: any) => user.app_metadata?.is_admin === true)
+        .map((user: any) => ({
+          id: user.id,
+          email: user.email
+        }));
+      
+      setAdminUsers(adminUsers);
     } catch (error) {
       console.error('Error loading admin users:', error);
+      // Fallback to empty array if the function fails
+      setAdminUsers([]);
     }
   };
 
   const loadMessages = async () => {
     try {
-      const { data, error } = await supabase
+      // First, get the messages without the join
+      const { data: messagesData, error } = await supabase
         .from('admin_messages')
-        .select(`
-          *,
-          admin:admin_id (
-            email
-          )
-        `)
+        .select('*')
         .eq('application_id', id)
         .order('created_at', { ascending: true });
       
       if (error) throw error;
       
-      setMessages(data || []);
+      // Then, get admin emails for admin_id
+      const messagesWithEmails = await Promise.all(
+        (messagesData || []).map(async (message) => {
+          if (message.admin_id) {
+            try {
+              // Try to get admin email from the list-users function
+              const { data: userData } = await supabase.functions.invoke('list-users');
+              const admin = userData?.users?.find((u: any) => u.id === message.admin_id);
+              return {
+                ...message,
+                admin_email: admin?.email || 'Unknown Admin'
+              };
+            } catch (error) {
+              console.warn('Could not fetch admin email:', error);
+              return {
+                ...message,
+                admin_email: 'Unknown Admin'
+              };
+            }
+          }
+          return message;
+        })
+      );
+      
+      setMessages(messagesWithEmails);
     } catch (error) {
       console.error('Error loading messages:', error);
     }
@@ -540,8 +588,13 @@ const ApplicationView = () => {
       
       if (error) throw error;
       
-      // Update local state
-      setMessages([...messages, data]);
+      // Update local state with admin email
+      const messageWithEmail = {
+        ...data,
+        admin_email: user.email || 'Unknown Admin'
+      };
+      
+      setMessages([...messages, messageWithEmail]);
       setNewMessage('');
       
       // Create notification for user
@@ -717,7 +770,8 @@ const ApplicationView = () => {
             ? { 
                 ...flag, 
                 resolved_at: new Date().toISOString(),
-                resolved_by: user.id
+                resolved_by: user.id,
+                resolved_by_email: user.email || 'Unknown'
               } 
             : flag
         )
@@ -2375,7 +2429,7 @@ const ApplicationView = () => {
                                   </p>
                                   {flag.resolved_at && (
                                     <p className="text-xs text-gray-500">
-                                      Resolved: {formatDateTime(flag.resolved_at)}
+                                      Resolved: {formatDateTime(flag.resolved_at)} by {flag.resolved_by_email || 'Unknown'}
                                     </p>
                                   )}
                                 </div>
@@ -2614,7 +2668,7 @@ const ApplicationView = () => {
                                       {formatDateTime(message.created_at)}
                                     </span>
                                     <span className="text-xs opacity-80">
-                                      {message.is_admin ? 'Admin' : 'User'}
+                                      {message.is_admin ? (message.admin_email || 'Admin') : 'User'}
                                     </span>
                                   </div>
                                 </div>

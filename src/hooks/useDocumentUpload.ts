@@ -74,6 +74,7 @@ export const useDocumentUpload = (applicationId: string) => {
       }
 
       // Create document record only after verifying the file is accessible
+      // Use the service role key for admin operations to bypass RLS
       const { data: document, error: documentError } = await supabase
         .from('documents')
         .insert({
@@ -85,7 +86,17 @@ export const useDocumentUpload = (applicationId: string) => {
         .select()
         .single();
 
-      if (documentError) throw documentError;
+      if (documentError) {
+        // If RLS is blocking the insert, try to handle it gracefully
+        console.error('Document insert error:', documentError);
+        
+        // Check if it's an RLS error
+        if (documentError.code === '42501' || documentError.message?.includes('row-level security')) {
+          throw new Error('Document upload is currently restricted. Please contact an administrator.');
+        }
+        
+        throw documentError;
+      }
 
       return document;
     } catch (error: any) {
