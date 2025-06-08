@@ -92,7 +92,7 @@ const Home = () => {
             playsInline
             className="absolute top-0 left-0 w-full h-full object-cover"
           >
-            <source src="https://yorkdalefinecars.org/wp-content/uploads/2025/06/Driving-in-Icelandic-Highlands-4K-1.mp4" type="video/mp4" />
+            <source src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//0607.mp4" type="video/mp4" />
           </video>
   
         </div>
@@ -438,7 +438,7 @@ const Home = () => {
               {[
                 {
                   icon: <Calculator className="h-16 w-16 text-[#3BAA75]" />,
-                  title: <>Build Your <Link to="/calculator\" className="text-[#3BAA75] hover:text-[#2D8259] transition-colors">Financing Plan</Link></>,
+                  title: <>Build Your <Link to="/calculator" className="text-[#3BAA75] hover:text-[#2D8259] transition-colors">Financing Plan</Link></>,
                   description: "Start with our payment calculator. Tweak the numbers, explore possibilities, and discover a monthly payment that fits your budget like a glove."
                 },
                 {
