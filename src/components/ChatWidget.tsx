@@ -21,22 +21,39 @@ export const ChatWidget = () => {
 
   // Initialize userId from localStorage or create a new one
   useEffect(() => {
-    const storedUserId = localStorage.getItem('chatUserId');
-    const { data: { user } } = supabase.auth.getUser();
-    
-    if (user) {
-      // Use authenticated user ID
-      setUserId(user.id);
-      localStorage.setItem('chatUserId', user.id);
-    } else if (storedUserId) {
-      // Use stored anonymous ID
-      setUserId(storedUserId);
-    } else {
-      // Create new anonymous ID
-      const newUserId = uuidv4();
-      setUserId(newUserId);
-      localStorage.setItem('chatUserId', newUserId);
-    }
+    const initializeUserId = async () => {
+      const storedUserId = localStorage.getItem('chatUserId');
+      
+      try {
+        const { data } = await supabase.auth.getUser();
+        
+        if (data?.user) {
+          // Use authenticated user ID
+          setUserId(data.user.id);
+          localStorage.setItem('chatUserId', data.user.id);
+        } else if (storedUserId) {
+          // Use stored anonymous ID
+          setUserId(storedUserId);
+        } else {
+          // Create new anonymous ID
+          const newUserId = uuidv4();
+          setUserId(newUserId);
+          localStorage.setItem('chatUserId', newUserId);
+        }
+      } catch (error) {
+        console.error('Error getting user:', error);
+        // Fallback to anonymous user
+        if (storedUserId) {
+          setUserId(storedUserId);
+        } else {
+          const newUserId = uuidv4();
+          setUserId(newUserId);
+          localStorage.setItem('chatUserId', newUserId);
+        }
+      }
+    };
+
+    initializeUserId();
   }, []);
 
   // Load chat history
