@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import {
   User, Mail, Phone, Calendar, MapPin, Building, Briefcase, DollarSign,
   Home, Car, CreditCard, FileText, CheckCircle, AlertCircle, ChevronRight,
-  ChevronLeft, Info, Heart, Shield, HelpCircle, ArrowRight, Clock, X,
+  ChevronLeft, ChevronDown, Info, Heart, Shield, HelpCircle, ArrowRight, Clock, X,
   Check, RefreshCw, Edit2, Send, Download, Trash2, MessageSquare, Bell,
   FileCheck, ArrowUpRight, Wallet, CalendarClock, PieChart, BarChart
 } from 'lucide-react';
@@ -169,21 +169,21 @@ const ApplicationView = () => {
   
   const loadAdminUsers = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      // Use the list-users edge function to get admin users
+      const { data, error } = await supabase.functions.invoke('list-users');
       
-      if (!user) return;
-      
-      // Fetch admin users
-      const { data, error } = await supabase
-        .from('auth.users')
-        .select('id, email')
-        .eq('raw_app_meta_data->>is_admin', 'true');
-        
       if (error) throw error;
       
-      setAdminUsers(data || []);
+      // Filter for admin users
+      const adminUsers = data?.users?.filter((user: any) => 
+        user.raw_app_meta_data?.is_admin === true
+      ) || [];
+      
+      setAdminUsers(adminUsers);
     } catch (error) {
       console.error('Error loading admin users:', error);
+      // Set empty array as fallback
+      setAdminUsers([]);
     }
   };
   
