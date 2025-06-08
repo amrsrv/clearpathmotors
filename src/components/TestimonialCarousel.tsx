@@ -108,7 +108,7 @@ export const TestimonialCarousel = () => {
   };
 
   return (
-    <div className="relative bg-white py-16">
+    <div className="relative overflow-hidden bg-gradient-to-br from-[#3BAA75]/5 via-white to-[#3BAA75]/10 py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
