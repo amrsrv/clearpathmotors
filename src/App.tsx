@@ -10,6 +10,7 @@ import Calculator from './pages/Calculator';
 import FAQ from './pages/FAQ';
 import Contact from './pages/Contact';
 import GetApproved from './pages/GetApproved';
+import GetPrequalified from './pages/GetPrequalified';
 import Blog from './pages/Blog';
 import QualificationResults from './pages/QualificationResults';
 import Privacy from './pages/Privacy';
@@ -90,6 +91,7 @@ const App = () => {
             <Route path="/faq" element={<FAQ />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/get-approved" element={<GetApproved />} />
+            <Route path="/get-prequalified" element={<GetPrequalified />} />
             <Route path="/create-account" element={<CreateAccount />} />
             <Route path="/qualification-results" element={<QualificationResults />} />
             <Route path="/blog/:slug" element={<Blog />} />

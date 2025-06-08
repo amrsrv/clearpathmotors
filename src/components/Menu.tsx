@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
-import { Car, Calculator } from 'lucide-react';
+import { Car, Calculator, FileText } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
 
@@ -123,7 +123,7 @@ export const ProductMenu = () => {
 
   const handleAutoFinancingClick = async () => {
     if (!user) {
-      navigate('/get-approved');
+      navigate('/get-prequalified');
       return;
     }
 
@@ -137,21 +137,27 @@ export const ProductMenu = () => {
       if (application) {
         navigate('/dashboard');
       } else {
-        navigate('/get-approved');
+        navigate('/get-prequalified');
       }
     } catch (error) {
       console.error('Error checking application:', error);
-      navigate('/get-approved');
+      navigate('/get-prequalified');
     }
   };
 
   return (
-    <div className="grid grid-cols-2 gap-4 p-2">
+    <div className="grid grid-cols-3 gap-4 p-2">
       <ProductItem
         title="Auto Financing"
         description="Get pre-approved in minutes"
         onClick={handleAutoFinancingClick}
         icon={<Car className="h-5 w-5 text-[#3BAA75]" />}
+      />
+      <ProductItem
+        title="Pre-Qualification"
+        description="Check your financing options"
+        onClick={() => navigate('/get-prequalified')}
+        icon={<FileText className="h-5 w-5 text-[#3BAA75]" />}
       />
       <ProductItem
         title="Payment Calculator"

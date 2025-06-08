@@ -1,369 +1,583 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import {
-  FileText,
-  User,
-  Mail,
-  Phone,
-  MapPin,
-  Building,
-  Clock,
-  CheckCircle,
-  AlertCircle,
-  MessageSquare,
-  DollarSign,
-  Car,
-  CreditCard,
-  ChevronLeft,
-  ChevronDown,
-  ChevronUp,
-  Edit2,
-  Save,
-  X,
-  ArrowLeft,
-  Download,
-  Upload,
-  Trash2,
-  MoreVertical,
-  Calendar,
-  Eye,
-  RefreshCw,
-  Image,
-  File
+  User, Mail, Phone, Calendar, MapPin, Building, Briefcase, DollarSign,
+  Home, Car, CreditCard, FileText, CheckCircle, AlertCircle, ChevronRight,
+  ChevronLeft, Info, Heart, Shield, HelpCircle, ArrowRight, Clock, X,
+  Check, RefreshCw, Edit2, Send, Download, Trash2, MessageSquare, Bell,
+  FileCheck, ArrowUpRight, Wallet, CalendarClock, PieChart, BarChart
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-import type { Application, Document, ApplicationStage } from '../../types/database';
 import toast from 'react-hot-toast';
+import { DocumentManager } from '../../components/DocumentManager';
+import { DocumentUpload } from '../../components/DocumentUpload';
+import { ApplicationTracker } from '../../components/ApplicationTracker';
+
+// Define lender categories and options
+const LENDERS = {
+  aLenders: [
+    { id: 'td', name: 'TD Auto Finance (TD Wheels)' },
+    { id: 'rbc', name: 'RBC Royal Bank' },
+    { id: 'scotiabank', name: 'Scotiabank' },
+    { id: 'bmo', name: 'BMO Bank of Montreal' },
+    { id: 'cibc', name: 'CIBC' },
+    { id: 'national', name: 'National Bank of Canada' }
+  ],
+  creditUnions: [
+    { id: 'alterna', name: 'Alterna Bank' },
+    { id: 'meridian', name: 'Meridian Credit Union' },
+    { id: 'versabank', name: 'VersaBank' },
+    { id: 'manulife', name: 'Manulife Bank' },
+    { id: 'canadiantire', name: 'Canadian Tire Bank' }
+  ],
+  bLenders: [
+    { id: 'lendcare', name: 'LendCare (by goeasy)' },
+    { id: 'ia', name: 'iA Auto Finance' },
+    { id: 'edenpark', name: 'EdenPark' },
+    { id: 'northlake', name: 'Northlake Financial' },
+    { id: 'autocapital', name: 'AutoCapital Canada' },
+    { id: 'rifco', name: 'Rifco National Auto Finance' },
+    { id: 'axis', name: 'Axis Auto Finance' },
+    { id: 'dealerhop', name: 'Dealerhop' }
+  ]
+};
+
+// Define application status options
+const APPLICATION_STATUSES = [
+  { value: 'pending_documents', label: 'Pending Documents' },
+  { value: 'pre_approved', label: 'Pre-Approved' },
+  { value: 'vehicle_selection', label: 'Vehicle Selection' },
+  { value: 'final_approval', label: 'Final Approval' },
+  { value: 'finalized', label: 'Finalized' }
+];
 
 const ApplicationView = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [application, setApplication] = useState<Application | null>(null);
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [documentUrls, setDocumentUrls] = useState<Record<string, string>>({});
-  const [stages, setStages] = useState<ApplicationStage[]>([]);
+  const [application, setApplication] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [note, setNote] = useState('');
-  const [expandedSections, setExpandedSections] = useState<{
-    [key: string]: boolean;
-  }>({
-    applicant: true,
-    loan: false,
-    documents: false,
-    timeline: false,
-    notes: false
-  });
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedApplication, setEditedApplication] = useState<Partial<Application>>({});
-  const [saveLoading, setSaveLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
-  const [showDocumentPreview, setShowDocumentPreview] = useState(false);
-  const [loadingDocumentId, setLoadingDocumentId] = useState<string | null>(null);
-  const [documentUploadCategory, setDocumentUploadCategory] = useState<string | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const notesRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [stages, setStages] = useState<any[]>([]);
+  const [activityLog, setActivityLog] = useState<any[]>([]);
+  const [flags, setFlags] = useState<any[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [financialMetrics, setFinancialMetrics] = useState<any>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [showSendToLender, setShowSendToLender] = useState(false);
+  const [selectedLender, setSelectedLender] = useState('');
+  const [lenderNote, setLenderNote] = useState('');
+  const [showAddNote, setShowAddNote] = useState(false);
+  const [internalNote, setInternalNote] = useState('');
+  const [showChangeStatus, setShowChangeStatus] = useState(false);
+  const [newStatus, setNewStatus] = useState('');
+  const [statusNote, setStatusNote] = useState('');
+  const [newMessage, setNewMessage] = useState('');
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [adminUsers, setAdminUsers] = useState<any[]>([]);
+  const [assignedAdmin, setAssignedAdmin] = useState<string | null>(null);
+  const [isAssigning, setIsAssigning] = useState(false);
+  
   useEffect(() => {
-    if (id) loadApplicationData(id);
+    if (id) {
+      loadApplicationData();
+      loadAdminUsers();
+    }
   }, [id]);
-
-  useEffect(() => {
-    // Set up real-time subscription for documents
-    if (!id) return;
-
-    const documentsSubscription = supabase
-      .channel('admin-documents-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'documents',
-          filter: `application_id=eq.${id}`
-        },
-        (payload) => {
-          console.log('Document change received:', payload);
-          
-          // Reload documents when changes occur
-          loadDocuments(id);
-          
-          // Show toast notification
-          if (payload.eventType === 'INSERT') {
-            toast.success('New document uploaded');
-          } else if (payload.eventType === 'UPDATE') {
-            toast.success('Document updated');
-          } else if (payload.eventType === 'DELETE') {
-            toast.success('Document deleted');
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(documentsSubscription);
-    };
-  }, [id]);
-
-  const loadApplicationData = async (applicationId: string) => {
+  
+  const loadApplicationData = async () => {
     try {
-      // Load application details
-      const { data: applicationData, error: applicationError } = await supabase
+      setLoading(true);
+      
+      // Fetch application data
+      const { data: appData, error: appError } = await supabase
         .from('applications')
         .select('*')
-        .eq('id', applicationId)
+        .eq('id', id)
         .single();
-
-      if (applicationError) throw applicationError;
-      setApplication(applicationData);
-      setEditedApplication(applicationData);
-
-      // Load documents
-      await loadDocuments(applicationId);
-
-      // Load stages
+        
+      if (appError) throw appError;
+      if (!appData) throw new Error('Application not found');
+      
+      setApplication(appData);
+      setAssignedAdmin(appData.assigned_to_admin_id);
+      
+      // Fetch documents
+      const { data: docsData, error: docsError } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('application_id', id)
+        .order('uploaded_at', { ascending: false });
+        
+      if (docsError) throw docsError;
+      setDocuments(docsData || []);
+      
+      // Fetch application stages
       const { data: stagesData, error: stagesError } = await supabase
         .from('application_stages')
         .select('*')
-        .eq('application_id', applicationId)
+        .eq('application_id', id)
         .order('stage_number', { ascending: true });
-
+        
       if (stagesError) throw stagesError;
       setStages(stagesData || []);
-
-    } catch (error) {
+      
+      // Fetch activity log
+      const { data: activityData, error: activityError } = await supabase
+        .from('activity_log')
+        .select('*')
+        .eq('application_id', id)
+        .order('created_at', { ascending: false });
+        
+      if (activityError) throw activityError;
+      setActivityLog(activityData || []);
+      
+      // Fetch flags
+      const { data: flagsData, error: flagsError } = await supabase
+        .from('application_flags')
+        .select('*')
+        .eq('application_id', id)
+        .order('created_at', { ascending: false });
+        
+      if (flagsError) throw flagsError;
+      setFlags(flagsData || []);
+      
+      // Fetch messages
+      const { data: messagesData, error: messagesError } = await supabase
+        .from('admin_messages')
+        .select('*')
+        .eq('application_id', id)
+        .order('created_at', { ascending: true });
+        
+      if (messagesError) throw messagesError;
+      setMessages(messagesData || []);
+      
+      // Calculate financial metrics
+      calculateFinancialMetrics(appData);
+      
+      setError(null);
+    } catch (error: any) {
       console.error('Error loading application data:', error);
-      toast.error('Failed to load application data');
+      setError(error.message);
     } finally {
       setLoading(false);
     }
   };
-
-  const loadDocuments = async (applicationId: string) => {
+  
+  const loadAdminUsers = async () => {
     try {
-      const { data: documentsData, error: documentsError } = await supabase
-        .from('documents')
-        .select('*')
-        .eq('application_id', applicationId)
-        .order('uploaded_at', { ascending: false });
-
-      if (documentsError) throw documentsError;
-      setDocuments(documentsData || []);
-
-      // Load document URLs
-      const urls: Record<string, string> = {};
-      for (const doc of documentsData || []) {
-        try {
-          const { data } = await supabase.storage
-            .from('user-documents')
-            .createSignedUrl(doc.filename, 3600); // 1 hour expiry
-
-          if (data?.signedUrl) {
-            urls[doc.id] = data.signedUrl;
-          }
-        } catch (error) {
-          console.error(`Error getting URL for document ${doc.id}:`, error);
-        }
-      }
-      setDocumentUrls(urls);
-    } catch (error) {
-      console.error('Error loading documents:', error);
-      toast.error('Failed to load documents');
-    }
-  };
-
-  const handleStatusChange = async (newStatus: string) => {
-    try {
-      const { error } = await supabase
-        .from('applications')
-        .update({ status: newStatus })
-        .eq('id', id);
-
-      if (error) throw error;
-
-      setApplication(prev => prev ? { ...prev, status: newStatus as any } : null);
-      toast.success(`Status updated to ${newStatus.replace(/_/g, ' ')}`);
-    } catch (error) {
-      console.error('Error updating status:', error);
-      toast.error('Failed to update status');
-    }
-  };
-
-  const handleAddNote = async () => {
-    if (!note.trim() || !application) return;
-
-    try {
-      const { error } = await supabase
-        .from('application_stages')
-        .insert({
-          application_id: application.id,
-          stage_number: application.current_stage,
-          status: 'note_added',
-          notes: note
-        });
-
-      if (error) throw error;
-
-      // Reload stages
-      loadApplicationData(application.id);
-      setNote('');
-      toast.success('Note added successfully');
-    } catch (error) {
-      console.error('Error adding note:', error);
-      toast.error('Failed to add note');
-    }
-  };
-
-  const toggleSection = (section: string) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
-  };
-
-  const handleEditToggle = () => {
-    if (isEditing) {
-      // Discard changes
-      setEditedApplication(application || {});
-    }
-    setIsEditing(!isEditing);
-    setError(null);
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setEditedApplication(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleSaveChanges = async () => {
-    if (!application || !editedApplication) return;
-    
-    setSaveLoading(true);
-    setError(null);
-    
-    try {
-      // Format postal code
-      let formattedPostalCode = editedApplication.postal_code;
-      if (formattedPostalCode) {
-        const cleaned = formattedPostalCode.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-        if (cleaned.length === 6) {
-          formattedPostalCode = `${cleaned.slice(0, 3)} ${cleaned.slice(3)}`;
-        }
-      }
+      const { data: { user } } = await supabase.auth.getUser();
       
-      // Convert numeric fields
-      const updatedApplication = {
-        ...editedApplication,
-        postal_code: formattedPostalCode,
-        annual_income: typeof editedApplication.annual_income === 'string' 
-          ? parseFloat(editedApplication.annual_income) 
-          : editedApplication.annual_income,
-        monthly_income: typeof editedApplication.annual_income === 'string'
-          ? parseFloat(editedApplication.annual_income) / 12
-          : (editedApplication.annual_income as number) / 12,
-        credit_score: typeof editedApplication.credit_score === 'string'
-          ? parseInt(editedApplication.credit_score)
-          : editedApplication.credit_score,
-        desired_monthly_payment: typeof editedApplication.desired_monthly_payment === 'string'
-          ? parseFloat(editedApplication.desired_monthly_payment)
-          : editedApplication.desired_monthly_payment,
-      };
+      if (!user) return;
       
-      const { error } = await supabase
-        .from('applications')
-        .update(updatedApplication)
-        .eq('id', application.id);
-      
+      // Fetch admin users
+      const { data, error } = await supabase
+        .from('auth.users')
+        .select('id, email')
+        .eq('raw_app_meta_data->>is_admin', 'true');
+        
       if (error) throw error;
       
-      // Reload application data
-      loadApplicationData(application.id);
-      setIsEditing(false);
-      toast.success('Application updated successfully');
-    } catch (error: any) {
-      console.error('Error saving changes:', error);
-      setError(error.message || 'An error occurred while saving changes');
-      toast.error('Failed to update application');
-    } finally {
-      setSaveLoading(false);
-    }
-  };
-
-  const scrollToNotes = () => {
-    if (notesRef.current) {
-      notesRef.current.scrollIntoView({ behavior: 'smooth' });
-      setExpandedSections(prev => ({
-        ...prev,
-        notes: true
-      }));
-    }
-  };
-
-  const handleViewDocument = async (document: Document) => {
-    setSelectedDocument(document);
-    setLoadingDocumentId(document.id);
-    
-    try {
-      // Get or use cached URL
-      let url = documentUrls[document.id];
-      if (!url) {
-        const { data } = await supabase.storage
-          .from('user-documents')
-          .createSignedUrl(document.filename, 3600); // 1 hour expiry
-
-        if (data?.signedUrl) {
-          url = data.signedUrl;
-          setDocumentUrls(prev => ({ ...prev, [document.id]: url }));
-        } else {
-          throw new Error('Could not generate document URL');
-        }
-      }
-      
-      setShowDocumentPreview(true);
+      setAdminUsers(data || []);
     } catch (error) {
-      console.error('Error viewing document:', error);
-      toast.error('Failed to load document preview');
-    } finally {
-      setLoadingDocumentId(null);
+      console.error('Error loading admin users:', error);
     }
   };
-
-  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !e.target.files[0] || !documentUploadCategory) {
+  
+  const calculateFinancialMetrics = (appData: any) => {
+    // Calculate total monthly income
+    const monthlyIncome = parseFloat(appData.monthly_income) || 0;
+    const otherIncome = parseFloat(appData.other_income) || 0;
+    const totalIncome = monthlyIncome + otherIncome;
+    
+    // Calculate government benefits income if available
+    let benefitsIncome = 0;
+    if (appData.disability_programs && Array.isArray(appData.disability_programs)) {
+      benefitsIncome = appData.disability_programs.reduce((sum: number, program: any) => {
+        return sum + (parseFloat(program.amount) || 0);
+      }, 0);
+    }
+    
+    // Calculate total debt obligations (housing payment for now)
+    const housingPayment = parseFloat(appData.housing_payment) || 0;
+    
+    // Estimate other debt payments (this would be more accurate with actual credit report data)
+    const estimatedOtherDebt = totalIncome * 0.15; // Rough estimate of 15% of income going to other debts
+    
+    const totalDebt = housingPayment + estimatedOtherDebt;
+    
+    // Calculate net disposable income
+    const netDisposable = totalIncome + benefitsIncome - totalDebt;
+    
+    // Calculate debt-to-income ratio
+    const dti = totalIncome > 0 ? (totalDebt / totalIncome) * 100 : 0;
+    
+    // Calculate loan-to-income ratio
+    const loanAmount = parseFloat(appData.desired_loan_amount) || 0;
+    const lti = totalIncome > 0 ? (loanAmount / (totalIncome * 12)) * 100 : 0;
+    
+    // Set financial metrics
+    setFinancialMetrics({
+      totalMonthlyIncome: totalIncome,
+      benefitsIncome: benefitsIncome,
+      totalIncome: totalIncome + benefitsIncome,
+      housingPayment: housingPayment,
+      estimatedOtherDebt: estimatedOtherDebt,
+      totalDebtObligations: totalDebt,
+      netDisposableIncome: netDisposable,
+      debtToIncomeRatio: dti,
+      loanToIncomeRatio: lti,
+      // Risk assessment
+      incomeRisk: totalIncome < 3000 ? 'high' : totalIncome < 5000 ? 'medium' : 'low',
+      dtiRisk: dti > 43 ? 'high' : dti > 36 ? 'medium' : 'low',
+      ltiRisk: lti > 50 ? 'high' : lti > 30 ? 'medium' : 'low',
+      overallRisk: calculateOverallRisk(dti, lti, appData)
+    });
+  };
+  
+  const calculateOverallRisk = (dti: number, lti: number, appData: any) => {
+    let riskScore = 0;
+    
+    // DTI risk
+    if (dti > 43) riskScore += 3;
+    else if (dti > 36) riskScore += 2;
+    else if (dti > 30) riskScore += 1;
+    
+    // LTI risk
+    if (lti > 50) riskScore += 3;
+    else if (lti > 30) riskScore += 2;
+    else if (lti > 20) riskScore += 1;
+    
+    // Employment stability risk
+    if (appData.employment_status === 'unemployed') riskScore += 3;
+    else if (appData.employment_status === 'self_employed') riskScore += 1;
+    
+    if (appData.employment_duration === 'less_than_6_months') riskScore += 2;
+    else if (appData.employment_duration === '6_months_to_1_year') riskScore += 1;
+    
+    // Housing stability risk
+    if (appData.residence_duration === 'less_than_6_months') riskScore += 2;
+    else if (appData.residence_duration === '6_months_to_1_year') riskScore += 1;
+    
+    // Debt discharge history risk
+    if (appData.has_debt_discharge_history) {
+      if (appData.debt_discharge_status === 'active') riskScore += 3;
+      else if (appData.debt_discharge_status === 'discharged') {
+        const dischargeYear = parseInt(appData.debt_discharge_year) || 0;
+        const currentYear = new Date().getFullYear();
+        if (currentYear - dischargeYear < 2) riskScore += 2;
+        else if (currentYear - dischargeYear < 5) riskScore += 1;
+      }
+    }
+    
+    // Determine overall risk
+    if (riskScore >= 7) return 'high';
+    if (riskScore >= 4) return 'medium';
+    return 'low';
+  };
+  
+  const handleStatusChange = async () => {
+    if (!newStatus) {
+      toast.error('Please select a new status');
       return;
     }
-
-    const file = e.target.files[0];
-    setIsUploading(true);
-
+    
     try {
-      // Validate file type
-      const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', 'image/heic'];
-      if (!allowedTypes.includes(file.type)) {
-        throw new Error('Invalid file type. Please upload a JPG, PNG, PDF, or HEIC file.');
+      setIsUpdating(true);
+      
+      // Update application status
+      const { error: updateError } = await supabase
+        .from('applications')
+        .update({
+          status: newStatus,
+          current_stage: getStageNumberFromStatus(newStatus)
+        })
+        .eq('id', id);
+        
+      if (updateError) throw updateError;
+      
+      // Add application stage
+      const { error: stageError } = await supabase
+        .from('application_stages')
+        .insert({
+          application_id: id,
+          stage_number: getStageNumberFromStatus(newStatus),
+          status: 'active',
+          notes: statusNote || `Application status updated to ${formatStatus(newStatus)}`
+        });
+        
+      if (stageError) throw stageError;
+      
+      // Create notification for the user
+      if (application.user_id) {
+        await supabase
+          .from('notifications')
+          .insert({
+            user_id: application.user_id,
+            title: `Application Status Updated`,
+            message: `Your application status has been updated to ${formatStatus(newStatus)}${statusNote ? `: ${statusNote}` : ''}.`,
+            read: false
+          });
       }
-
-      // Validate file size (10MB max)
-      const maxSize = 10 * 1024 * 1024; // 10MB in bytes
-      if (file.size > maxSize) {
-        throw new Error('File is too large. Maximum size is 10MB.');
+      
+      // Reload application data
+      await loadApplicationData();
+      
+      // Reset form
+      setNewStatus('');
+      setStatusNote('');
+      setShowChangeStatus(false);
+      
+      toast.success('Application status updated successfully');
+    } catch (error: any) {
+      console.error('Error updating application status:', error);
+      toast.error('Failed to update application status');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+  
+  const handleSendToLender = async () => {
+    if (!selectedLender) {
+      toast.error('Please select a lender');
+      return;
+    }
+    
+    try {
+      setIsUpdating(true);
+      
+      // Get lender name
+      const lenderName = [...LENDERS.aLenders, ...LENDERS.creditUnions, ...LENDERS.bLenders]
+        .find(lender => lender.id === selectedLender)?.name || selectedLender;
+      
+      // Add activity log entry
+      const { error: logError } = await supabase
+        .from('activity_log')
+        .insert({
+          application_id: id,
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          action: 'send_to_lender',
+          details: {
+            lender_id: selectedLender,
+            lender_name: lenderName,
+            note: lenderNote
+          },
+          is_admin_action: true,
+          is_visible_to_user: true
+        });
+        
+      if (logError) throw logError;
+      
+      // Create notification for the user
+      if (application.user_id) {
+        await supabase
+          .from('notifications')
+          .insert({
+            user_id: application.user_id,
+            title: `Application Sent to Lender`,
+            message: `Your application has been submitted to ${lenderName} for review.`,
+            read: false
+          });
       }
-
-      // Get the current user's ID
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError) throw userError;
-      if (!user) throw new Error('No authenticated user found');
-
-      // Get file extension
+      
+      // Reload activity log
+      const { data: activityData, error: activityError } = await supabase
+        .from('activity_log')
+        .select('*')
+        .eq('application_id', id)
+        .order('created_at', { ascending: false });
+        
+      if (activityError) throw activityError;
+      setActivityLog(activityData || []);
+      
+      // Reset form
+      setSelectedLender('');
+      setLenderNote('');
+      setShowSendToLender(false);
+      
+      toast.success(`Application sent to ${lenderName} successfully`);
+    } catch (error: any) {
+      console.error('Error sending application to lender:', error);
+      toast.error('Failed to send application to lender');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+  
+  const handleAddNote = async () => {
+    if (!internalNote) {
+      toast.error('Please enter a note');
+      return;
+    }
+    
+    try {
+      setIsUpdating(true);
+      
+      // Update application with new note
+      const { error: updateError } = await supabase
+        .from('applications')
+        .update({
+          internal_notes: application.internal_notes 
+            ? `${application.internal_notes}\n\n${new Date().toISOString()}: ${internalNote}`
+            : `${new Date().toISOString()}: ${internalNote}`
+        })
+        .eq('id', id);
+        
+      if (updateError) throw updateError;
+      
+      // Add activity log entry
+      const { error: logError } = await supabase
+        .from('activity_log')
+        .insert({
+          application_id: id,
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          action: 'add_note',
+          details: {
+            note: internalNote
+          },
+          is_admin_action: true,
+          is_visible_to_user: false
+        });
+        
+      if (logError) throw logError;
+      
+      // Reload application data
+      await loadApplicationData();
+      
+      // Reset form
+      setInternalNote('');
+      setShowAddNote(false);
+      
+      toast.success('Note added successfully');
+    } catch (error: any) {
+      console.error('Error adding note:', error);
+      toast.error('Failed to add note');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+  
+  const handleSendMessage = async () => {
+    if (!newMessage) {
+      toast.error('Please enter a message');
+      return;
+    }
+    
+    try {
+      setIsSendingMessage(true);
+      
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not found');
+      
+      // Add message
+      const { error: messageError } = await supabase
+        .from('admin_messages')
+        .insert({
+          admin_id: user.id,
+          user_id: application.user_id,
+          application_id: id,
+          message: newMessage,
+          is_admin: true,
+          read: false
+        });
+        
+      if (messageError) throw messageError;
+      
+      // Create notification for the user
+      if (application.user_id) {
+        await supabase
+          .from('notifications')
+          .insert({
+            user_id: application.user_id,
+            title: 'New Message from Clearpath',
+            message: 'You have received a new message regarding your application.',
+            read: false
+          });
+      }
+      
+      // Reload messages
+      const { data: messagesData, error: messagesError } = await supabase
+        .from('admin_messages')
+        .select('*')
+        .eq('application_id', id)
+        .order('created_at', { ascending: true });
+        
+      if (messagesError) throw messagesError;
+      setMessages(messagesData || []);
+      
+      // Reset form
+      setNewMessage('');
+      
+      toast.success('Message sent successfully');
+    } catch (error: any) {
+      console.error('Error sending message:', error);
+      toast.error('Failed to send message');
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+  
+  const handleAssignAdmin = async () => {
+    if (!assignedAdmin) {
+      toast.error('Please select an admin to assign');
+      return;
+    }
+    
+    try {
+      setIsAssigning(true);
+      
+      // Update application with assigned admin
+      const { error: updateError } = await supabase
+        .from('applications')
+        .update({
+          assigned_to_admin_id: assignedAdmin
+        })
+        .eq('id', id);
+        
+      if (updateError) throw updateError;
+      
+      // Add activity log entry
+      const { error: logError } = await supabase
+        .from('activity_log')
+        .insert({
+          application_id: id,
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          action: 'assign_admin',
+          details: {
+            admin_id: assignedAdmin
+          },
+          is_admin_action: true,
+          is_visible_to_user: false
+        });
+        
+      if (logError) throw logError;
+      
+      // Reload application data
+      await loadApplicationData();
+      
+      toast.success('Application assigned successfully');
+    } catch (error: any) {
+      console.error('Error assigning admin:', error);
+      toast.error('Failed to assign admin');
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+  
+  const handleDocumentUpload = async (file: File, category: string) => {
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not found');
+      
+      // Generate unique filename
       const extension = file.name.split('.').pop()?.toLowerCase() || '';
       const timestamp = Date.now();
-      const filename = `${user.id}/${documentUploadCategory}_${timestamp}.${extension}`;
+      const filename = `${application.id}/${category}_${timestamp}.${extension}`;
       
       // Upload file to Supabase Storage
       const { error: uploadError } = await supabase.storage
@@ -375,61 +589,43 @@ const ApplicationView = () => {
         });
 
       if (uploadError) throw uploadError;
-
+      
       // Create document record
       const { data: document, error: documentError } = await supabase
         .from('documents')
         .insert({
           application_id: id,
-          category: documentUploadCategory,
-          filename: filename,
+          category,
+          filename,
           status: 'pending'
         })
         .select()
         .single();
 
       if (documentError) throw documentError;
-
+      
       // Reload documents
-      await loadDocuments(id as string);
-      setDocumentUploadCategory(null);
+      const { data: docsData, error: docsError } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('application_id', id)
+        .order('uploaded_at', { ascending: false });
+        
+      if (docsError) throw docsError;
+      setDocuments(docsData || []);
+      
       toast.success('Document uploaded successfully');
+      return document;
     } catch (error: any) {
       console.error('Error uploading document:', error);
-      toast.error(error.message || 'Failed to upload document');
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      toast.error('Failed to upload document');
+      return null;
     }
   };
-
-  const handleDocumentStatusChange = async (documentId: string, newStatus: string, notes?: string) => {
+  
+  const handleDocumentDelete = async (documentId: string) => {
     try {
-      const { error } = await supabase
-        .from('documents')
-        .update({ 
-          status: newStatus,
-          review_notes: notes || null,
-          reviewed_at: new Date().toISOString()
-        })
-        .eq('id', documentId);
-      
-      if (error) throw error;
-      
-      // Reload documents
-      await loadDocuments(id as string);
-      toast.success(`Document marked as ${newStatus}`);
-    } catch (error) {
-      console.error('Error updating document status:', error);
-      toast.error('Failed to update document status');
-    }
-  };
-
-  const handleDeleteDocument = async (documentId: string) => {
-    try {
-      // Get the document details first
+      // Get document details first
       const { data: document, error: fetchError } = await supabase
         .from('documents')
         .select('filename')
@@ -437,17 +633,16 @@ const ApplicationView = () => {
         .single();
 
       if (fetchError) throw fetchError;
+      if (!document) throw new Error('Document not found');
+      
+      // Delete file from storage
+      const { error: storageError } = await supabase.storage
+        .from('user-documents')
+        .remove([document.filename]);
 
-      // Delete the file from storage
-      if (document) {
-        const { error: storageError } = await supabase.storage
-          .from('user-documents')
-          .remove([document.filename]);
-
-        if (storageError) throw storageError;
-      }
-
-      // Delete the document record
+      if (storageError) throw storageError;
+      
+      // Delete document record
       const { error: deleteError } = await supabase
         .from('documents')
         .delete()
@@ -456,26 +651,106 @@ const ApplicationView = () => {
       if (deleteError) throw deleteError;
       
       // Reload documents
-      await loadDocuments(id as string);
+      const { data: docsData, error: docsError } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('application_id', id)
+        .order('uploaded_at', { ascending: false });
+        
+      if (docsError) throw docsError;
+      setDocuments(docsData || []);
+      
       toast.success('Document deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting document:', error);
       toast.error('Failed to delete document');
+      throw error;
     }
   };
-
-  const getFileIcon = (filename: string) => {
-    const extension = filename.split('.').pop()?.toLowerCase();
-    
-    if (['jpg', 'jpeg', 'png', 'gif', 'heic'].includes(extension || '')) {
-      return <Image className="h-5 w-5 text-blue-500" />;
-    } else if (['pdf'].includes(extension || '')) {
-      return <FileText className="h-5 w-5 text-red-500" />;
-    } else {
-      return <File className="h-5 w-5 text-gray-500" />;
+  
+  const handleDocumentReview = async (documentId: string, status: 'approved' | 'rejected', notes?: string) => {
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not found');
+      
+      // Create document review
+      const { error: reviewError } = await supabase
+        .from('document_reviews')
+        .insert({
+          document_id: documentId,
+          reviewer_id: user.id,
+          status,
+          notes
+        });
+        
+      if (reviewError) throw reviewError;
+      
+      // Reload documents
+      const { data: docsData, error: docsError } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('application_id', id)
+        .order('uploaded_at', { ascending: false });
+        
+      if (docsError) throw docsError;
+      setDocuments(docsData || []);
+      
+      toast.success(`Document ${status === 'approved' ? 'approved' : 'rejected'} successfully`);
+    } catch (error: any) {
+      console.error('Error reviewing document:', error);
+      toast.error('Failed to review document');
     }
   };
-
+  
+  const getStageNumberFromStatus = (status: string) => {
+    switch (status) {
+      case 'submitted': return 1;
+      case 'pending_documents': return 3;
+      case 'pre_approved': return 4;
+      case 'vehicle_selection': return 5;
+      case 'final_approval': return 6;
+      case 'finalized': return 7;
+      default: return 3; // Default to pending documents
+    }
+  };
+  
+  const formatStatus = (status: string) => {
+    return status
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, char => char.toUpperCase());
+  };
+  
+  const formatCurrency = (value: number | string | null | undefined) => {
+    if (value === null || value === undefined) return '$0';
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    return new Intl.NumberFormat('en-CA', {
+      style: 'currency',
+      currency: 'CAD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(numValue);
+  };
+  
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'N/A';
+    return format(new Date(dateString), 'MMM d, yyyy');
+  };
+  
+  const formatDateTime = (dateString: string | null | undefined) => {
+    if (!dateString) return 'N/A';
+    return format(new Date(dateString), 'MMM d, yyyy h:mm a');
+  };
+  
+  const getRiskColor = (risk: string) => {
+    switch (risk) {
+      case 'low': return 'text-green-600 bg-green-100';
+      case 'medium': return 'text-amber-600 bg-amber-100';
+      case 'high': return 'text-red-600 bg-red-100';
+      default: return 'text-gray-600 bg-gray-100';
+    }
+  };
+  
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -483,963 +758,1505 @@ const ApplicationView = () => {
       </div>
     );
   }
-
+  
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-lg shadow-md text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Application</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <div className="flex justify-center gap-4">
+            <button
+              onClick={() => navigate('/admin/applications')}
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Back to Applications
+            </button>
+            <button
+              onClick={loadApplicationData}
+              className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   if (!application) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center p-6">
-          <h2 className="text-2xl font-semibold text-gray-900">Application Not Found</h2>
-          <p className="text-gray-600 mt-2">The application you're looking for doesn't exist.</p>
+        <div className="bg-white p-8 rounded-lg shadow-md text-center">
+          <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Application Not Found</h2>
+          <p className="text-gray-600 mb-4">The application you're looking for doesn't exist or you don't have permission to view it.</p>
           <button
-            onClick={() => navigate('/admin')}
-            className="mt-4 inline-flex items-center px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors"
+            onClick={() => navigate('/admin/applications')}
+            className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors"
           >
-            <ArrowLeft className="mr-2 h-5 w-5" />
-            Back to Dashboard
+            Back to Applications
           </button>
         </div>
       </div>
     );
   }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'submitted': return 'bg-blue-100 text-blue-700';
-      case 'under_review': return 'bg-yellow-100 text-yellow-700';
-      case 'pending_documents': return 'bg-orange-100 text-orange-700';
-      case 'pre_approved': return 'bg-green-100 text-green-700';
-      case 'vehicle_selection': return 'bg-purple-100 text-purple-700';
-      case 'final_approval': return 'bg-indigo-100 text-indigo-700';
-      case 'finalized': return 'bg-gray-100 text-gray-700';
-      default: return 'bg-gray-100 text-gray-700';
-    }
-  };
-
+  
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-14 lg:top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="flex items-center">
-              <button
-                onClick={() => navigate('/admin')}
-                className="mr-3 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900">
-                  {application.first_name} {application.last_name}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => navigate('/admin/applications')}
+                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <h1 className="text-xl md:text-2xl font-semibold text-gray-900">
+                  Application #{application.id.slice(0, 8)}
                 </h1>
-                <div className="flex items-center text-sm text-gray-500 mt-1">
-                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(application.status)} mr-2`}>
-                    {application.status.split('_').map(word => 
-                      word.charAt(0).toUpperCase() + word.slice(1)
-                    ).join(' ')}
-                  </span>
-                  <span>ID: {application.id.slice(0, 8)}</span>
-                </div>
+                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                  application.status === 'pending_documents' ? 'bg-amber-100 text-amber-700' :
+                  application.status === 'pre_approved' ? 'bg-green-100 text-green-700' :
+                  application.status === 'vehicle_selection' ? 'bg-purple-100 text-purple-700' :
+                  application.status === 'final_approval' ? 'bg-blue-100 text-blue-700' :
+                  application.status === 'finalized' ? 'bg-gray-100 text-gray-700' :
+                  'bg-gray-100 text-gray-700'
+                }`}>
+                  {formatStatus(application.status)}
+                </span>
               </div>
+              <p className="text-sm text-gray-500 mt-1">
+                Submitted on {formatDate(application.created_at)}
+              </p>
             </div>
 
-            <div className="flex items-center gap-2">
-              {isEditing ? (
-                <>
-                  <button
-                    onClick={handleEditToggle}
-                    className="px-3 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    <X className="h-5 w-5" />
-                  </button>
-                  <button
-                    onClick={handleSaveChanges}
-                    disabled={saveLoading}
-                    className="flex items-center gap-2 px-3 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-70"
-                  >
-                    {saveLoading ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
-                    ) : (
-                      <Save className="h-5 w-5" />
-                    )}
-                    <span className="hidden md:inline">Save</span>
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={handleEditToggle}
-                    className="flex items-center gap-2 px-3 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    <Edit2 className="h-5 w-5" />
-                    <span className="hidden md:inline">Edit</span>
-                  </button>
-                  <button
-                    onClick={scrollToNotes}
-                    className="flex items-center gap-2 px-3 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors"
-                  >
-                    <MessageSquare className="h-5 w-5" />
-                    <span className="hidden md:inline">Add Note</span>
-                  </button>
-                </>
-              )}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setShowChangeStatus(true)}
+                className="px-3 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors text-sm font-medium"
+              >
+                Update Status
+              </button>
+              <button
+                onClick={() => setShowSendToLender(true)}
+                className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+              >
+                Send to Lender
+              </button>
+              <button
+                onClick={() => setShowAddNote(true)}
+                className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+              >
+                Add Note
+              </button>
             </div>
+          </div>
+          
+          {/* Tabs */}
+          <div className="flex border-b border-gray-200 mt-4 overflow-x-auto">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
+                activeTab === 'overview'
+                  ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab('documents')}
+              className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
+                activeTab === 'documents'
+                  ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Documents ({documents.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('messages')}
+              className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
+                activeTab === 'messages'
+                  ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Messages ({messages.length})
+            </button>
+            <button
+              onClick={() => setActiveTab('activity')}
+              className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
+                activeTab === 'activity'
+                  ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Activity Log
+            </button>
+            <button
+              onClick={() => setActiveTab('flags')}
+              className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
+                activeTab === 'flags'
+                  ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Flags ({flags.length})
+            </button>
           </div>
         </div>
       </div>
 
+      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="space-y-6">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-              {error}
-            </div>
-          )}
-
-          {/* Status Selector */}
-          <div className="bg-white rounded-lg shadow-sm p-4">
-            <div className="flex items-center justify-between">
-              <label className="block text-sm font-medium text-gray-700">
-                Application Status
-              </label>
-              <select
-                value={application.status}
-                onChange={(e) => handleStatusChange(e.target.value)}
-                className="rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
-              >
-                <option value="submitted">Submitted</option>
-                <option value="under_review">Under Review</option>
-                <option value="pending_documents">Pending Documents</option>
-                <option value="pre_approved">Pre-Approved</option>
-                <option value="vehicle_selection">Vehicle Selection</option>
-                <option value="final_approval">Final Approval</option>
-                <option value="finalized">Finalized</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Applicant Information */}
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <div 
-              className="p-4 flex items-center justify-between cursor-pointer"
-              onClick={() => toggleSection('applicant')}
+        <AnimatePresence mode="wait">
+          {/* Overview Tab */}
+          {activeTab === 'overview' && (
+            <motion.div
+              key="overview"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="grid lg:grid-cols-3 gap-6"
             >
-              <div className="flex items-center">
-                <User className="h-5 w-5 text-[#3BAA75] mr-2" />
-                <h2 className="text-lg font-semibold">Applicant Information</h2>
-              </div>
-              {expandedSections.applicant ? (
-                <ChevronUp className="h-5 w-5 text-gray-400" />
-              ) : (
-                <ChevronDown className="h-5 w-5 text-gray-400" />
-              )}
-            </div>
-            
-            <AnimatePresence>
-              {expandedSections.applicant && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
-                >
-                  <div className="px-4 pb-4 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          First Name
-                        </label>
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            name="first_name"
-                            value={editedApplication.first_name || ''}
-                            onChange={handleInputChange}
-                            className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75] h-10"
-                          />
-                        ) : (
-                          <div className="text-gray-900">{application.first_name}</div>
-                        )}
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Last Name
-                        </label>
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            name="last_name"
-                            value={editedApplication.last_name || ''}
-                            onChange={handleInputChange}
-                            className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75] h-10"
-                          />
-                        ) : (
-                          <div className="text-gray-900">{application.last_name}</div>
-                        )}
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Email
-                        </label>
-                        {isEditing ? (
-                          <input
-                            type="email"
-                            name="email"
-                            value={editedApplication.email || ''}
-                            onChange={handleInputChange}
-                            className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75] h-10"
-                          />
-                        ) : (
-                          <div className="text-[#3BAA75]">{application.email}</div>
-                        )}
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Phone
-                        </label>
-                        {isEditing ? (
-                          <input
-                            type="tel"
-                            name="phone"
-                            value={editedApplication.phone || ''}
-                            onChange={handleInputChange}
-                            className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75] h-10"
-                          />
-                        ) : (
-                          <div className="text-gray-900">{application.phone}</div>
-                        )}
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Address
-                        </label>
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            name="address"
-                            value={editedApplication.address || ''}
-                            onChange={handleInputChange}
-                            className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75] h-10"
-                          />
-                        ) : (
-                          <div className="text-gray-900">{application.address}</div>
-                        )}
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          City
-                        </label>
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            name="city"
-                            value={editedApplication.city || ''}
-                            onChange={handleInputChange}
-                            className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75] h-10"
-                          />
-                        ) : (
-                          <div className="text-gray-900">{application.city}</div>
-                        )}
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Province
-                        </label>
-                        {isEditing ? (
-                          <select
-                            name="province"
-                            value={editedApplication.province || ''}
-                            onChange={handleInputChange}
-                            className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75] h-10"
-                          >
-                            <option value="">Select Province</option>
-                            <option value="ON">Ontario</option>
-                            <option value="BC">British Columbia</option>
-                            <option value="AB">Alberta</option>
-                            <option value="MB">Manitoba</option>
-                            <option value="NB">New Brunswick</option>
-                            <option value="NL">Newfoundland and Labrador</option>
-                            <option value="NS">Nova Scotia</option>
-                            <option value="PE">Prince Edward Island</option>
-                            <option value="QC">Quebec</option>
-                            <option value="SK">Saskatchewan</option>
-                          </select>
-                        ) : (
-                          <div className="text-gray-900">{application.province}</div>
-                        )}
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Postal Code
-                        </label>
-                        {isEditing ? (
-                          <input
-                            type="text"
-                            name="postal_code"
-                            value={editedApplication.postal_code || ''}
-                            onChange={handleInputChange}
-                            className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75] h-10"
-                          />
-                        ) : (
-                          <div className="text-gray-900">{application.postal_code}</div>
-                        )}
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Employment Status
-                        </label>
-                        {isEditing ? (
-                          <select
-                            name="employment_status"
-                            value={editedApplication.employment_status || ''}
-                            onChange={handleInputChange}
-                            className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75] h-10"
-                          >
-                            <option value="employed">Employed</option>
-                            <option value="self_employed">Self Employed</option>
-                            <option value="unemployed">Unemployed</option>
-                          </select>
-                        ) : (
-                          <div className="text-gray-900 capitalize">
-                            {application.employment_status?.replace('_', ' ')}
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Annual Income
-                        </label>
-                        {isEditing ? (
-                          <input
-                            type="number"
-                            name="annual_income"
-                            value={editedApplication.annual_income || ''}
-                            onChange={handleInputChange}
-                            className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75] h-10"
-                          />
-                        ) : (
-                          <div className="text-gray-900">
-                            ${application.annual_income?.toLocaleString()}
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Credit Score
-                        </label>
-                        {isEditing ? (
-                          <input
-                            type="number"
-                            name="credit_score"
-                            min="300"
-                            max="850"
-                            value={editedApplication.credit_score || ''}
-                            onChange={handleInputChange}
-                            className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75] h-10"
-                          />
-                        ) : (
-                          <div className="text-gray-900">{application.credit_score}</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Loan Details */}
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <div 
-              className="p-4 flex items-center justify-between cursor-pointer"
-              onClick={() => toggleSection('loan')}
-            >
-              <div className="flex items-center">
-                <DollarSign className="h-5 w-5 text-[#3BAA75] mr-2" />
-                <h2 className="text-lg font-semibold">Loan Details</h2>
-              </div>
-              {expandedSections.loan ? (
-                <ChevronUp className="h-5 w-5 text-gray-400" />
-              ) : (
-                <ChevronDown className="h-5 w-5 text-gray-400" />
-              )}
-            </div>
-            
-            <AnimatePresence>
-              {expandedSections.loan && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
-                >
-                  <div className="px-4 pb-4 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Vehicle Type
-                        </label>
-                        {isEditing ? (
-                          <select
-                            name="vehicle_type"
-                            value={editedApplication.vehicle_type || ''}
-                            onChange={handleInputChange}
-                            className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75] h-10"
-                          >
-                            <option value="">Select Vehicle Type</option>
-                            <option value="Car">Car</option>
-                            <option value="SUV">SUV</option>
-                            <option value="Truck">Truck</option>
-                            <option value="Van">Van</option>
-                          </select>
-                        ) : (
-                          <div className="text-gray-900">{application.vehicle_type}</div>
-                        )}
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Desired Monthly Payment
-                        </label>
-                        {isEditing ? (
-                          <input
-                            type="number"
-                            name="desired_monthly_payment"
-                            value={editedApplication.desired_monthly_payment || ''}
-                            onChange={handleInputChange}
-                            className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75] h-10"
-                          />
-                        ) : (
-                          <div className="text-gray-900">
-                            ${application.desired_monthly_payment?.toLocaleString()}
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Loan Amount Range
-                        </label>
-                        {isEditing ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              name="loan_amount_min"
-                              value={editedApplication.loan_amount_min || ''}
-                              onChange={handleInputChange}
-                              className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75] h-10"
-                              placeholder="Min"
-                            />
-                            <span>-</span>
-                            <input
-                              type="number"
-                              name="loan_amount_max"
-                              value={editedApplication.loan_amount_max || ''}
-                              onChange={handleInputChange}
-                              className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75] h-10"
-                              placeholder="Max"
-                            />
-                          </div>
-                        ) : (
-                          <div className="text-gray-900">
-                            ${application.loan_amount_min?.toLocaleString()} - ${application.loan_amount_max?.toLocaleString()}
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Interest Rate
-                        </label>
-                        {isEditing ? (
-                          <input
-                            type="number"
-                            name="interest_rate"
-                            value={editedApplication.interest_rate || ''}
-                            onChange={handleInputChange}
-                            className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75] h-10"
-                            step="0.01"
-                          />
-                        ) : (
-                          <div className="text-gray-900">{application.interest_rate}%</div>
-                        )}
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Loan Term
-                        </label>
-                        {isEditing ? (
-                          <select
-                            name="loan_term"
-                            value={editedApplication.loan_term || ''}
-                            onChange={handleInputChange}
-                            className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75] h-10"
-                          >
-                            <option value="36">36 months</option>
-                            <option value="48">48 months</option>
-                            <option value="60">60 months</option>
-                            <option value="72">72 months</option>
-                            <option value="84">84 months</option>
-                          </select>
-                        ) : (
-                          <div className="text-gray-900">{application.loan_term} months</div>
-                        )}
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Down Payment
-                        </label>
-                        {isEditing ? (
-                          <input
-                            type="number"
-                            name="down_payment"
-                            value={editedApplication.down_payment || ''}
-                            onChange={handleInputChange}
-                            className="block w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75] h-10"
-                          />
-                        ) : (
-                          <div className="text-gray-900">
-                            ${application.down_payment?.toLocaleString() || '0'}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Documents */}
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <div 
-              className="p-4 flex items-center justify-between cursor-pointer"
-              onClick={() => toggleSection('documents')}
-            >
-              <div className="flex items-center">
-                <FileText className="h-5 w-5 text-[#3BAA75] mr-2" />
-                <h2 className="text-lg font-semibold">Documents</h2>
-              </div>
-              <div className="flex items-center">
-                <span className="text-sm text-gray-500 mr-2">
-                  {documents.length} {documents.length === 1 ? 'document' : 'documents'}
-                </span>
-                {expandedSections.documents ? (
-                  <ChevronUp className="h-5 w-5 text-gray-400" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 text-gray-400" />
-                )}
-              </div>
-            </div>
-            
-            <AnimatePresence>
-              {expandedSections.documents && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
-                >
-                  <div className="px-4 pb-4">
-                    {documents.length === 0 ? (
-                      <div className="text-center py-6 text-gray-500">
-                        <FileText className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                        <p>No documents uploaded yet</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {documents.map((document) => (
-                          <div
-                            key={document.id}
-                            className="flex flex-col md:flex-row md:items-center justify-between p-3 border rounded-lg"
-                          >
-                            <div className="flex items-start gap-3">
-                              {getFileIcon(document.filename)}
-                              <div>
-                                <p className="font-medium text-sm truncate max-w-xs">{document.filename.split('/').pop()}</p>
-                                <p className="text-xs text-gray-500">
-                                  {document.category.replace(/_/g, ' ')} • {format(new Date(document.uploaded_at), 'MMM d, yyyy')}
-                                </p>
-                                {document.review_notes && (
-                                  <p className="text-xs text-gray-600 mt-2 bg-gray-50 p-2 rounded">
-                                    {document.review_notes}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2 mt-3 md:mt-0">
-                              <span className={`
-                                px-2 py-1 text-xs font-medium rounded-full
-                                ${document.status === 'approved' ? 'bg-green-100 text-green-700' : 
-                                  document.status === 'rejected' ? 'bg-red-100 text-red-700' : 
-                                  'bg-yellow-100 text-yellow-700'}
-                              `}>
-                                {document.status.charAt(0).toUpperCase() + document.status.slice(1)}
-                              </span>
-                              
-                              <div className="flex items-center gap-1">
-                                <button
-                                  onClick={() => handleViewDocument(document)}
-                                  className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-                                  disabled={loadingDocumentId === document.id}
-                                >
-                                  {loadingDocumentId === document.id ? (
-                                    <RefreshCw className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <Eye className="h-4 w-4" />
-                                  )}
-                                </button>
-                                
-                                <select
-                                  value={document.status}
-                                  onChange={(e) => handleDocumentStatusChange(document.id, e.target.value)}
-                                  className="text-xs rounded-lg border border-gray-300 ml-2"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <option value="pending">Pending</option>
-                                  <option value="approved">Approved</option>
-                                  <option value="rejected">Rejected</option>
-                                </select>
-                                
-                                <button
-                                  onClick={() => handleDeleteDocument(document.id)}
-                                  className="p-1 text-red-600 hover:bg-red-50 rounded ml-1"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+              {/* Left Column - Application Details */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Applicant Summary */}
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+                      <User className="h-5 w-5 mr-2 text-[#3BAA75]" />
+                      Applicant Summary
+                    </h2>
                     
-                    <div className="mt-4 flex justify-center">
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        className="hidden"
-                        onChange={handleDocumentUpload}
-                        accept=".jpg,.jpeg,.png,.pdf,.heic"
-                      />
-                      <div className="relative">
-                        <button 
-                          onClick={() => setDocumentUploadCategory('drivers_license')}
-                          className="flex items-center gap-2 px-4 py-2 text-[#3BAA75] border border-[#3BAA75] rounded-lg hover:bg-[#3BAA75]/5 transition-colors"
-                          disabled={isUploading}
-                        >
-                          {isUploading ? (
-                            <RefreshCw className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Upload className="h-4 w-4" />
-                          )}
-                          Upload Document
-                        </button>
-                        
-                        {documentUploadCategory && (
-                          <div className="absolute mt-2 w-48 bg-white rounded-md shadow-lg z-10 py-1">
-                            {[
-                              { id: 'drivers_license', label: 'Government ID' },
-                              { id: 'pay_stubs', label: 'Proof of Income' },
-                              { id: 'bank_statements', label: 'Bank Statements' },
-                              { id: 'proof_of_residence', label: 'Proof of Address' },
-                              { id: 'notice_of_assessment', label: 'Tax Documents' },
-                              { id: 'insurance', label: 'Insurance' }
-                            ].map(cat => (
-                              <button
-                                key={cat.id}
-                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                onClick={() => {
-                                  setDocumentUploadCategory(cat.id);
-                                  if (fileInputRef.current) fileInputRef.current.click();
-                                }}
-                              >
-                                {cat.label}
-                              </button>
-                            ))}
-                            <div className="border-t border-gray-100 my-1"></div>
-                            <button
-                              className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                              onClick={() => setDocumentUploadCategory(null)}
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Application Timeline */}
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <div 
-              className="p-4 flex items-center justify-between cursor-pointer"
-              onClick={() => toggleSection('timeline')}
-            >
-              <div className="flex items-center">
-                <Clock className="h-5 w-5 text-[#3BAA75] mr-2" />
-                <h2 className="text-lg font-semibold">Application Timeline</h2>
-              </div>
-              {expandedSections.timeline ? (
-                <ChevronUp className="h-5 w-5 text-gray-400" />
-              ) : (
-                <ChevronDown className="h-5 w-5 text-gray-400" />
-              )}
-            </div>
-            
-            <AnimatePresence>
-              {expandedSections.timeline && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
-                >
-                  <div className="px-4 pb-4">
-                    <div className="space-y-6">
-                      {stages.length === 0 ? (
-                        <div className="text-center py-6 text-gray-500">
-                          <Clock className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                          <p>No timeline events yet</p>
-                        </div>
-                      ) : (
-                        stages.map((stage, index) => (
-                          <div key={stage.id} className="relative">
-                            {index !== stages.length - 1 && (
-                              <div className="absolute top-8 left-4 bottom-0 w-px bg-gray-200" />
-                            )}
-                            <div className="flex gap-4">
-                              <div className="relative z-10">
-                                {stage.status === 'completed' ? (
-                                  <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                                    <CheckCircle className="h-5 w-5 text-green-500" />
-                                  </div>
-                                ) : stage.status === 'in_progress' ? (
-                                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                    <Clock className="h-5 w-5 text-blue-500" />
-                                  </div>
-                                ) : (
-                                  <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-                                    <AlertCircle className="h-5 w-5 text-gray-400" />
-                                  </div>
-                                )}
-                              </div>
-                              <div>
-                                <p className="font-medium">Stage {stage.stage_number}</p>
-                                <p className="text-xs text-gray-500">
-                                  {format(new Date(stage.timestamp), 'MMM d, yyyy h:mm a')}
-                                </p>
-                                {stage.notes && (
-                                  <p className="text-sm text-gray-600 mt-2 bg-gray-50 p-2 rounded">
-                                    {stage.notes}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ))
+                    <div className="flex items-center gap-2">
+                      {application.has_debt_discharge_history && (
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          Debt History
+                        </span>
+                      )}
+                      
+                      {application.collects_government_benefits && (
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700 flex items-center gap-1">
+                          <CheckCircle className="h-3 w-3" />
+                          Benefits
+                        </span>
+                      )}
+                      
+                      {financialMetrics && (
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full flex items-center gap-1 ${
+                          getRiskColor(financialMetrics.overallRisk)
+                        }`}>
+                          {financialMetrics.overallRisk === 'low' && <CheckCircle className="h-3 w-3" />}
+                          {financialMetrics.overallRisk === 'medium' && <AlertCircle className="h-3 w-3" />}
+                          {financialMetrics.overallRisk === 'high' && <AlertCircle className="h-3 w-3" />}
+                          {financialMetrics.overallRisk.charAt(0).toUpperCase() + financialMetrics.overallRisk.slice(1)} Risk
+                        </span>
                       )}
                     </div>
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Add Note */}
-          <div ref={notesRef} className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <div 
-              className="p-4 flex items-center justify-between cursor-pointer"
-              onClick={() => toggleSection('notes')}
-            >
-              <div className="flex items-center">
-                <MessageSquare className="h-5 w-5 text-[#3BAA75] mr-2" />
-                <h2 className="text-lg font-semibold">Add Note</h2>
-              </div>
-              {expandedSections.notes ? (
-                <ChevronUp className="h-5 w-5 text-gray-400" />
-              ) : (
-                <ChevronDown className="h-5 w-5 text-gray-400" />
-              )}
-            </div>
-            
-            <AnimatePresence>
-              {expandedSections.notes && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
-                >
-                  <div className="px-4 pb-4 space-y-4">
-                    <textarea
-                      value={note}
-                      onChange={(e) => setNote(e.target.value)}
-                      placeholder="Add a note about this application..."
-                      className="w-full rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent h-24"
-                      rows={4}
-                    />
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Full Name</p>
+                      <p className="font-medium">{application.first_name} {application.last_name}</p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm text-gray-500">Email</p>
+                      <p className="font-medium text-[#3BAA75] hover:underline">
+                        <a href={`mailto:${application.email}`}>{application.email}</a>
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm text-gray-500">Phone</p>
+                      <p className="font-medium text-[#3BAA75] hover:underline">
+                        <a href={`tel:${application.phone}`}>{application.phone}</a>
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm text-gray-500">Date of Birth</p>
+                      <p className="font-medium">{formatDate(application.date_of_birth)}</p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm text-gray-500">Marital Status</p>
+                      <p className="font-medium">
+                        {application.marital_status
+                          ? application.marital_status.charAt(0).toUpperCase() + application.marital_status.slice(1)
+                          : 'Not specified'}
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm text-gray-500">Dependents</p>
+                      <p className="font-medium">{application.dependents || '0'}</p>
+                    </div>
+                    
+                    <div className="col-span-2 md:col-span-3">
+                      <p className="text-sm text-gray-500">Address</p>
+                      <p className="font-medium">
+                        {application.address}, {application.city}, {application.province} {application.postal_code}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Employment & Income */}
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <Briefcase className="h-5 w-5 mr-2 text-[#3BAA75]" />
+                    Employment & Income
+                  </h2>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Employment Status</p>
+                      <p className="font-medium">
+                        {application.employment_status
+                          ? application.employment_status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
+                          : 'Not specified'}
+                      </p>
+                    </div>
+                    
+                    {application.employer_name && (
+                      <div>
+                        <p className="text-sm text-gray-500">Employer</p>
+                        <p className="font-medium">{application.employer_name}</p>
+                      </div>
+                    )}
+                    
+                    <div>
+                      <p className="text-sm text-gray-500">Occupation</p>
+                      <p className="font-medium">{application.occupation || 'Not specified'}</p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm text-gray-500">Employment Duration</p>
+                      <p className="font-medium">
+                        {application.employment_duration
+                          ? application.employment_duration.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+                          : 'Not specified'}
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm text-gray-500">Monthly Income</p>
+                      <p className="font-medium">{formatCurrency(application.monthly_income)}</p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm text-gray-500">Annual Income</p>
+                      <p className="font-medium">{formatCurrency(application.annual_income)}</p>
+                    </div>
+                    
+                    {application.other_income > 0 && (
+                      <div>
+                        <p className="text-sm text-gray-500">Other Income</p>
+                        <p className="font-medium">{formatCurrency(application.other_income)}</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Government Benefits */}
+                  {application.collects_government_benefits && application.disability_programs && (
+                    <div className="mt-6 pt-6 border-t border-gray-200">
+                      <h3 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                        <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+                        Government & Disability Benefits
+                      </h3>
+                      
+                      <div className="bg-green-50 p-4 rounded-lg">
+                        <div className="grid grid-cols-2 gap-3">
+                          {application.disability_programs.map((program: any, index: number) => (
+                            <div key={index} className="flex justify-between">
+                              <span className="text-sm text-gray-700">
+                                {program.name_other || program.name}:
+                              </span>
+                              <span className="text-sm font-medium">{formatCurrency(program.amount)}</span>
+                            </div>
+                          ))}
+                          
+                          <div className="col-span-2 mt-2 pt-2 border-t border-green-200">
+                            <div className="flex justify-between">
+                              <span className="text-sm font-medium text-gray-700">Total Monthly Benefits:</span>
+                              <span className="text-sm font-medium">
+                                {formatCurrency(application.disability_programs.reduce((sum: number, program: any) => sum + (parseFloat(program.amount) || 0), 0))}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Housing Information */}
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <Home className="h-5 w-5 mr-2 text-[#3BAA75]" />
+                    Housing Information
+                  </h2>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Housing Status</p>
+                      <p className="font-medium">
+                        {application.housing_status
+                          ? application.housing_status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
+                          : 'Not specified'}
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm text-gray-500">Monthly Payment</p>
+                      <p className="font-medium">{formatCurrency(application.housing_payment)}</p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm text-gray-500">Residence Duration</p>
+                      <p className="font-medium">
+                        {application.residence_duration
+                          ? application.residence_duration.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+                          : 'Not specified'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Desired Financing */}
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <Car className="h-5 w-5 mr-2 text-[#3BAA75]" />
+                    Desired Financing
+                  </h2>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Loan Amount</p>
+                      <p className="font-medium">{formatCurrency(application.desired_loan_amount)}</p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm text-gray-500">Vehicle Type</p>
+                      <p className="font-medium">{application.vehicle_type || 'Not specified'}</p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm text-gray-500">Down Payment</p>
+                      <p className="font-medium">{formatCurrency(application.down_payment_amount)}</p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm text-gray-500">Has Driver's License</p>
+                      <p className="font-medium">{application.has_driver_license ? 'Yes' : 'No'}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Debt Discharge History */}
+                {application.has_debt_discharge_history && (
+                  <div className="bg-white rounded-lg shadow-sm p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                      <AlertCircle className="h-5 w-5 mr-2 text-amber-500" />
+                      Financial Challenges
+                    </h2>
+                    
+                    <div className="bg-amber-50 p-4 rounded-lg">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        <div>
+                          <p className="text-sm text-gray-700">Type</p>
+                          <p className="font-medium">
+                            {application.debt_discharge_type
+                              ? application.debt_discharge_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
+                              : 'Not specified'}
+                          </p>
+                        </div>
+                        
+                        <div>
+                          <p className="text-sm text-gray-700">Year</p>
+                          <p className="font-medium">{application.debt_discharge_year || 'Not specified'}</p>
+                        </div>
+                        
+                        <div>
+                          <p className="text-sm text-gray-700">Status</p>
+                          <p className="font-medium">
+                            {application.debt_discharge_status
+                              ? application.debt_discharge_status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
+                              : 'Not specified'}
+                          </p>
+                        </div>
+                        
+                        {application.debt_discharge_comments && (
+                          <div className="col-span-2 md:col-span-3">
+                            <p className="text-sm text-gray-700">Comments</p>
+                            <p className="text-sm">{application.debt_discharge_comments}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Contact Preferences */}
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <Phone className="h-5 w-5 mr-2 text-[#3BAA75]" />
+                    Contact Preferences
+                  </h2>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Preferred Method</p>
+                      <p className="font-medium">
+                        {application.preferred_contact_method === 'email' ? 'Email' : 
+                         application.preferred_contact_method === 'phone' ? 'Phone Call' : 
+                         application.preferred_contact_method === 'sms' ? 'Text Message (SMS)' : 
+                         'Not specified'}
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm text-gray-500">Consent for Soft Check</p>
+                      <p className="font-medium">{application.consent_soft_check ? 'Yes' : 'No'}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Application Progress */}
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <Clock className="h-5 w-5 mr-2 text-[#3BAA75]" />
+                    Application Progress
+                  </h2>
+                  
+                  <ApplicationTracker
+                    application={application}
+                    stages={stages}
+                  />
+                </div>
+                
+                {/* Internal Notes */}
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+                      <FileText className="h-5 w-5 mr-2 text-[#3BAA75]" />
+                      Internal Notes
+                    </h2>
+                    
                     <button
-                      onClick={handleAddNote}
-                      disabled={!note.trim()}
-                      className="w-full bg-[#3BAA75] text-white px-4 py-3 rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      onClick={() => setShowAddNote(true)}
+                      className="text-sm text-[#3BAA75] hover:text-[#2D8259] font-medium flex items-center"
                     >
+                      <Edit2 className="h-4 w-4 mr-1" />
                       Add Note
                     </button>
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
-      </div>
-
-      {/* Document Preview Modal */}
-      {showDocumentPreview && selectedDocument && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="font-semibold text-lg truncate max-w-md">
-                {selectedDocument.filename.split('/').pop()}
-              </h3>
-              <div className="flex items-center space-x-2">
-                <a
-                  href={documentUrls[selectedDocument.id]}
-                  download
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <Download className="h-5 w-5" />
-                </a>
-                <button
-                  onClick={() => setShowDocumentPreview(false)}
-                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-            
-            <div className="flex-1 overflow-auto p-4 bg-gray-50">
-              {selectedDocument.filename.toLowerCase().endsWith('.pdf') ? (
-                <iframe
-                  src={`${documentUrls[selectedDocument.id]}#toolbar=0`}
-                  className="w-full h-full min-h-[60vh]"
-                  title="PDF Preview"
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <img
-                    src={documentUrls[selectedDocument.id]}
-                    alt="Document Preview"
-                    className="max-w-full max-h-[70vh] object-contain"
-                  />
-                </div>
-              )}
-            </div>
-            
-            <div className="p-4 border-t border-gray-200 bg-white">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <span className={`
-                    px-2 py-1 text-xs font-medium rounded-full
-                    ${selectedDocument.status === 'approved' ? 'bg-green-100 text-green-700' : 
-                      selectedDocument.status === 'rejected' ? 'bg-red-100 text-red-700' : 
-                      'bg-yellow-100 text-yellow-700'}
-                  `}>
-                    {selectedDocument.status.charAt(0).toUpperCase() + selectedDocument.status.slice(1)}
-                  </span>
-                  <span className="text-xs text-gray-500 ml-2">
-                    Uploaded: {format(new Date(selectedDocument.uploaded_at), 'MMM d, yyyy')}
-                  </span>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <select
-                    value={selectedDocument.status}
-                    onChange={(e) => {
-                      handleDocumentStatusChange(selectedDocument.id, e.target.value);
-                      setSelectedDocument({
-                        ...selectedDocument,
-                        status: e.target.value as 'pending' | 'approved' | 'rejected'
-                      });
-                    }}
-                    className="text-sm rounded-lg border border-gray-300"
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
-                  </select>
                   
-                  <button
-                    onClick={() => {
-                      handleDeleteDocument(selectedDocument.id);
-                      setShowDocumentPreview(false);
-                    }}
-                    className="px-3 py-1 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50"
-                  >
-                    Delete
-                  </button>
+                  {application.internal_notes ? (
+                    <div className="bg-gray-50 p-4 rounded-lg whitespace-pre-line">
+                      {application.internal_notes}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <FileText className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                      <p>No internal notes yet</p>
+                    </div>
+                  )}
                 </div>
               </div>
               
-              {selectedDocument.status === 'rejected' && (
-                <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Rejection Reason
-                  </label>
-                  <textarea
-                    value={selectedDocument.review_notes || ''}
-                    onChange={(e) => {
-                      const newNotes = e.target.value;
-                      setSelectedDocument({
-                        ...selectedDocument,
-                        review_notes: newNotes
-                      });
-                    }}
-                    onBlur={() => {
-                      if (selectedDocument.review_notes !== null) {
-                        handleDocumentStatusChange(
-                          selectedDocument.id, 
-                          selectedDocument.status,
-                          selectedDocument.review_notes
-                        );
-                      }
-                    }}
-                    placeholder="Explain why this document was rejected..."
-                    className="w-full rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
-                    rows={2}
+              {/* Right Column - Financial Metrics & Actions */}
+              <div className="space-y-6">
+                {/* Admin Assignment */}
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <User className="h-5 w-5 mr-2 text-[#3BAA75]" />
+                    Assigned Admin
+                  </h2>
+                  
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-500">Currently Assigned To</p>
+                        <p className="font-medium">
+                          {application.assigned_to_admin_id ? (
+                            adminUsers.find(admin => admin.id === application.assigned_to_admin_id)?.email || 'Unknown Admin'
+                          ) : (
+                            'Unassigned'
+                          )}
+                        </p>
+                      </div>
+                      
+                      <button
+                        onClick={() => setAssignedAdmin(application.assigned_to_admin_id)}
+                        className="text-sm text-[#3BAA75] hover:text-[#2D8259] font-medium"
+                      >
+                        Change
+                      </button>
+                    </div>
+                    
+                    <div className="relative">
+                      <select
+                        value={assignedAdmin || ''}
+                        onChange={(e) => setAssignedAdmin(e.target.value || null)}
+                        className="w-full appearance-none pl-4 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                      >
+                        <option value="">Unassigned</option>
+                        {adminUsers.map(admin => (
+                          <option key={admin.id} value={admin.id}>
+                            {admin.email}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    </div>
+                    
+                    <button
+                      onClick={handleAssignAdmin}
+                      disabled={isAssigning}
+                      className="w-full bg-[#3BAA75] text-white px-4 py-2 rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isAssigning ? (
+                        <span className="flex items-center justify-center">
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Assigning...
+                        </span>
+                      ) : (
+                        'Save Assignment'
+                      )}
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Financial Metrics */}
+                {financialMetrics && (
+                  <div className="bg-white rounded-lg shadow-sm p-6">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                      <PieChart className="h-5 w-5 mr-2 text-[#3BAA75]" />
+                      Financial Metrics
+                    </h2>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <p className="text-sm text-gray-500">Total Monthly Income</p>
+                          <p className="font-medium">{formatCurrency(financialMetrics.totalIncome)}</p>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-green-500 rounded-full" style={{ width: '100%' }} />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <p className="text-sm text-gray-500">Total Debt Obligations</p>
+                          <p className="font-medium">{formatCurrency(financialMetrics.totalDebtObligations)}</p>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-amber-500 rounded-full" 
+                            style={{ 
+                              width: `${Math.min(100, (financialMetrics.totalDebtObligations / financialMetrics.totalIncome) * 100)}%` 
+                            }} 
+                          />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <p className="text-sm text-gray-500">Net Disposable Income</p>
+                          <p className="font-medium">{formatCurrency(financialMetrics.netDisposableIncome)}</p>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-blue-500 rounded-full" 
+                            style={{ 
+                              width: `${Math.min(100, (financialMetrics.netDisposableIncome / financialMetrics.totalIncome) * 100)}%` 
+                            }} 
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="pt-4 border-t border-gray-200">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm text-gray-500">Debt-to-Income Ratio</p>
+                            <p className={`font-medium ${
+                              financialMetrics.dtiRisk === 'low' ? 'text-green-600' :
+                              financialMetrics.dtiRisk === 'medium' ? 'text-amber-600' :
+                              'text-red-600'
+                            }`}>
+                              {financialMetrics.debtToIncomeRatio.toFixed(1)}%
+                            </p>
+                          </div>
+                          
+                          <div>
+                            <p className="text-sm text-gray-500">Loan-to-Income Ratio</p>
+                            <p className={`font-medium ${
+                              financialMetrics.ltiRisk === 'low' ? 'text-green-600' :
+                              financialMetrics.ltiRisk === 'medium' ? 'text-amber-600' :
+                              'text-red-600'
+                            }`}>
+                              {financialMetrics.loanToIncomeRatio.toFixed(1)}%
+                            </p>
+                          </div>
+                          
+                          <div>
+                            <p className="text-sm text-gray-500">Income Risk</p>
+                            <p className={`font-medium ${
+                              financialMetrics.incomeRisk === 'low' ? 'text-green-600' :
+                              financialMetrics.incomeRisk === 'medium' ? 'text-amber-600' :
+                              'text-red-600'
+                            }`}>
+                              {financialMetrics.incomeRisk.charAt(0).toUpperCase() + financialMetrics.incomeRisk.slice(1)}
+                            </p>
+                          </div>
+                          
+                          <div>
+                            <p className="text-sm text-gray-500">Overall Risk</p>
+                            <p className={`font-medium ${
+                              financialMetrics.overallRisk === 'low' ? 'text-green-600' :
+                              financialMetrics.overallRisk === 'medium' ? 'text-amber-600' :
+                              'text-red-600'
+                            }`}>
+                              {financialMetrics.overallRisk.charAt(0).toUpperCase() + financialMetrics.overallRisk.slice(1)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Quick Actions */}
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <ArrowRight className="h-5 w-5 mr-2 text-[#3BAA75]" />
+                    Quick Actions
+                  </h2>
+                  
+                  <div className="space-y-3">
+                    <a
+                      href={`mailto:${application.email}?subject=Your%20Clearpath%20Motors%20Application%20${application.id.slice(0, 8)}`}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                      <span className="flex items-center text-gray-700">
+                        <Mail className="h-5 w-5 mr-2 text-[#3BAA75]" />
+                        Email Applicant
+                      </span>
+                      <ArrowUpRight className="h-4 w-4 text-gray-400" />
+                    </a>
+                    
+                    <a
+                      href={`tel:${application.phone}`}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                      <span className="flex items-center text-gray-700">
+                        <Phone className="h-5 w-5 mr-2 text-[#3BAA75]" />
+                        Call Applicant
+                      </span>
+                      <ArrowUpRight className="h-4 w-4 text-gray-400" />
+                    </a>
+                    
+                    <button
+                      onClick={() => setActiveTab('documents')}
+                      className="flex items-center justify-between w-full p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-left"
+                    >
+                      <span className="flex items-center text-gray-700">
+                        <FileCheck className="h-5 w-5 mr-2 text-[#3BAA75]" />
+                        Review Documents
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                    </button>
+                    
+                    <button
+                      onClick={() => setActiveTab('messages')}
+                      className="flex items-center justify-between w-full p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-left"
+                    >
+                      <span className="flex items-center text-gray-700">
+                        <MessageSquare className="h-5 w-5 mr-2 text-[#3BAA75]" />
+                        Send Message
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Recommended Lenders */}
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <Building className="h-5 w-5 mr-2 text-[#3BAA75]" />
+                    Recommended Lenders
+                  </h2>
+                  
+                  <div className="space-y-3">
+                    {financialMetrics && (
+                      <>
+                        {financialMetrics.overallRisk === 'low' && (
+                          <div className="p-3 bg-green-50 rounded-lg">
+                            <h3 className="font-medium text-green-800 mb-2 flex items-center">
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              A-Lenders (Prime)
+                            </h3>
+                            <p className="text-sm text-green-700 mb-2">
+                              Strong application with low risk. Recommend prime lenders for best rates.
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {LENDERS.aLenders.slice(0, 3).map(lender => (
+                                <button
+                                  key={lender.id}
+                                  onClick={() => {
+                                    setSelectedLender(lender.id);
+                                    setShowSendToLender(true);
+                                  }}
+                                  className="px-2 py-1 bg-white text-green-700 text-xs rounded border border-green-200 hover:bg-green-100 transition-colors"
+                                >
+                                  {lender.name}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {financialMetrics.overallRisk === 'medium' && (
+                          <div className="p-3 bg-amber-50 rounded-lg">
+                            <h3 className="font-medium text-amber-800 mb-2 flex items-center">
+                              <AlertCircle className="h-4 w-4 mr-1" />
+                              Near-Prime Lenders
+                            </h3>
+                            <p className="text-sm text-amber-700 mb-2">
+                              Moderate risk factors. Recommend near-prime lenders with competitive rates.
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {[...LENDERS.creditUnions.slice(0, 2), ...LENDERS.bLenders.slice(0, 2)].map(lender => (
+                                <button
+                                  key={lender.id}
+                                  onClick={() => {
+                                    setSelectedLender(lender.id);
+                                    setShowSendToLender(true);
+                                  }}
+                                  className="px-2 py-1 bg-white text-amber-700 text-xs rounded border border-amber-200 hover:bg-amber-100 transition-colors"
+                                >
+                                  {lender.name}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {financialMetrics.overallRisk === 'high' && (
+                          <div className="p-3 bg-red-50 rounded-lg">
+                            <h3 className="font-medium text-red-800 mb-2 flex items-center">
+                              <AlertCircle className="h-4 w-4 mr-1" />
+                              Subprime Lenders
+                            </h3>
+                            <p className="text-sm text-red-700 mb-2">
+                              Higher risk profile. Recommend specialized subprime lenders.
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                              {LENDERS.bLenders.slice(0, 4).map(lender => (
+                                <button
+                                  key={lender.id}
+                                  onClick={() => {
+                                    setSelectedLender(lender.id);
+                                    setShowSendToLender(true);
+                                  }}
+                                  className="px-2 py-1 bg-white text-red-700 text-xs rounded border border-red-200 hover:bg-red-100 transition-colors"
+                                >
+                                  {lender.name}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                    
+                    <button
+                      onClick={() => setShowSendToLender(true)}
+                      className="w-full mt-3 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                    >
+                      Send to Lender
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+          
+          {/* Documents Tab */}
+          {activeTab === 'documents' && (
+            <motion.div
+              key="documents"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="space-y-6"
+            >
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <FileCheck className="h-5 w-5 mr-2 text-[#3BAA75]" />
+                  Document Management
+                </h2>
+                
+                <div className="space-y-6">
+                  <DocumentManager
+                    applicationId={id || ''}
+                    documents={documents}
+                    onUpload={handleDocumentUpload}
+                    onDelete={handleDocumentDelete}
                   />
+                  
+                  <div className="border-t border-gray-200 pt-6">
+                    <h3 className="text-md font-medium text-gray-900 mb-4">Upload New Document</h3>
+                    
+                    <DocumentUpload
+                      applicationId={id || ''}
+                      documents={documents}
+                      onUpload={handleDocumentUpload}
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Document Review Section */}
+              {documents.filter(doc => doc.status === 'pending').length > 0 && (
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <FileText className="h-5 w-5 mr-2 text-[#3BAA75]" />
+                    Pending Document Reviews
+                  </h2>
+                  
+                  <div className="space-y-4">
+                    {documents.filter(doc => doc.status === 'pending').map(doc => (
+                      <div key={doc.id} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <p className="font-medium">{doc.filename.split('/').pop()}</p>
+                            <p className="text-sm text-gray-500">
+                              Category: {doc.category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              Uploaded: {formatDate(doc.uploaded_at)}
+                            </p>
+                          </div>
+                          
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">
+                            Pending Review
+                          </span>
+                        </div>
+                        
+                        <div className="mt-4 space-y-3">
+                          <textarea
+                            placeholder="Add review notes here..."
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                            rows={2}
+                            id={`notes-${doc.id}`}
+                          />
+                          
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => {
+                                const notes = (document.getElementById(`notes-${doc.id}`) as HTMLTextAreaElement)?.value;
+                                handleDocumentReview(doc.id, 'rejected', notes);
+                              }}
+                              className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                            >
+                              Reject
+                            </button>
+                            
+                            <button
+                              onClick={() => {
+                                const notes = (document.getElementById(`notes-${doc.id}`) as HTMLTextAreaElement)?.value;
+                                handleDocumentReview(doc.id, 'approved', notes);
+                              }}
+                              className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                            >
+                              Approve
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
+            </motion.div>
+          )}
+          
+          {/* Messages Tab */}
+          {activeTab === 'messages' && (
+            <motion.div
+              key="messages"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="grid lg:grid-cols-3 gap-6"
+            >
+              {/* Messages List */}
+              <div className="lg:col-span-2 bg-white rounded-lg shadow-sm p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <MessageSquare className="h-5 w-5 mr-2 text-[#3BAA75]" />
+                  Customer Messages
+                </h2>
+                
+                <div className="space-y-6">
+                  {messages.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                      <p>No messages yet</p>
+                      <p className="text-sm mt-2">Start the conversation with the customer</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 max-h-[600px] overflow-y-auto p-2">
+                      {messages.map(message => (
+                        <div
+                          key={message.id}
+                          className={`p-4 rounded-lg ${
+                            message.is_admin
+                              ? 'bg-[#3BAA75]/10 ml-8'
+                              : 'bg-gray-100 mr-8'
+                          }`}
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <p className="text-sm font-medium">
+                              {message.is_admin ? 'Admin' : application.first_name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {formatDateTime(message.created_at)}
+                            </p>
+                          </div>
+                          <p className="text-sm">{message.message}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="flex gap-2">
+                      <textarea
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder="Type your message here..."
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                        rows={3}
+                      />
+                    </div>
+                    
+                    <div className="flex justify-end mt-3">
+                      <button
+                        onClick={handleSendMessage}
+                        disabled={!newMessage || isSendingMessage}
+                        className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                      >
+                        {isSendingMessage ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Sending...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="h-4 w-4 mr-2" />
+                            Send Message
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Message Templates */}
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <FileText className="h-5 w-5 mr-2 text-[#3BAA75]" />
+                  Message Templates
+                </h2>
+                
+                <div className="space-y-3">
+                  <button
+                    onClick={() => setNewMessage("Hi there! I'm reviewing your application and wanted to check in. Is there anything specific you'd like to know about the process?")}
+                    className="w-full text-left p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <p className="font-medium text-gray-900">Initial Check-in</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Friendly first message to establish contact
+                    </p>
+                  </button>
+                  
+                  <button
+                    onClick={() => setNewMessage("I've reviewed your application and we need a few more documents to proceed. Could you please upload your proof of income and ID through the dashboard? Let me know if you need any help.")}
+                    className="w-full text-left p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <p className="font-medium text-gray-900">Request Documents</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Ask for missing documentation
+                    </p>
+                  </button>
+                  
+                  <button
+                    onClick={() => setNewMessage("Great news! Your application has been pre-approved. I'll be sending more details shortly about next steps and available vehicles that match your criteria.")}
+                    className="w-full text-left p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <p className="font-medium text-gray-900">Pre-Approval Notice</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Inform about pre-approval status
+                    </p>
+                  </button>
+                  
+                  <button
+                    onClick={() => setNewMessage("I noticed you haven't uploaded all the required documents yet. Is there anything I can help clarify about what's needed? We can't proceed with your application until we have all the necessary documentation.")}
+                    className="w-full text-left p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <p className="font-medium text-gray-900">Document Follow-up</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Reminder about missing documents
+                    </p>
+                  </button>
+                  
+                  <button
+                    onClick={() => setNewMessage("Would you be available for a quick call to discuss your application? I have some options I'd like to go over with you. Please let me know what time works best for you.")}
+                    className="w-full text-left p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <p className="font-medium text-gray-900">Schedule Call</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Request a phone consultation
+                    </p>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+          
+          {/* Activity Log Tab */}
+          {activeTab === 'activity' && (
+            <motion.div
+              key="activity"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="bg-white rounded-lg shadow-sm p-6"
+            >
+              <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+                <Clock className="h-5 w-5 mr-2 text-[#3BAA75]" />
+                Activity Log
+              </h2>
+              
+              {activityLog.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Clock className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                  <p>No activity recorded yet</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {activityLog.map((activity, index) => (
+                    <div key={activity.id} className="relative">
+                      {index !== activityLog.length - 1 && (
+                        <div className="absolute top-8 left-4 bottom-0 w-px bg-gray-200" />
+                      )}
+                      <div className="flex gap-4">
+                        <div className="relative z-10">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium ${
+                            activity.is_admin_action ? 'bg-blue-500' : 'bg-[#3BAA75]'
+                          }`}>
+                            {activity.is_admin_action ? 'A' : 'U'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="flex items-center">
+                            <p className="font-medium text-gray-900">
+                              {activity.is_admin_action ? 'Admin' : application.first_name}
+                            </p>
+                            <span className="mx-1 text-gray-500">•</span>
+                            <p className="text-sm text-gray-500">
+                              {formatDateTime(activity.created_at)}
+                            </p>
+                          </div>
+                          <p className="text-gray-600 mt-1">
+                            {formatActivityAction(activity.action)}
+                            {activity.details && activity.action === 'send_to_lender' && (
+                              <span> to <strong>{activity.details.lender_name}</strong></span>
+                            )}
+                            {activity.details && activity.action === 'update_document' && (
+                              <span> to <strong>{activity.details.status}</strong></span>
+                            )}
+                          </p>
+                          
+                          {activity.details && activity.details.note && (
+                            <p className="text-sm bg-gray-50 p-2 rounded mt-2 text-gray-600">
+                              {activity.details.note}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+          
+          {/* Flags Tab */}
+          {activeTab === 'flags' && (
+            <motion.div
+              key="flags"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="bg-white rounded-lg shadow-sm p-6"
+            >
+              <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
+                <AlertCircle className="h-5 w-5 mr-2 text-[#3BAA75]" />
+                Application Flags
+              </h2>
+              
+              {flags.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <CheckCircle className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                  <p>No flags on this application</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {flags.map(flag => (
+                    <div
+                      key={flag.id}
+                      className={`border rounded-lg p-4 ${
+                        flag.severity === 'critical' ? 'border-red-200 bg-red-50' :
+                        flag.severity === 'high' ? 'border-amber-200 bg-amber-50' :
+                        flag.severity === 'medium' ? 'border-yellow-200 bg-yellow-50' :
+                        'border-blue-200 bg-blue-50'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className={`font-medium ${
+                            flag.severity === 'critical' ? 'text-red-700' :
+                            flag.severity === 'high' ? 'text-amber-700' :
+                            flag.severity === 'medium' ? 'text-yellow-700' :
+                            'text-blue-700'
+                          }`}>
+                            {flag.flag_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          </h3>
+                          <p className="text-sm mt-1">
+                            {flag.description}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-2">
+                            Flagged on {formatDate(flag.created_at)}
+                          </p>
+                        </div>
+                        
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          flag.severity === 'critical' ? 'bg-red-200 text-red-800' :
+                          flag.severity === 'high' ? 'bg-amber-200 text-amber-800' :
+                          flag.severity === 'medium' ? 'bg-yellow-200 text-yellow-800' :
+                          'bg-blue-200 text-blue-800'
+                        }`}>
+                          {flag.severity.charAt(0).toUpperCase() + flag.severity.slice(1)}
+                        </span>
+                      </div>
+                      
+                      {flag.resolved_at ? (
+                        <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between">
+                          <div className="flex items-center text-green-600 text-sm">
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            Resolved on {formatDate(flag.resolved_at)}
+                          </div>
+                          
+                          <button className="text-xs text-gray-500 hover:text-gray-700">
+                            View Details
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="mt-3 pt-3 border-t border-gray-200 flex justify-end">
+                          <button className="px-3 py-1 bg-white text-gray-700 rounded border border-gray-300 text-sm hover:bg-gray-50 transition-colors">
+                            Mark as Resolved
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+      
+      {/* Modals */}
+      {/* Change Status Modal */}
+      {showChangeStatus && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Update Application Status
+              </h3>
+              <button
+                onClick={() => setShowChangeStatus(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Current Status
+                </label>
+                <div className="p-2 bg-gray-50 rounded-lg text-gray-700">
+                  {formatStatus(application.status)}
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  New Status
+                </label>
+                <select
+                  value={newStatus}
+                  onChange={(e) => setNewStatus(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                >
+                  <option value="">Select Status</option>
+                  {APPLICATION_STATUSES.map(status => (
+                    <option key={status.value} value={status.value}>
+                      {status.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Status Note (Optional)
+                </label>
+                <textarea
+                  value={statusNote}
+                  onChange={(e) => setStatusNote(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                  rows={3}
+                  placeholder="Add a note about this status change..."
+                />
+              </div>
+            </div>
+            
+            <div className="p-4 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={() => setShowChangeStatus(false)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleStatusChange}
+                disabled={!newStatus || isUpdating}
+                className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+              >
+                {isUpdating ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  'Update Status'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Send to Lender Modal */}
+      {showSendToLender && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Send Application to Lender
+              </h3>
+              <button
+                onClick={() => setShowSendToLender(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Select Lender
+                </label>
+                <select
+                  value={selectedLender}
+                  onChange={(e) => setSelectedLender(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                >
+                  <option value="">Select Lender</option>
+                  <optgroup label="A-Lenders (Prime)">
+                    {LENDERS.aLenders.map(lender => (
+                      <option key={lender.id} value={lender.id}>
+                        {lender.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Credit Unions & Alt Banks">
+                    {LENDERS.creditUnions.map(lender => (
+                      <option key={lender.id} value={lender.id}>
+                        {lender.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="B-Lenders (Subprime)">
+                    {LENDERS.bLenders.map(lender => (
+                      <option key={lender.id} value={lender.id}>
+                        {lender.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Note to Lender (Optional)
+                </label>
+                <textarea
+                  value={lenderNote}
+                  onChange={(e) => setLenderNote(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                  rows={3}
+                  placeholder="Add any specific details for the lender..."
+                />
+              </div>
+            </div>
+            
+            <div className="p-4 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={() => setShowSendToLender(false)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSendToLender}
+                disabled={!selectedLender || isUpdating}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+              >
+                {isUpdating ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  'Send to Lender'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Add Note Modal */}
+      {showAddNote && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Add Internal Note
+              </h3>
+              <button
+                onClick={() => setShowAddNote(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Note
+                </label>
+                <textarea
+                  value={internalNote}
+                  onChange={(e) => setInternalNote(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                  rows={5}
+                  placeholder="Add your internal note here..."
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  This note is only visible to admins and will not be shared with the applicant.
+                </p>
+              </div>
+            </div>
+            
+            <div className="p-4 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={() => setShowAddNote(false)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddNote}
+                disabled={!internalNote || isUpdating}
+                className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+              >
+                {isUpdating ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Note'
+                )}
+              </button>
             </div>
           </div>
         </div>
       )}
     </div>
   );
+};
+
+// Helper function to format activity actions
+const formatActivityAction = (action: string) => {
+  switch (action) {
+    case 'update_application':
+      return 'updated the application';
+    case 'upload_document':
+      return 'uploaded a document';
+    case 'update_document':
+      return 'updated a document';
+    case 'delete_document':
+      return 'deleted a document';
+    case 'send_to_lender':
+      return 'sent the application';
+    case 'add_note':
+      return 'added a note';
+    case 'assign_admin':
+      return 'assigned the application';
+    default:
+      return action.replace(/_/g, ' ');
+  }
 };
 
 export default ApplicationView;

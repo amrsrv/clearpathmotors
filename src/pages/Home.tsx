@@ -168,10 +168,10 @@ const Home = () => {
                 className="flex flex-col sm:flex-row gap-4"
               >
                 <Link
-                  to="/get-approved"
+                  to="/get-prequalified"
                   className="w-full sm:w-auto bg-[#3BAA75] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#A3D9B1] transition-colors group inline-flex items-center justify-center shadow-lg hover:shadow-xl"
                 >
-                  Get Started
+                  Get Pre-Qualified
                   <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </Link>
                 <Link
@@ -294,10 +294,10 @@ const Home = () => {
                     </div>
 
                     <Link
-                      to="/get-approved"
+                      to="/get-prequalified"
                       className="block w-full bg-[#3BAA75] text-white text-center px-6 py-4 rounded-lg text-lg font-semibold hover:bg-[#2D8259] transition-colors mt-8"
                     >
-                      Apply Now
+                      Get Pre-Qualified
                     </Link>
 
                     <p className="text-center text-sm text-gray-500">
@@ -399,7 +399,7 @@ const Home = () => {
               <ScrollReveal key={vehicle.type} delay={index * 0.1}>
                 <Link
                   to={{
-                    pathname: "/get-approved",
+                    pathname: "/get-prequalified",
                     search: "?vehicle=" + vehicle.type.toLowerCase()
                   }}
                   className="block"
@@ -450,12 +450,12 @@ const Home = () => {
               {[
                 {
                   icon: <Calculator className="h-16 w-16 text-[#3BAA75]" />,
-                  title: <>Build Your <Link to="/calculator\" className="text-[#3BAA75] hover:text-[#2D8259] transition-colors">Financing Plan</Link></>,
+                  title: <>Build Your <Link to="/calculator" className="text-[#3BAA75] hover:text-[#2D8259] transition-colors">Financing Plan</Link></>,
                   description: "Start with our payment calculator. Tweak the numbers, explore possibilities, and discover a monthly payment that fits your budget like a glove."
                 },
                 {
                   icon: <FileText className="h-16 w-16 text-[#3BAA75]" />,
-                  title: <>Secure Your <Link to="/get-approved" className="text-[#3BAA75] hover:text-[#2D8259] transition-colors">Pre-Approval</Link></>,
+                  title: <>Secure Your <Link to="/get-prequalified" className="text-[#3BAA75] hover:text-[#2D8259] transition-colors">Pre-Approval</Link></>,
                   description: "We mirror the underwriting systems used by banks — reviewing income, debt ratios, credit behavior, and loan-to-value — to deliver a real-world pre-approval you can trust."
                 },
                 {
@@ -488,7 +488,7 @@ const Home = () => {
           <ScrollReveal delay={0.6}>
             <div className="text-center mt-16">
               <Link
-                to="/get-approved"
+                to="/get-prequalified"
                 className="inline-flex items-center px-8 py-4 bg-[#3BAA75] text-white rounded-lg text-lg font-semibold hover:bg-[#2D8259] transition-all transform hover:scale-105 shadow-lg hover:shadow-xl"
               >
                 Start Your Journey
@@ -541,13 +541,21 @@ const Home = () => {
             <p className="text-xl text-gray-600 mb-8">
               Apply now and get approved in minutes. No obligation to proceed.
             </p>
-            <Link
-              to="/get-approved"
-              className="inline-flex items-center justify-center bg-[#3BAA75] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#A3D9B1] transition-colors group"
-            >
-              Apply Now
-              <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </Link>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link
+                to="/get-prequalified"
+                className="inline-flex items-center justify-center bg-[#3BAA75] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#A3D9B1] transition-colors group"
+              >
+                Get Pre-Qualified
+                <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </Link>
+              <Link
+                to="/get-approved"
+                className="inline-flex items-center justify-center bg-white text-gray-800 border-2 border-gray-200 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Quick Application
+              </Link>
+            </div>
           </ScrollReveal>
         </div>
       </section>
