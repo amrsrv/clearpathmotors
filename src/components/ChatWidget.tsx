@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, X, Send, User, Bot, Loader2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
+import { v4 as uuidv4 } from 'uuid';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -17,7 +18,25 @@ export const ChatWidget = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [localUserId, setLocalUserId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Initialize localUserId on component mount
+  useEffect(() => {
+    if (user) {
+      setLocalUserId(user.id);
+    } else {
+      // For anonymous users, get ID from localStorage or generate a new one
+      const storedId = localStorage.getItem('anonymousUserId');
+      if (storedId) {
+        setLocalUserId(storedId);
+      } else {
+        const newId = uuidv4();
+        localStorage.setItem('anonymousUserId', newId);
+        setLocalUserId(newId);
+      }
+    }
+  }, [user]);
 
   // Load chat history when widget opens
   useEffect(() => {
@@ -71,7 +90,7 @@ export const ChatWidget = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!message.trim() || !user) return;
+    if (!message.trim() || !localUserId) return;
     
     const userMessage = message.trim();
     setMessage('');
@@ -96,7 +115,7 @@ export const ChatWidget = () => {
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
         },
         body: JSON.stringify({
-          userId: user.id,
+          userId: localUserId,
           userMessage
         })
       });
@@ -129,7 +148,8 @@ export const ChatWidget = () => {
       {/* Chat Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-4 right-4 bg-[#3BAA75] text-white p-4 rounded-full shadow-lg hover:bg-[#2D8259] transition-colors"
+        className="fixed bottom-4 right-4 bg-[#3BAA75] text-white p-4 rounded-full shadow-lg hover:bg-[#2D8259] transition-colors z-50"
+        aria-label="Open chat"
       >
         <MessageSquare className="h-6 w-6" />
       </button>
@@ -141,14 +161,15 @@ export const ChatWidget = () => {
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className="fixed bottom-20 right-4 w-96 bg-white rounded-lg shadow-xl overflow-hidden z-50"
+            className="fixed bottom-20 right-4 w-80 md:w-96 bg-white rounded-lg shadow-xl overflow-hidden z-50"
           >
             {/* Header */}
             <div className="bg-[#3BAA75] text-white p-4 flex items-center justify-between">
-              <h3 className="font-semibold">Chat with Support</h3>
+              <h3 className="font-semibold">Ask us anything!</h3>
               <button
                 onClick={() => setIsOpen(false)}
                 className="text-white/80 hover:text-white transition-colors"
+                aria-label="Close chat"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -160,9 +181,7 @@ export const ChatWidget = () => {
                 <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
                   <MessageSquare className="h-12 w-12 mb-4 opacity-20" />
                   <p className="text-sm">
-                    {user 
-                      ? "Hi there! How can I help with your auto financing questions today?"
-                      : "Please sign in to start a conversation."}
+                    Hi there! How can I help with your auto financing questions today?
                   </p>
                 </div>
               ) : (
@@ -230,14 +249,15 @@ export const ChatWidget = () => {
                   type="text"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
-                  placeholder={user ? "Type your message..." : "Please sign in to chat"}
-                  disabled={!user || isLoading}
+                  placeholder="Type your message..."
+                  disabled={isLoading}
                   className="flex-1 border rounded-lg px-3 py-2 focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
                 />
                 <button
                   type="submit"
-                  disabled={!user || !message.trim() || isLoading}
+                  disabled={!message.trim() || isLoading}
                   className="bg-[#3BAA75] text-white p-2 rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Send message"
                 >
                   {isLoading ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
@@ -248,7 +268,7 @@ export const ChatWidget = () => {
               </div>
               {!user && (
                 <p className="text-xs text-center mt-2 text-gray-500">
-                  Please <a href="/login" className="text-[#3BAA75] hover:underline">sign in</a> to chat with our support team
+                  <a href="/login" className="text-[#3BAA75] hover:underline">Sign in</a> to save your chat history
                 </p>
               )}
             </form>
