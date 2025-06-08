@@ -6,7 +6,6 @@ import { ScrollReveal } from '../components/ScrollReveal';
 import { TestimonialCarousel } from '../components/TestimonialCarousel';
 import { AnimatedNumber } from '../components/AnimatedNumber';
 import { LogoScroll } from '../components/LogoScroll';
-import Header from '../components/Header'; // If you have a separate header component
 
 const Home = () => {
   const [rotatingWord, setRotatingWord] = useState('Financing');
@@ -63,9 +62,6 @@ const Home = () => {
 
       {/* Page Content */}
       <div className="relative z-10">
-        {/* Transparent Header */}
-        <Header /> {/* Replace with your header component */}
-
         {/* Hero Section */}
         <div className="min-h-[72vh] md:min-h-[80vh] flex items-center px-4 sm:px-6 lg:px-8 py-8 md:py-12 max-w-7xl mx-auto">
           <div className="space-y-6">
