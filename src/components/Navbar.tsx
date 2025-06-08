@@ -63,12 +63,12 @@ const Navbar = () => {
     }
   };
 
-  const navbarClasses = `fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+  const navbarClasses = `fixed top-0 left-0 right-0 z-50 transition-all duration-300 backdrop-blur-sm ${
     scrolled 
-      ? 'bg-white shadow-md border-b border-gray-100' 
+      ? 'bg-white/90 shadow-md border-b border-gray-100' 
       : isHomePage 
         ? 'bg-transparent border-transparent' 
-        : 'bg-white border-b border-gray-100'
+        : 'bg-white/90 border-b border-gray-100'
   }`;
 
   const textColorClass = (!scrolled && isHomePage) ? 'text-white' : 'text-gray-700';
@@ -116,7 +116,7 @@ const Navbar = () => {
               <div className="relative">
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
-                  className={`ml-2 flex items-center space-x-2 bg-gray-100 ${textColorClass} px-4 py-3 rounded-lg hover:bg-gray-200 transition-colors text-base font-medium`}
+                  className={`ml-2 flex items-center space-x-2 bg-gray-100/80 ${textColorClass} px-4 py-3 rounded-lg hover:bg-gray-200 transition-colors text-base font-medium`}
                 >
                   <User className="h-5 w-5" />
                   <span>Account</span>
@@ -144,13 +144,13 @@ const Navbar = () => {
               <>
                 <Link
                   to="/login"
-                  className={`px-4 py-3 ${textColorClass} hover:text-[#3BAA75] hover:bg-gray-50 rounded-lg transition-colors text-base font-medium`}
+                  className={`px-4 py-3 ${textColorClass} hover:text-[#3BAA75] hover:bg-gray-50/80 rounded-lg transition-colors text-base font-medium`}
                 >
                   Login
                 </Link>
                 <Link
                   to="/signup"
-                  className={`px-4 py-3 ${textColorClass} hover:text-[#3BAA75] hover:bg-gray-50 rounded-lg transition-colors text-base font-medium`}
+                  className={`px-4 py-3 ${textColorClass} hover:text-[#3BAA75] hover:bg-gray-50/80 rounded-lg transition-colors text-base font-medium`}
                 >
                   Sign Up
                 </Link>
@@ -168,7 +168,7 @@ const Navbar = () => {
           <div className="md:hidden flex items-center">
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className={`${textColorClass} hover:text-[#3BAA75] transition-colors p-2 rounded-lg hover:bg-gray-50`}
+              className={`${textColorClass} hover:text-[#3BAA75] transition-colors p-2 rounded-lg hover:bg-gray-50/80`}
               aria-label="Toggle menu"
             >
               {isOpen ? <X className="h-6 w-6" /> : <MenuIcon className="h-6 w-6" />}
@@ -178,7 +178,7 @@ const Navbar = () => {
 
         {/* Mobile Navigation */}
         {isOpen && (
-          <div className="md:hidden absolute top-full left-0 right-0 bg-white border-t border-gray-100 shadow-lg">
+          <div className="md:hidden absolute top-full left-0 right-0 bg-white/95 backdrop-blur-sm border-t border-gray-100 shadow-lg">
             <div className="px-4 py-3 space-y-1">
               <button
                 onClick={handleAutoFinancingClick}
