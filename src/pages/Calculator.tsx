@@ -1,4 +1,3 @@
-{/* File content updated with CrediSure -> ClearPath */}
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { DollarSign, Calendar, ChevronRight, Shield, Award, TrendingUp, Users, BadgeCheck, Car, FileText, Calculator as CalculatorIcon } from 'lucide-react';
@@ -234,7 +233,7 @@ const Calculator = () => {
 
                   <Link
                     to={{
-                      pathname: "/get-approved",
+                      pathname: "/get-prequalified",
                       search: `?amount=${totalLoan}&term=${term}&rate=${interestRate}&budget=${monthlyPayment}`
                     }}
                     className="block w-full bg-white text-[#3BAA75] text-center px-6 py-3 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-colors mt-6 group"
@@ -352,7 +351,7 @@ const Calculator = () => {
             Apply now and get approved in minutes. No obligation to proceed.
           </p>
           <Link
-            to="/get-approved"
+            to="/get-prequalified"
             className="inline-flex items-center justify-center bg-[#3BAA75] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#A3D9B1] transition-colors group"
           >
             Apply Now

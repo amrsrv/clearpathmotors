@@ -133,7 +133,7 @@ const HowItWorks = () => {
           className="text-center"
         >
           <Link
-            to="/get-approved"
+            to="/get-prequalified"
             className="inline-block bg-[#3BAA75] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#A3D9B1] transition-colors"
           >
             Check If You Qualify

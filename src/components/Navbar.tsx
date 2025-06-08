@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Menu as MenuIcon, X, User } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { Menu, MenuItem, ProductMenu, HoveredLink } from './Menu';
+import { supabase } from '../lib/supabaseClient';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -18,7 +19,7 @@ const Navbar = () => {
 
   const handleAutoFinancingClick = async () => {
     if (!user) {
-      navigate('/get-approved');
+      navigate('/get-prequalified');
       return;
     }
 
@@ -32,16 +33,16 @@ const Navbar = () => {
       if (application) {
         navigate('/dashboard');
       } else {
-        navigate('/get-approved');
+        navigate('/get-prequalified');
       }
     } catch (error) {
       console.error('Error checking application:', error);
-      navigate('/get-approved');
+      navigate('/get-prequalified');
     }
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 bg-white z-50 border-b border-gray-100">
+    <nav className="fixed top-0 left-0 right-0 bg-white z-50 border-b border-gray-100 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 md:h-24">
           <div className="flex-shrink-0">
@@ -120,7 +121,7 @@ const Navbar = () => {
                   Sign Up
                 </Link>
                 <Link
-                  to="/get-approved"
+                  to="/get-prequalified"
                   className="ml-2 bg-[#3BAA75] text-white px-6 py-3 rounded-lg hover:bg-[#2D8259] transition-colors text-base font-semibold shadow-sm hover:shadow-md"
                 >
                   Get Started
@@ -216,7 +217,7 @@ const Navbar = () => {
                     Sign Up
                   </Link>
                   <Link
-                    to="/get-approved"
+                    to="/get-prequalified"
                     className="block px-4 py-3 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors text-center mt-2"
                     onClick={() => setIsOpen(false)}
                   >

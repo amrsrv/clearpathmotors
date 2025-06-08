@@ -90,7 +90,8 @@ const App = () => {
             <Route path="/calculator" element={<Calculator />} />
             <Route path="/faq" element={<FAQ />} />
             <Route path="/contact" element={<Contact />} />
-            <Route path="/get-approved" element={<GetApproved />} />
+            <Route path="/get-approved" element={<Navigate to="/get-prequalified" replace />} />
+            <Route path="/get-prequalified" element={<GetApproved />} />
             <Route path="/create-account" element={<CreateAccount />} />
             <Route path="/qualification-results" element={<QualificationResults />} />
             <Route path="/blog/:slug" element={<Blog />} />
@@ -164,9 +165,7 @@ const App = () => {
         </AnimatePresence>
       </main>
       {!location.pathname.startsWith('/admin') && <Footer />}
-      
-      {/* Add ChatWidget component */}
-      <ChatWidget />
+      {!location.pathname.startsWith('/admin') && <ChatWidget />}
     </div>
   );
 };

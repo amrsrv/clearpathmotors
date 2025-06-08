@@ -83,30 +83,18 @@ const Home = () => {
     <div className="bg-gradient-to-b from-white via-[#3BAA75]/5 to-white">
       {/* Hero Section */}
       <div className="relative min-h-[72vh] md:min-h-[80vh] flex items-center">
-        {/* Background Image - Desktop */}
+        {/* Video Background */}
         <div className="absolute inset-0 w-full h-full overflow-hidden">
-          <div className="hidden md:block absolute inset-0">
-            <img 
-              src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//2.jpg" 
-              alt="Hero background" 
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-black/40"></div>
-          </div>
-          
-          {/* Video Background - Mobile only */}
-          <div className="md:hidden absolute inset-0">
-            <video
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="absolute top-0 left-0 w-full h-full object-cover"
-            >
-              <source src="https://yorkdalefinecars.org/wp-content/uploads/2025/06/Driving-in-Icelandic-Highlands-4K-1.mp4" type="video/mp4" />
-            </video>
-            <div className="absolute inset-0 bg-black/40"></div>
-          </div>
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute top-0 left-0 w-full h-full object-cover"
+          >
+            <source src="https://yorkdalefinecars.org/wp-content/uploads/2025/06/Driving-in-Icelandic-Highlands-4K-1.mp4" type="video/mp4" />
+          </video>
+  
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full py-8 md:py-12">
@@ -171,7 +159,7 @@ const Home = () => {
                   to="/get-prequalified"
                   className="w-full sm:w-auto bg-[#3BAA75] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#A3D9B1] transition-colors group inline-flex items-center justify-center shadow-lg hover:shadow-xl"
                 >
-                  Get Pre-Qualified
+                  Get Started
                   <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </Link>
                 <Link
@@ -297,7 +285,7 @@ const Home = () => {
                       to="/get-prequalified"
                       className="block w-full bg-[#3BAA75] text-white text-center px-6 py-4 rounded-lg text-lg font-semibold hover:bg-[#2D8259] transition-colors mt-8"
                     >
-                      Get Pre-Qualified
+                      Apply Now
                     </Link>
 
                     <p className="text-center text-sm text-gray-500">
@@ -450,7 +438,7 @@ const Home = () => {
               {[
                 {
                   icon: <Calculator className="h-16 w-16 text-[#3BAA75]" />,
-                  title: <>Build Your <Link to="/calculator" className="text-[#3BAA75] hover:text-[#2D8259] transition-colors">Financing Plan</Link></>,
+                  title: <>Build Your <Link to="/calculator\" className="text-[#3BAA75] hover:text-[#2D8259] transition-colors">Financing Plan</Link></>,
                   description: "Start with our payment calculator. Tweak the numbers, explore possibilities, and discover a monthly payment that fits your budget like a glove."
                 },
                 {
@@ -541,21 +529,13 @@ const Home = () => {
             <p className="text-xl text-gray-600 mb-8">
               Apply now and get approved in minutes. No obligation to proceed.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link
-                to="/get-prequalified"
-                className="inline-flex items-center justify-center bg-[#3BAA75] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#A3D9B1] transition-colors group"
-              >
-                Get Pre-Qualified
-                <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </Link>
-              <Link
-                to="/get-approved"
-                className="inline-flex items-center justify-center bg-white text-gray-800 border-2 border-gray-200 px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-50 transition-colors"
-              >
-                Quick Application
-              </Link>
-            </div>
+            <Link
+              to="/get-prequalified"
+              className="inline-flex items-center justify-center bg-[#3BAA75] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#A3D9B1] transition-colors group"
+            >
+              Apply Now
+              <ChevronRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </Link>
           </ScrollReveal>
         </div>
       </section>
