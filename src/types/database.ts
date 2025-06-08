@@ -7,6 +7,41 @@ export type ApplicationStatus =
   | 'final_approval'
   | 'finalized';
 
+export type EmploymentStatus = 
+  | 'employed'
+  | 'self_employed'
+  | 'unemployed';
+
+export type MaritalStatusEnum = 
+  | 'single'
+  | 'married'
+  | 'divorced'
+  | 'widowed'
+  | 'separated'
+  | 'other';
+
+export type HousingStatusEnum = 
+  | 'own'
+  | 'rent'
+  | 'live_with_parents'
+  | 'other';
+
+export type DebtDischargeTypeEnum = 
+  | 'bankruptcy'
+  | 'consumer_proposal'
+  | 'informal_settlement'
+  | 'other';
+
+export type DebtDischargeStatusEnum = 
+  | 'active'
+  | 'discharged'
+  | 'not_sure';
+
+export type PreferredContactMethodEnum = 
+  | 'email'
+  | 'phone'
+  | 'sms';
+
 export interface Application {
   id: string;
   user_id: string | null;
@@ -16,7 +51,7 @@ export interface Application {
   updated_at: string;
   current_stage: number;
   notes: string | null;
-  employment_status: 'employed' | 'self_employed' | 'unemployed' | null;
+  employment_status: EmploymentStatus | null;
   consultation_time: string | null;
   first_name: string | null;
   last_name: string | null;
@@ -36,28 +71,29 @@ export interface Application {
   interest_rate: number | null;
   loan_term: number | null;
   down_payment: number | null;
-  // New fields that may be null for older records
+  full_name: string | null;
+  income: number | null;
   date_of_birth: string | null;
-  marital_status: 'single' | 'married' | 'divorced' | 'widowed' | 'separated' | 'other' | null;
+  marital_status: MaritalStatusEnum | null;
   dependents: number | null;
   employer_name: string | null;
   occupation: string | null;
   employment_duration: string | null;
   other_income: number | null;
-  housing_status: 'own' | 'rent' | 'live_with_parents' | 'other' | null;
+  housing_status: HousingStatusEnum | null;
   housing_payment: number | null;
   residence_duration: string | null;
   desired_loan_amount: number | null;
   down_payment_amount: number | null;
   has_driver_license: boolean | null;
   collects_government_benefits: boolean | null;
-  disability_programs: any[] | null;
+  disability_programs: any | null;
   has_debt_discharge_history: boolean | null;
-  debt_discharge_type: 'bankruptcy' | 'consumer_proposal' | 'informal_settlement' | 'other' | null;
+  debt_discharge_type: DebtDischargeTypeEnum | null;
   debt_discharge_year: number | null;
-  debt_discharge_status: 'active' | 'discharged' | 'not_sure' | null;
+  debt_discharge_status: DebtDischargeStatusEnum | null;
   debt_discharge_comments: string | null;
-  preferred_contact_method: 'email' | 'phone' | 'sms' | null;
+  preferred_contact_method: PreferredContactMethodEnum | null;
   consent_soft_check: boolean | null;
   terms_accepted: boolean | null;
   internal_notes: string | null;

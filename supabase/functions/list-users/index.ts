@@ -2,7 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
@@ -16,6 +16,12 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Get query parameters
+    const url = new URL(req.url);
+    const start = parseInt(url.searchParams.get('start') || '0');
+    const limit = parseInt(url.searchParams.get('limit') || '10');
+    const status = url.searchParams.get('status');
+
     // Create Supabase client with service role key
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -43,17 +49,32 @@ Deno.serve(async (req) => {
     }
 
     // Check if user is an admin
-    const isAdmin = user.app_metadata.is_admin === true;
+    const isAdmin = user.app_metadata?.is_admin === true;
     if (!isAdmin) {
       throw new Error('Unauthorized - Admin access required');
     }
 
     // Get the list of users
-    const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers();
+    const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers({
+      page: Math.floor(start / limit) + 1,
+      perPage: limit,
+    });
     
     if (error) throw error;
 
-    return new Response(JSON.stringify({ users }), {
+    // Filter users if status is provided
+    let filteredUsers = users;
+    if (status) {
+      if (status === 'verified') {
+        filteredUsers = users.filter(u => u.email_confirmed_at !== null);
+      } else if (status === 'unverified') {
+        filteredUsers = users.filter(u => u.email_confirmed_at === null);
+      } else if (status === 'admin') {
+        filteredUsers = users.filter(u => u.app_metadata?.is_admin === true);
+      }
+    }
+
+    return new Response(JSON.stringify({ users: filteredUsers }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });

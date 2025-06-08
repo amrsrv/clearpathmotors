@@ -3,754 +3,891 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import {
-  User, Mail, Phone, Calendar, MapPin, Building, Briefcase, DollarSign,
-  Home, Car, CreditCard, FileText, CheckCircle, AlertCircle, ChevronRight,
-  ChevronLeft, ChevronDown, Info, Heart, Shield, HelpCircle, ArrowRight, Clock, X,
-  Check, RefreshCw, Edit2, Send, Download, Trash2, MessageSquare, Bell,
-  FileCheck, ArrowUpRight, Wallet, CalendarClock, PieChart, BarChart
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Building,
+  Briefcase,
+  DollarSign,
+  Home,
+  Car,
+  FileText,
+  Clock,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Edit2,
+  Save,
+  X,
+  ChevronDown,
+  ChevronUp,
+  MessageSquare,
+  Send,
+  Upload,
+  Trash2,
+  Eye,
+  Calendar,
+  Flag,
+  RefreshCw,
+  UserCheck,
+  Shield,
+  HelpCircle,
+  Info,
+  PlusCircle
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import toast from 'react-hot-toast';
-import { DocumentManager } from '../../components/DocumentManager';
 import { DocumentUpload } from '../../components/DocumentUpload';
-import { ApplicationTracker } from '../../components/ApplicationTracker';
+import { DocumentManager } from '../../components/DocumentManager';
+import { useDocumentUpload } from '../../hooks/useDocumentUpload';
+import type { Application, Document, ApplicationStage } from '../../types/database';
 
-// Define lender categories and options
-const LENDERS = {
-  aLenders: [
-    { id: 'td', name: 'TD Auto Finance (TD Wheels)' },
-    { id: 'rbc', name: 'RBC Royal Bank' },
-    { id: 'scotiabank', name: 'Scotiabank' },
-    { id: 'bmo', name: 'BMO Bank of Montreal' },
-    { id: 'cibc', name: 'CIBC' },
-    { id: 'national', name: 'National Bank of Canada' }
-  ],
-  creditUnions: [
-    { id: 'alterna', name: 'Alterna Bank' },
-    { id: 'meridian', name: 'Meridian Credit Union' },
-    { id: 'versabank', name: 'VersaBank' },
-    { id: 'manulife', name: 'Manulife Bank' },
-    { id: 'canadiantire', name: 'Canadian Tire Bank' }
-  ],
-  bLenders: [
-    { id: 'lendcare', name: 'LendCare (by goeasy)' },
-    { id: 'ia', name: 'iA Auto Finance' },
-    { id: 'edenpark', name: 'EdenPark' },
-    { id: 'northlake', name: 'Northlake Financial' },
-    { id: 'autocapital', name: 'AutoCapital Canada' },
-    { id: 'rifco', name: 'Rifco National Auto Finance' },
-    { id: 'axis', name: 'Axis Auto Finance' },
-    { id: 'dealerhop', name: 'Dealerhop' }
-  ]
-};
+interface AdminUser {
+  id: string;
+  email: string;
+}
 
-// Define application status options
-const APPLICATION_STATUSES = [
-  { value: 'pending_documents', label: 'Pending Documents' },
-  { value: 'pre_approved', label: 'Pre-Approved' },
-  { value: 'vehicle_selection', label: 'Vehicle Selection' },
-  { value: 'final_approval', label: 'Final Approval' },
-  { value: 'finalized', label: 'Finalized' }
-];
+interface ApplicationFlag {
+  id: string;
+  flag_type: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  description: string;
+  created_at: string;
+  resolved_at: string | null;
+  resolved_by: string | null;
+}
+
+interface ActivityLogItem {
+  id: string;
+  action: string;
+  details: any;
+  created_at: string;
+  is_admin_action: boolean;
+  user_id: string | null;
+}
+
+interface AdminMessage {
+  id: string;
+  admin_id: string | null;
+  user_id: string;
+  application_id: string;
+  message: string;
+  is_admin: boolean;
+  read: boolean;
+  created_at: string;
+}
 
 const ApplicationView = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [application, setApplication] = useState<any>(null);
+  const [application, setApplication] = useState<Application | null>(null);
+  const [originalApplication, setOriginalApplication] = useState<Application | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [documents, setDocuments] = useState<any[]>([]);
-  const [stages, setStages] = useState<any[]>([]);
-  const [activityLog, setActivityLog] = useState<any[]>([]);
-  const [flags, setFlags] = useState<any[]>([]);
-  const [messages, setMessages] = useState<any[]>([]);
-  const [financialMetrics, setFinancialMetrics] = useState<any>(null);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [showSendToLender, setShowSendToLender] = useState(false);
-  const [selectedLender, setSelectedLender] = useState('');
-  const [lenderNote, setLenderNote] = useState('');
-  const [showAddNote, setShowAddNote] = useState(false);
-  const [internalNote, setInternalNote] = useState('');
-  const [showChangeStatus, setShowChangeStatus] = useState(false);
-  const [newStatus, setNewStatus] = useState('');
-  const [statusNote, setStatusNote] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedApplication, setEditedApplication] = useState<Partial<Application>>({});
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [stages, setStages] = useState<ApplicationStage[]>([]);
+  const [flags, setFlags] = useState<ApplicationFlag[]>([]);
+  const [activityLog, setActivityLog] = useState<ActivityLogItem[]>([]);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [messages, setMessages] = useState<AdminMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [isSendingMessage, setIsSendingMessage] = useState(false);
-  const [activeTab, setActiveTab] = useState('overview');
-  const [adminUsers, setAdminUsers] = useState<any[]>([]);
-  const [assignedAdmin, setAssignedAdmin] = useState<string | null>(null);
-  const [isAssigning, setIsAssigning] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<{
+    [key: string]: boolean;
+  }>({
+    personal: true,
+    employment: true,
+    housing: true,
+    financing: true,
+    benefits: true,
+    debt: true,
+    documents: true,
+    stages: true,
+    flags: true,
+    activity: false,
+    messages: true,
+    notes: true
+  });
+  const [activeDocumentTab, setActiveDocumentTab] = useState<'upload' | 'manage'>('manage');
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [newStatus, setNewStatus] = useState<string>('');
+  const [statusNote, setStatusNote] = useState('');
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [selectedAdmin, setSelectedAdmin] = useState<string>('');
+  const [showDocumentReviewModal, setShowDocumentReviewModal] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [documentReviewStatus, setDocumentReviewStatus] = useState<'approved' | 'rejected'>('approved');
+  const [documentReviewNotes, setDocumentReviewNotes] = useState('');
+  const [submittingDocumentReview, setSubmittingDocumentReview] = useState(false);
+  const [showFlagModal, setShowFlagModal] = useState(false);
+  const [newFlag, setNewFlag] = useState({
+    flag_type: '',
+    severity: 'medium' as 'low' | 'medium' | 'high' | 'critical',
+    description: ''
+  });
+  const [submittingFlag, setSubmittingFlag] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingApplication, setDeletingApplication] = useState(false);
+  const [showStageModal, setShowStageModal] = useState(false);
+  const [newStage, setNewStage] = useState<number>(1);
+  const [stageNote, setStageNote] = useState('');
+  const [submittingStage, setSubmittingStage] = useState(false);
   
+  // Document upload hook
+  const { uploadDocument, deleteDocument, uploading, error: uploadError } = useDocumentUpload(id || '');
+
   useEffect(() => {
     if (id) {
-      loadApplicationData();
+      loadApplication();
+      loadDocuments();
+      loadStages();
+      loadFlags();
+      loadActivityLog();
       loadAdminUsers();
+      loadMessages();
     }
   }, [id]);
-  
-  const loadApplicationData = async () => {
+
+  const loadApplication = async () => {
     try {
       setLoading(true);
+      setError(null);
       
-      // Fetch application data
-      const { data: appData, error: appError } = await supabase
+      const { data, error } = await supabase
         .from('applications')
         .select('*')
         .eq('id', id)
         .single();
-        
-      if (appError) throw appError;
-      if (!appData) throw new Error('Application not found');
       
-      setApplication(appData);
-      setAssignedAdmin(appData.assigned_to_admin_id);
+      if (error) throw error;
       
-      // Fetch documents
-      const { data: docsData, error: docsError } = await supabase
+      if (!data) {
+        throw new Error('Application not found');
+      }
+      
+      setApplication(data);
+      setOriginalApplication(data);
+      setEditedApplication({});
+    } catch (error: any) {
+      console.error('Error loading application:', error);
+      setError(error.message);
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  const loadDocuments = async () => {
+    try {
+      const { data, error } = await supabase
         .from('documents')
         .select('*')
         .eq('application_id', id)
         .order('uploaded_at', { ascending: false });
-        
-      if (docsError) throw docsError;
-      setDocuments(docsData || []);
       
-      // Fetch application stages
-      const { data: stagesData, error: stagesError } = await supabase
+      if (error) throw error;
+      
+      setDocuments(data || []);
+    } catch (error) {
+      console.error('Error loading documents:', error);
+    }
+  };
+
+  const loadStages = async () => {
+    try {
+      const { data, error } = await supabase
         .from('application_stages')
         .select('*')
         .eq('application_id', id)
         .order('stage_number', { ascending: true });
-        
-      if (stagesError) throw stagesError;
-      setStages(stagesData || []);
       
-      // Fetch activity log
-      const { data: activityData, error: activityError } = await supabase
+      if (error) throw error;
+      
+      setStages(data || []);
+    } catch (error) {
+      console.error('Error loading stages:', error);
+    }
+  };
+
+  const loadFlags = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('application_flags')
+        .select(`
+          *,
+          resolved_by (
+            id,
+            email
+          )
+        `)
+        .eq('application_id', id)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      setFlags(data || []);
+    } catch (error) {
+      console.error('Error loading flags:', error);
+    }
+  };
+
+  const loadActivityLog = async () => {
+    try {
+      const { data, error } = await supabase
         .from('activity_log')
         .select('*')
         .eq('application_id', id)
         .order('created_at', { ascending: false });
-        
-      if (activityError) throw activityError;
-      setActivityLog(activityData || []);
-      
-      // Fetch flags
-      const { data: flagsData, error: flagsError } = await supabase
-        .from('application_flags')
-        .select('*')
-        .eq('application_id', id)
-        .order('created_at', { ascending: false });
-        
-      if (flagsError) throw flagsError;
-      setFlags(flagsData || []);
-      
-      // Fetch messages
-      const { data: messagesData, error: messagesError } = await supabase
-        .from('admin_messages')
-        .select('*')
-        .eq('application_id', id)
-        .order('created_at', { ascending: true });
-        
-      if (messagesError) throw messagesError;
-      setMessages(messagesData || []);
-      
-      // Calculate financial metrics
-      calculateFinancialMetrics(appData);
-      
-      setError(null);
-    } catch (error: any) {
-      console.error('Error loading application data:', error);
-      setError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const loadAdminUsers = async () => {
-    try {
-      // Use the list-users edge function to get admin users
-      const { data, error } = await supabase.functions.invoke('list-users');
       
       if (error) throw error;
       
-      // Filter for admin users
-      const adminUsers = data?.users?.filter((user: any) => 
-        user.raw_app_meta_data?.is_admin === true
-      ) || [];
+      setActivityLog(data || []);
+    } catch (error) {
+      console.error('Error loading activity log:', error);
+    }
+  };
+
+  const loadAdminUsers = async () => {
+    try {
+      // Get admin users from auth.users table
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, email')
+        .eq('raw_app_meta_data->is_admin', true);
       
-      setAdminUsers(adminUsers);
+      if (error) throw error;
+      
+      setAdminUsers(data || []);
     } catch (error) {
       console.error('Error loading admin users:', error);
-      // Set empty array as fallback
-      setAdminUsers([]);
     }
   };
-  
-  const calculateFinancialMetrics = (appData: any) => {
-    // Calculate total monthly income
-    const monthlyIncome = parseFloat(appData.monthly_income) || 0;
-    const otherIncome = parseFloat(appData.other_income) || 0;
-    const totalIncome = monthlyIncome + otherIncome;
-    
-    // Calculate government benefits income if available
-    let benefitsIncome = 0;
-    if (appData.disability_programs && Array.isArray(appData.disability_programs)) {
-      benefitsIncome = appData.disability_programs.reduce((sum: number, program: any) => {
-        return sum + (parseFloat(program.amount) || 0);
-      }, 0);
+
+  const loadMessages = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('admin_messages')
+        .select(`
+          *,
+          admin:admin_id (
+            email
+          )
+        `)
+        .eq('application_id', id)
+        .order('created_at', { ascending: true });
+      
+      if (error) throw error;
+      
+      setMessages(data || []);
+    } catch (error) {
+      console.error('Error loading messages:', error);
     }
-    
-    // Calculate total debt obligations (housing payment for now)
-    const housingPayment = parseFloat(appData.housing_payment) || 0;
-    
-    // Estimate other debt payments (this would be more accurate with actual credit report data)
-    const estimatedOtherDebt = totalIncome * 0.15; // Rough estimate of 15% of income going to other debts
-    
-    const totalDebt = housingPayment + estimatedOtherDebt;
-    
-    // Calculate net disposable income
-    const netDisposable = totalIncome + benefitsIncome - totalDebt;
-    
-    // Calculate debt-to-income ratio
-    const dti = totalIncome > 0 ? (totalDebt / totalIncome) * 100 : 0;
-    
-    // Calculate loan-to-income ratio
-    const loanAmount = parseFloat(appData.desired_loan_amount) || 0;
-    const lti = totalIncome > 0 ? (loanAmount / (totalIncome * 12)) * 100 : 0;
-    
-    // Set financial metrics
-    setFinancialMetrics({
-      totalMonthlyIncome: totalIncome,
-      benefitsIncome: benefitsIncome,
-      totalIncome: totalIncome + benefitsIncome,
-      housingPayment: housingPayment,
-      estimatedOtherDebt: estimatedOtherDebt,
-      totalDebtObligations: totalDebt,
-      netDisposableIncome: netDisposable,
-      debtToIncomeRatio: dti,
-      loanToIncomeRatio: lti,
-      // Risk assessment
-      incomeRisk: totalIncome < 3000 ? 'high' : totalIncome < 5000 ? 'medium' : 'low',
-      dtiRisk: dti > 43 ? 'high' : dti > 36 ? 'medium' : 'low',
-      ltiRisk: lti > 50 ? 'high' : lti > 30 ? 'medium' : 'low',
-      overallRisk: calculateOverallRisk(dti, lti, appData)
-    });
   };
-  
-  const calculateOverallRisk = (dti: number, lti: number, appData: any) => {
-    let riskScore = 0;
-    
-    // DTI risk
-    if (dti > 43) riskScore += 3;
-    else if (dti > 36) riskScore += 2;
-    else if (dti > 30) riskScore += 1;
-    
-    // LTI risk
-    if (lti > 50) riskScore += 3;
-    else if (lti > 30) riskScore += 2;
-    else if (lti > 20) riskScore += 1;
-    
-    // Employment stability risk
-    if (appData.employment_status === 'unemployed') riskScore += 3;
-    else if (appData.employment_status === 'self_employed') riskScore += 1;
-    
-    if (appData.employment_duration === 'less_than_6_months') riskScore += 2;
-    else if (appData.employment_duration === '6_months_to_1_year') riskScore += 1;
-    
-    // Housing stability risk
-    if (appData.residence_duration === 'less_than_6_months') riskScore += 2;
-    else if (appData.residence_duration === '6_months_to_1_year') riskScore += 1;
-    
-    // Debt discharge history risk
-    if (appData.has_debt_discharge_history) {
-      if (appData.debt_discharge_status === 'active') riskScore += 3;
-      else if (appData.debt_discharge_status === 'discharged') {
-        const dischargeYear = parseInt(appData.debt_discharge_year) || 0;
-        const currentYear = new Date().getFullYear();
-        if (currentYear - dischargeYear < 2) riskScore += 2;
-        else if (currentYear - dischargeYear < 5) riskScore += 1;
-      }
-    }
-    
-    // Determine overall risk
-    if (riskScore >= 7) return 'high';
-    if (riskScore >= 4) return 'medium';
-    return 'low';
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await Promise.all([
+      loadApplication(),
+      loadDocuments(),
+      loadStages(),
+      loadFlags(),
+      loadActivityLog(),
+      loadMessages()
+    ]);
   };
-  
-  const handleStatusChange = async () => {
-    if (!newStatus) {
-      toast.error('Please select a new status');
+
+  const handleEdit = () => {
+    setIsEditing(true);
+    setEditedApplication({});
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditedApplication({});
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    
+    // Handle checkboxes
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
+      setEditedApplication(prev => ({
+        ...prev,
+        [name]: checked
+      }));
       return;
     }
     
+    // Handle numeric inputs
+    if (type === 'number' || name.includes('income') || name.includes('payment') || name.includes('amount')) {
+      const numValue = value === '' ? null : Number(value);
+      setEditedApplication(prev => ({
+        ...prev,
+        [name]: numValue
+      }));
+      return;
+    }
+    
+    // Handle all other inputs
+    setEditedApplication(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSaveChanges = async () => {
     try {
-      setIsUpdating(true);
+      if (!application) return;
+      
+      const { error } = await supabase
+        .from('applications')
+        .update(editedApplication)
+        .eq('id', application.id);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setApplication({
+        ...application,
+        ...editedApplication
+      });
+      
+      setIsEditing(false);
+      setEditedApplication({});
+      
+      toast.success('Application updated successfully');
+    } catch (error: any) {
+      console.error('Error updating application:', error);
+      toast.error('Failed to update application');
+    }
+  };
+
+  const handleStatusChange = async () => {
+    try {
+      if (!application || !newStatus) return;
+      
+      // Determine the stage number based on the status
+      let stageNumber = application.current_stage;
+      switch (newStatus) {
+        case 'submitted':
+          stageNumber = 1;
+          break;
+        case 'under_review':
+          stageNumber = 2;
+          break;
+        case 'pending_documents':
+          stageNumber = 3;
+          break;
+        case 'pre_approved':
+          stageNumber = 4;
+          break;
+        case 'vehicle_selection':
+          stageNumber = 5;
+          break;
+        case 'final_approval':
+          stageNumber = 6;
+          break;
+        case 'finalized':
+          stageNumber = 7;
+          break;
+      }
       
       // Update application status
       const { error: updateError } = await supabase
         .from('applications')
         .update({
           status: newStatus,
-          current_stage: getStageNumberFromStatus(newStatus)
+          current_stage: stageNumber
         })
-        .eq('id', id);
-        
+        .eq('id', application.id);
+      
       if (updateError) throw updateError;
       
-      // Add application stage
-      const { error: stageError } = await supabase
-        .from('application_stages')
-        .insert({
-          application_id: id,
-          stage_number: getStageNumberFromStatus(newStatus),
-          status: 'active',
-          notes: statusNote || `Application status updated to ${formatStatus(newStatus)}`
-        });
-        
-      if (stageError) throw stageError;
-      
-      // Create notification for the user
-      if (application.user_id) {
-        await supabase
-          .from('notifications')
+      // Create a new stage record if moving to a new stage
+      if (stageNumber !== application.current_stage) {
+        const { error: stageError } = await supabase
+          .from('application_stages')
           .insert({
-            user_id: application.user_id,
-            title: `Application Status Updated`,
-            message: `Your application status has been updated to ${formatStatus(newStatus)}${statusNote ? `: ${statusNote}` : ''}.`,
-            read: false
+            application_id: application.id,
+            stage_number: stageNumber,
+            status: 'completed',
+            notes: statusNote || `Status updated to ${newStatus.replace(/_/g, ' ')}`
           });
+        
+        if (stageError) throw stageError;
       }
       
-      // Reload application data
-      await loadApplicationData();
+      // Update local state
+      setApplication({
+        ...application,
+        status: newStatus,
+        current_stage: stageNumber
+      });
       
-      // Reset form
+      setShowStatusModal(false);
       setNewStatus('');
       setStatusNote('');
-      setShowChangeStatus(false);
       
-      toast.success('Application status updated successfully');
+      toast.success('Status updated successfully');
+      
+      // Refresh data
+      await Promise.all([
+        loadStages(),
+        loadActivityLog()
+      ]);
     } catch (error: any) {
-      console.error('Error updating application status:', error);
-      toast.error('Failed to update application status');
-    } finally {
-      setIsUpdating(false);
+      console.error('Error updating status:', error);
+      toast.error('Failed to update status');
     }
   };
-  
-  const handleSendToLender = async () => {
-    if (!selectedLender) {
-      toast.error('Please select a lender');
-      return;
-    }
-    
+
+  const handleAssignAdmin = async () => {
     try {
-      setIsUpdating(true);
+      if (!application || !selectedAdmin) return;
       
-      // Get lender name
-      const lenderName = [...LENDERS.aLenders, ...LENDERS.creditUnions, ...LENDERS.bLenders]
-        .find(lender => lender.id === selectedLender)?.name || selectedLender;
-      
-      // Add activity log entry
-      const { error: logError } = await supabase
-        .from('activity_log')
-        .insert({
-          application_id: id,
-          user_id: (await supabase.auth.getUser()).data.user?.id,
-          action: 'send_to_lender',
-          details: {
-            lender_id: selectedLender,
-            lender_name: lenderName,
-            note: lenderNote
-          },
-          is_admin_action: true,
-          is_visible_to_user: true
-        });
-        
-      if (logError) throw logError;
-      
-      // Create notification for the user
-      if (application.user_id) {
-        await supabase
-          .from('notifications')
-          .insert({
-            user_id: application.user_id,
-            title: `Application Sent to Lender`,
-            message: `Your application has been submitted to ${lenderName} for review.`,
-            read: false
-          });
-      }
-      
-      // Reload activity log
-      const { data: activityData, error: activityError } = await supabase
-        .from('activity_log')
-        .select('*')
-        .eq('application_id', id)
-        .order('created_at', { ascending: false });
-        
-      if (activityError) throw activityError;
-      setActivityLog(activityData || []);
-      
-      // Reset form
-      setSelectedLender('');
-      setLenderNote('');
-      setShowSendToLender(false);
-      
-      toast.success(`Application sent to ${lenderName} successfully`);
-    } catch (error: any) {
-      console.error('Error sending application to lender:', error);
-      toast.error('Failed to send application to lender');
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-  
-  const handleAddNote = async () => {
-    if (!internalNote) {
-      toast.error('Please enter a note');
-      return;
-    }
-    
-    try {
-      setIsUpdating(true);
-      
-      // Update application with new note
-      const { error: updateError } = await supabase
+      const { error } = await supabase
         .from('applications')
         .update({
-          internal_notes: application.internal_notes 
-            ? `${application.internal_notes}\n\n${new Date().toISOString()}: ${internalNote}`
-            : `${new Date().toISOString()}: ${internalNote}`
+          assigned_to_admin_id: selectedAdmin
         })
-        .eq('id', id);
-        
-      if (updateError) throw updateError;
+        .eq('id', application.id);
       
-      // Add activity log entry
-      const { error: logError } = await supabase
-        .from('activity_log')
-        .insert({
-          application_id: id,
-          user_id: (await supabase.auth.getUser()).data.user?.id,
-          action: 'add_note',
-          details: {
-            note: internalNote
-          },
-          is_admin_action: true,
-          is_visible_to_user: false
-        });
-        
-      if (logError) throw logError;
+      if (error) throw error;
       
-      // Reload application data
-      await loadApplicationData();
+      // Update local state
+      setApplication({
+        ...application,
+        assigned_to_admin_id: selectedAdmin
+      });
       
-      // Reset form
-      setInternalNote('');
-      setShowAddNote(false);
+      setShowAssignModal(false);
+      setSelectedAdmin('');
       
-      toast.success('Note added successfully');
+      toast.success('Application assigned successfully');
+      
+      // Refresh activity log
+      await loadActivityLog();
     } catch (error: any) {
-      console.error('Error adding note:', error);
-      toast.error('Failed to add note');
-    } finally {
-      setIsUpdating(false);
+      console.error('Error assigning application:', error);
+      toast.error('Failed to assign application');
     }
   };
-  
-  const handleSendMessage = async () => {
-    if (!newMessage) {
-      toast.error('Please enter a message');
-      return;
-    }
-    
+
+  const handleSaveNotes = async () => {
     try {
-      setIsSendingMessage(true);
+      if (!application || !editedApplication.internal_notes) return;
+      
+      setSavingNotes(true);
+      
+      const { error } = await supabase
+        .from('applications')
+        .update({
+          internal_notes: editedApplication.internal_notes
+        })
+        .eq('id', application.id);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setApplication({
+        ...application,
+        internal_notes: editedApplication.internal_notes
+      });
+      
+      setEditedApplication(prev => ({
+        ...prev,
+        internal_notes: undefined
+      }));
+      
+      toast.success('Notes saved successfully');
+    } catch (error: any) {
+      console.error('Error saving notes:', error);
+      toast.error('Failed to save notes');
+    } finally {
+      setSavingNotes(false);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    try {
+      if (!application || !newMessage.trim()) return;
+      
+      setSendingMessage(true);
       
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not found');
+      if (!user) throw new Error('User not authenticated');
       
-      // Add message
-      const { error: messageError } = await supabase
+      // Send message
+      const { data, error } = await supabase
         .from('admin_messages')
         .insert({
+          application_id: application.id,
           admin_id: user.id,
           user_id: application.user_id,
-          application_id: id,
-          message: newMessage,
+          message: newMessage.trim(),
           is_admin: true,
           read: false
-        });
-        
-      if (messageError) throw messageError;
+        })
+        .select()
+        .single();
       
-      // Create notification for the user
+      if (error) throw error;
+      
+      // Update local state
+      setMessages([...messages, data]);
+      setNewMessage('');
+      
+      // Create notification for user
       if (application.user_id) {
         await supabase
           .from('notifications')
           .insert({
             user_id: application.user_id,
-            title: 'New Message from Clearpath',
+            title: 'New message from Clearpath',
             message: 'You have received a new message regarding your application.',
             read: false
           });
       }
-      
-      // Reload messages
-      const { data: messagesData, error: messagesError } = await supabase
-        .from('admin_messages')
-        .select('*')
-        .eq('application_id', id)
-        .order('created_at', { ascending: true });
-        
-      if (messagesError) throw messagesError;
-      setMessages(messagesData || []);
-      
-      // Reset form
-      setNewMessage('');
       
       toast.success('Message sent successfully');
     } catch (error: any) {
       console.error('Error sending message:', error);
       toast.error('Failed to send message');
     } finally {
-      setIsSendingMessage(false);
+      setSendingMessage(false);
     }
   };
-  
-  const handleAssignAdmin = async () => {
-    if (!assignedAdmin) {
-      toast.error('Please select an admin to assign');
-      return;
-    }
-    
-    try {
-      setIsAssigning(true);
-      
-      // Update application with assigned admin
-      const { error: updateError } = await supabase
-        .from('applications')
-        .update({
-          assigned_to_admin_id: assignedAdmin
-        })
-        .eq('id', id);
-        
-      if (updateError) throw updateError;
-      
-      // Add activity log entry
-      const { error: logError } = await supabase
-        .from('activity_log')
-        .insert({
-          application_id: id,
-          user_id: (await supabase.auth.getUser()).data.user?.id,
-          action: 'assign_admin',
-          details: {
-            admin_id: assignedAdmin
-          },
-          is_admin_action: true,
-          is_visible_to_user: false
-        });
-        
-      if (logError) throw logError;
-      
-      // Reload application data
-      await loadApplicationData();
-      
-      toast.success('Application assigned successfully');
-    } catch (error: any) {
-      console.error('Error assigning admin:', error);
-      toast.error('Failed to assign admin');
-    } finally {
-      setIsAssigning(false);
-    }
-  };
-  
+
   const handleDocumentUpload = async (file: File, category: string) => {
     try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not found');
-      
-      // Generate unique filename
-      const extension = file.name.split('.').pop()?.toLowerCase() || '';
-      const timestamp = Date.now();
-      const filename = `${application.id}/${category}_${timestamp}.${extension}`;
-      
-      // Upload file to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from('user-documents')
-        .upload(filename, file, {
-          cacheControl: '3600',
-          upsert: false,
-          contentType: file.type
-        });
-
-      if (uploadError) throw uploadError;
-      
-      // Create document record
-      const { data: document, error: documentError } = await supabase
-        .from('documents')
-        .insert({
-          application_id: id,
-          category,
-          filename,
-          status: 'pending'
-        })
-        .select()
-        .single();
-
-      if (documentError) throw documentError;
-      
-      // Reload documents
-      const { data: docsData, error: docsError } = await supabase
-        .from('documents')
-        .select('*')
-        .eq('application_id', id)
-        .order('uploaded_at', { ascending: false });
-        
-      if (docsError) throw docsError;
-      setDocuments(docsData || []);
-      
-      toast.success('Document uploaded successfully');
-      return document;
-    } catch (error: any) {
+      const document = await uploadDocument(file, category);
+      if (document) {
+        // Update documents list
+        setDocuments(prev => [document, ...prev]);
+        toast.success('Document uploaded successfully');
+      }
+    } catch (error) {
       console.error('Error uploading document:', error);
       toast.error('Failed to upload document');
-      return null;
     }
   };
-  
+
   const handleDocumentDelete = async (documentId: string) => {
     try {
-      // Get document details first
-      const { data: document, error: fetchError } = await supabase
-        .from('documents')
-        .select('filename')
-        .eq('id', documentId)
-        .single();
-
-      if (fetchError) throw fetchError;
-      if (!document) throw new Error('Document not found');
-      
-      // Delete file from storage
-      const { error: storageError } = await supabase.storage
-        .from('user-documents')
-        .remove([document.filename]);
-
-      if (storageError) throw storageError;
-      
-      // Delete document record
-      const { error: deleteError } = await supabase
-        .from('documents')
-        .delete()
-        .eq('id', documentId);
-
-      if (deleteError) throw deleteError;
-      
-      // Reload documents
-      const { data: docsData, error: docsError } = await supabase
-        .from('documents')
-        .select('*')
-        .eq('application_id', id)
-        .order('uploaded_at', { ascending: false });
-        
-      if (docsError) throw docsError;
-      setDocuments(docsData || []);
-      
+      await deleteDocument(documentId);
+      // Update documents list
+      setDocuments(prev => prev.filter(doc => doc.id !== documentId));
       toast.success('Document deleted successfully');
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error deleting document:', error);
       toast.error('Failed to delete document');
-      throw error;
     }
   };
-  
-  const handleDocumentReview = async (documentId: string, status: 'approved' | 'rejected', notes?: string) => {
+
+  const handleDocumentReview = async () => {
     try {
+      if (!selectedDocument) return;
+      
+      setSubmittingDocumentReview(true);
+      
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not found');
+      if (!user) throw new Error('User not authenticated');
       
       // Create document review
       const { error: reviewError } = await supabase
         .from('document_reviews')
         .insert({
-          document_id: documentId,
+          document_id: selectedDocument.id,
           reviewer_id: user.id,
-          status,
-          notes
+          status: documentReviewStatus,
+          notes: documentReviewNotes
         });
-        
+      
       if (reviewError) throw reviewError;
       
-      // Reload documents
-      const { data: docsData, error: docsError } = await supabase
-        .from('documents')
-        .select('*')
-        .eq('application_id', id)
-        .order('uploaded_at', { ascending: false });
-        
-      if (docsError) throw docsError;
-      setDocuments(docsData || []);
+      // Update document status directly (the trigger will handle this server-side, but we update local state)
+      const updatedDocuments = documents.map(doc => 
+        doc.id === selectedDocument.id 
+          ? { 
+              ...doc, 
+              status: documentReviewStatus, 
+              review_notes: documentReviewNotes,
+              reviewed_at: new Date().toISOString()
+            } 
+          : doc
+      );
       
-      toast.success(`Document ${status === 'approved' ? 'approved' : 'rejected'} successfully`);
+      setDocuments(updatedDocuments);
+      
+      // Create notification for user
+      if (application?.user_id) {
+        await supabase
+          .from('notifications')
+          .insert({
+            user_id: application.user_id,
+            title: `Document ${documentReviewStatus === 'approved' ? 'Approved' : 'Needs Attention'}`,
+            message: documentReviewStatus === 'approved' 
+              ? `Your ${selectedDocument.category.replace(/_/g, ' ')} document has been approved.` 
+              : `Your ${selectedDocument.category.replace(/_/g, ' ')} document needs attention. ${documentReviewNotes}`,
+            read: false
+          });
+      }
+      
+      setShowDocumentReviewModal(false);
+      setSelectedDocument(null);
+      setDocumentReviewStatus('approved');
+      setDocumentReviewNotes('');
+      
+      toast.success(`Document ${documentReviewStatus === 'approved' ? 'approved' : 'rejected'} successfully`);
+      
+      // Refresh activity log
+      await loadActivityLog();
     } catch (error: any) {
       console.error('Error reviewing document:', error);
       toast.error('Failed to review document');
+    } finally {
+      setSubmittingDocumentReview(false);
     }
   };
-  
-  const getStageNumberFromStatus = (status: string) => {
-    switch (status) {
-      case 'submitted': return 1;
-      case 'pending_documents': return 3;
-      case 'pre_approved': return 4;
-      case 'vehicle_selection': return 5;
-      case 'final_approval': return 6;
-      case 'finalized': return 7;
-      default: return 3; // Default to pending documents
+
+  const handleAddFlag = async () => {
+    try {
+      if (!application) return;
+      
+      setSubmittingFlag(true);
+      
+      const { error } = await supabase
+        .from('application_flags')
+        .insert({
+          application_id: application.id,
+          flag_type: newFlag.flag_type,
+          severity: newFlag.severity,
+          description: newFlag.description
+        });
+      
+      if (error) throw error;
+      
+      setShowFlagModal(false);
+      setNewFlag({
+        flag_type: '',
+        severity: 'medium',
+        description: ''
+      });
+      
+      toast.success('Flag added successfully');
+      
+      // Refresh flags
+      await loadFlags();
+    } catch (error: any) {
+      console.error('Error adding flag:', error);
+      toast.error('Failed to add flag');
+    } finally {
+      setSubmittingFlag(false);
     }
   };
-  
-  const formatStatus = (status: string) => {
-    return status
-      .replace(/_/g, ' ')
-      .replace(/\b\w/g, char => char.toUpperCase());
+
+  const handleResolveFlag = async (flagId: string) => {
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+      
+      const { error } = await supabase
+        .from('application_flags')
+        .update({
+          resolved_at: new Date().toISOString(),
+          resolved_by: user.id
+        })
+        .eq('id', flagId);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setFlags(prev => 
+        prev.map(flag => 
+          flag.id === flagId 
+            ? { 
+                ...flag, 
+                resolved_at: new Date().toISOString(),
+                resolved_by: user.id
+              } 
+            : flag
+        )
+      );
+      
+      toast.success('Flag resolved successfully');
+    } catch (error: any) {
+      console.error('Error resolving flag:', error);
+      toast.error('Failed to resolve flag');
+    }
   };
-  
-  const formatCurrency = (value: number | string | null | undefined) => {
-    if (value === null || value === undefined) return '$0';
-    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+
+  const handleDeleteApplication = async () => {
+    try {
+      if (!application) return;
+      
+      setDeletingApplication(true);
+      
+      // Delete application (cascade will handle related records)
+      const { error } = await supabase
+        .from('applications')
+        .delete()
+        .eq('id', application.id);
+      
+      if (error) throw error;
+      
+      toast.success('Application deleted successfully');
+      
+      // Navigate back to applications list
+      navigate('/admin/applications');
+    } catch (error: any) {
+      console.error('Error deleting application:', error);
+      toast.error('Failed to delete application');
+    } finally {
+      setDeletingApplication(false);
+      setShowDeleteModal(false);
+    }
+  };
+
+  const handleAddStage = async () => {
+    try {
+      if (!application) return;
+      
+      setSubmittingStage(true);
+      
+      // Create new stage
+      const { error } = await supabase
+        .from('application_stages')
+        .insert({
+          application_id: application.id,
+          stage_number: newStage,
+          status: 'completed',
+          notes: stageNote
+        });
+      
+      if (error) throw error;
+      
+      // Update application current stage if new stage is higher
+      if (newStage > (application.current_stage || 1)) {
+        const { error: updateError } = await supabase
+          .from('applications')
+          .update({
+            current_stage: newStage
+          })
+          .eq('id', application.id);
+        
+        if (updateError) throw updateError;
+        
+        // Update local state
+        setApplication({
+          ...application,
+          current_stage: newStage
+        });
+      }
+      
+      setShowStageModal(false);
+      setNewStage(1);
+      setStageNote('');
+      
+      toast.success('Stage added successfully');
+      
+      // Refresh stages and activity log
+      await Promise.all([
+        loadStages(),
+        loadActivityLog()
+      ]);
+    } catch (error: any) {
+      console.error('Error adding stage:', error);
+      toast.error('Failed to add stage');
+    } finally {
+      setSubmittingStage(false);
+    }
+  };
+
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
+  const formatCurrency = (value: number | null | undefined) => {
+    if (value === null || value === undefined) return 'N/A';
     return new Intl.NumberFormat('en-CA', {
       style: 'currency',
-      currency: 'CAD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(numValue);
+      currency: 'CAD'
+    }).format(value);
   };
-  
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return 'N/A';
-    return format(new Date(dateString), 'MMM d, yyyy');
+
+  const formatDate = (date: string | null | undefined) => {
+    if (!date) return 'N/A';
+    return format(new Date(date), 'MMM d, yyyy');
   };
-  
-  const formatDateTime = (dateString: string | null | undefined) => {
-    if (!dateString) return 'N/A';
-    return format(new Date(dateString), 'MMM d, yyyy h:mm a');
+
+  const formatDateTime = (date: string | null | undefined) => {
+    if (!date) return 'N/A';
+    return format(new Date(date), 'MMM d, yyyy h:mm a');
   };
-  
-  const getRiskColor = (risk: string) => {
-    switch (risk) {
-      case 'low': return 'text-green-600 bg-green-100';
-      case 'medium': return 'text-amber-600 bg-amber-100';
-      case 'high': return 'text-red-600 bg-red-100';
-      default: return 'text-gray-600 bg-gray-100';
+
+  const formatStatus = (status: string) => {
+    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'submitted':
+        return 'bg-blue-100 text-blue-800';
+      case 'under_review':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'pending_documents':
+        return 'bg-orange-100 text-orange-800';
+      case 'pre_approved':
+        return 'bg-green-100 text-green-800';
+      case 'vehicle_selection':
+        return 'bg-purple-100 text-purple-800';
+      case 'final_approval':
+        return 'bg-indigo-100 text-indigo-800';
+      case 'finalized':
+        return 'bg-gray-100 text-gray-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
-  
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case 'low':
+        return 'bg-blue-100 text-blue-800';
+      case 'medium':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'high':
+        return 'bg-orange-100 text-orange-800';
+      case 'critical':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getDocumentStatusColor = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return 'bg-green-100 text-green-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-yellow-100 text-yellow-800';
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -758,7 +895,7 @@ const ApplicationView = () => {
       </div>
     );
   }
-  
+
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -766,32 +903,6 @@ const ApplicationView = () => {
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Application</h2>
           <p className="text-gray-600 mb-4">{error}</p>
-          <div className="flex justify-center gap-4">
-            <button
-              onClick={() => navigate('/admin/applications')}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              Back to Applications
-            </button>
-            <button
-              onClick={loadApplicationData}
-              className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
-  if (!application) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg shadow-md text-center">
-          <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Application Not Found</h2>
-          <p className="text-gray-600 mb-4">The application you're looking for doesn't exist or you don't have permission to view it.</p>
           <button
             onClick={() => navigate('/admin/applications')}
             className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors"
@@ -802,7 +913,25 @@ const ApplicationView = () => {
       </div>
     );
   }
-  
+
+  if (!application) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-lg shadow-md text-center">
+          <AlertCircle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Application Not Found</h2>
+          <p className="text-gray-600 mb-4">The application you're looking for doesn't exist or has been deleted.</p>
+          <button
+            onClick={() => navigate('/admin/applications')}
+            className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors"
+          >
+            Back to Applications
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       {/* Header */}
@@ -811,1452 +940,2261 @@ const ApplicationView = () => {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => navigate('/admin/applications')}
-                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
                 <h1 className="text-xl md:text-2xl font-semibold text-gray-900">
-                  Application #{application.id.slice(0, 8)}
+                  {application.first_name} {application.last_name}
                 </h1>
-                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                  application.status === 'pending_documents' ? 'bg-amber-100 text-amber-700' :
-                  application.status === 'pre_approved' ? 'bg-green-100 text-green-700' :
-                  application.status === 'vehicle_selection' ? 'bg-purple-100 text-purple-700' :
-                  application.status === 'final_approval' ? 'bg-blue-100 text-blue-700' :
-                  application.status === 'finalized' ? 'bg-gray-100 text-gray-700' :
-                  'bg-gray-100 text-gray-700'
-                }`}>
+                <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(application.status)}`}>
                   {formatStatus(application.status)}
                 </span>
               </div>
               <p className="text-sm text-gray-500 mt-1">
-                Submitted on {formatDate(application.created_at)}
+                Application ID: {application.id}
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => setShowChangeStatus(true)}
-                className="px-3 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors text-sm font-medium"
+                onClick={handleRefresh}
+                className="p-2 text-gray-700 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+                disabled={isRefreshing}
               >
-                Update Status
+                <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
               </button>
-              <button
-                onClick={() => setShowSendToLender(true)}
-                className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-              >
-                Send to Lender
-              </button>
-              <button
-                onClick={() => setShowAddNote(true)}
-                className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
-              >
-                Add Note
-              </button>
+              
+              {isEditing ? (
+                <>
+                  <button
+                    onClick={handleSaveChanges}
+                    className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors flex items-center gap-2"
+                  >
+                    <Save className="h-5 w-5" />
+                    <span>Save Changes</span>
+                  </button>
+                  <button
+                    onClick={handleCancelEdit}
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+                  >
+                    <X className="h-5 w-5" />
+                    <span>Cancel</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={handleEdit}
+                    className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors flex items-center gap-2"
+                  >
+                    <Edit2 className="h-5 w-5" />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    onClick={() => setShowStatusModal(true)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                  >
+                    <Clock className="h-5 w-5" />
+                    <span>Update Status</span>
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteModal(true)}
+                    className="p-2 text-red-600 bg-red-50 rounded-full hover:bg-red-100 transition-colors"
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </button>
+                </>
+              )}
             </div>
-          </div>
-          
-          {/* Tabs */}
-          <div className="flex border-b border-gray-200 mt-4 overflow-x-auto">
-            <button
-              onClick={() => setActiveTab('overview')}
-              className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
-                activeTab === 'overview'
-                  ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Overview
-            </button>
-            <button
-              onClick={() => setActiveTab('documents')}
-              className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
-                activeTab === 'documents'
-                  ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Documents ({documents.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('messages')}
-              className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
-                activeTab === 'messages'
-                  ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Messages ({messages.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('activity')}
-              className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
-                activeTab === 'activity'
-                  ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Activity Log
-            </button>
-            <button
-              onClick={() => setActiveTab('flags')}
-              className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
-                activeTab === 'flags'
-                  ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Flags ({flags.length})
-            </button>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <AnimatePresence mode="wait">
-          {/* Overview Tab */}
-          {activeTab === 'overview' && (
-            <motion.div
-              key="overview"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="grid lg:grid-cols-3 gap-6"
-            >
-              {/* Left Column - Application Details */}
-              <div className="lg:col-span-2 space-y-6">
-                {/* Applicant Summary */}
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                      <User className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                      Applicant Summary
-                    </h2>
-                    
-                    <div className="flex items-center gap-2">
-                      {application.has_debt_discharge_history && (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-700 flex items-center gap-1">
-                          <AlertCircle className="h-3 w-3" />
-                          Debt History
-                        </span>
-                      )}
-                      
-                      {application.collects_government_benefits && (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700 flex items-center gap-1">
-                          <CheckCircle className="h-3 w-3" />
-                          Benefits
-                        </span>
-                      )}
-                      
-                      {financialMetrics && (
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full flex items-center gap-1 ${
-                          getRiskColor(financialMetrics.overallRisk)
-                        }`}>
-                          {financialMetrics.overallRisk === 'low' && <CheckCircle className="h-3 w-3" />}
-                          {financialMetrics.overallRisk === 'medium' && <AlertCircle className="h-3 w-3" />}
-                          {financialMetrics.overallRisk === 'high' && <AlertCircle className="h-3 w-3" />}
-                          {financialMetrics.overallRisk.charAt(0).toUpperCase() + financialMetrics.overallRisk.slice(1)} Risk
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-500">Full Name</p>
-                      <p className="font-medium">{application.first_name} {application.last_name}</p>
-                    </div>
-                    
-                    <div>
-                      <p className="text-sm text-gray-500">Email</p>
-                      <p className="font-medium text-[#3BAA75] hover:underline">
-                        <a href={`mailto:${application.email}`}>{application.email}</a>
-                      </p>
-                    </div>
-                    
-                    <div>
-                      <p className="text-sm text-gray-500">Phone</p>
-                      <p className="font-medium text-[#3BAA75] hover:underline">
-                        <a href={`tel:${application.phone}`}>{application.phone}</a>
-                      </p>
-                    </div>
-                    
-                    <div>
-                      <p className="text-sm text-gray-500">Date of Birth</p>
-                      <p className="font-medium">{formatDate(application.date_of_birth)}</p>
-                    </div>
-                    
-                    <div>
-                      <p className="text-sm text-gray-500">Marital Status</p>
-                      <p className="font-medium">
-                        {application.marital_status
-                          ? application.marital_status.charAt(0).toUpperCase() + application.marital_status.slice(1)
-                          : 'Not specified'}
-                      </p>
-                    </div>
-                    
-                    <div>
-                      <p className="text-sm text-gray-500">Dependents</p>
-                      <p className="font-medium">{application.dependents || '0'}</p>
-                    </div>
-                    
-                    <div className="col-span-2 md:col-span-3">
-                      <p className="text-sm text-gray-500">Address</p>
-                      <p className="font-medium">
-                        {application.address}, {application.city}, {application.province} {application.postal_code}
-                      </p>
-                    </div>
-                  </div>
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Left Column - Application Details */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Personal Information */}
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+              <div 
+                className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center cursor-pointer"
+                onClick={() => toggleSection('personal')}
+              >
+                <div className="flex items-center">
+                  <User className="h-5 w-5 text-[#3BAA75] mr-2" />
+                  <h2 className="text-lg font-semibold">Personal Information</h2>
                 </div>
-                
-                {/* Employment & Income */}
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <Briefcase className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                    Employment & Income
-                  </h2>
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-500">Employment Status</p>
-                      <p className="font-medium">
-                        {application.employment_status
-                          ? application.employment_status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
-                          : 'Not specified'}
-                      </p>
-                    </div>
-                    
-                    {application.employer_name && (
-                      <div>
-                        <p className="text-sm text-gray-500">Employer</p>
-                        <p className="font-medium">{application.employer_name}</p>
-                      </div>
-                    )}
-                    
-                    <div>
-                      <p className="text-sm text-gray-500">Occupation</p>
-                      <p className="font-medium">{application.occupation || 'Not specified'}</p>
-                    </div>
-                    
-                    <div>
-                      <p className="text-sm text-gray-500">Employment Duration</p>
-                      <p className="font-medium">
-                        {application.employment_duration
-                          ? application.employment_duration.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-                          : 'Not specified'}
-                      </p>
-                    </div>
-                    
-                    <div>
-                      <p className="text-sm text-gray-500">Monthly Income</p>
-                      <p className="font-medium">{formatCurrency(application.monthly_income)}</p>
-                    </div>
-                    
-                    <div>
-                      <p className="text-sm text-gray-500">Annual Income</p>
-                      <p className="font-medium">{formatCurrency(application.annual_income)}</p>
-                    </div>
-                    
-                    {application.other_income > 0 && (
-                      <div>
-                        <p className="text-sm text-gray-500">Other Income</p>
-                        <p className="font-medium">{formatCurrency(application.other_income)}</p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Government Benefits */}
-                  {application.collects_government_benefits && application.disability_programs && (
-                    <div className="mt-6 pt-6 border-t border-gray-200">
-                      <h3 className="text-md font-medium text-gray-900 mb-3 flex items-center">
-                        <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
-                        Government & Disability Benefits
-                      </h3>
-                      
-                      <div className="bg-green-50 p-4 rounded-lg">
-                        <div className="grid grid-cols-2 gap-3">
-                          {application.disability_programs.map((program: any, index: number) => (
-                            <div key={index} className="flex justify-between">
-                              <span className="text-sm text-gray-700">
-                                {program.name_other || program.name}:
-                              </span>
-                              <span className="text-sm font-medium">{formatCurrency(program.amount)}</span>
-                            </div>
-                          ))}
-                          
-                          <div className="col-span-2 mt-2 pt-2 border-t border-green-200">
-                            <div className="flex justify-between">
-                              <span className="text-sm font-medium text-gray-700">Total Monthly Benefits:</span>
-                              <span className="text-sm font-medium">
-                                {formatCurrency(application.disability_programs.reduce((sum: number, program: any) => sum + (parseFloat(program.amount) || 0), 0))}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Housing Information */}
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <Home className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                    Housing Information
-                  </h2>
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-500">Housing Status</p>
-                      <p className="font-medium">
-                        {application.housing_status
-                          ? application.housing_status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
-                          : 'Not specified'}
-                      </p>
-                    </div>
-                    
-                    <div>
-                      <p className="text-sm text-gray-500">Monthly Payment</p>
-                      <p className="font-medium">{formatCurrency(application.housing_payment)}</p>
-                    </div>
-                    
-                    <div>
-                      <p className="text-sm text-gray-500">Residence Duration</p>
-                      <p className="font-medium">
-                        {application.residence_duration
-                          ? application.residence_duration.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-                          : 'Not specified'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Desired Financing */}
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <Car className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                    Desired Financing
-                  </h2>
-                  
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-500">Loan Amount</p>
-                      <p className="font-medium">{formatCurrency(application.desired_loan_amount)}</p>
-                    </div>
-                    
-                    <div>
-                      <p className="text-sm text-gray-500">Vehicle Type</p>
-                      <p className="font-medium">{application.vehicle_type || 'Not specified'}</p>
-                    </div>
-                    
-                    <div>
-                      <p className="text-sm text-gray-500">Down Payment</p>
-                      <p className="font-medium">{formatCurrency(application.down_payment_amount)}</p>
-                    </div>
-                    
-                    <div>
-                      <p className="text-sm text-gray-500">Has Driver's License</p>
-                      <p className="font-medium">{application.has_driver_license ? 'Yes' : 'No'}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Debt Discharge History */}
-                {application.has_debt_discharge_history && (
-                  <div className="bg-white rounded-lg shadow-sm p-6">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                      <AlertCircle className="h-5 w-5 mr-2 text-amber-500" />
-                      Financial Challenges
-                    </h2>
-                    
-                    <div className="bg-amber-50 p-4 rounded-lg">
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        <div>
-                          <p className="text-sm text-gray-700">Type</p>
-                          <p className="font-medium">
-                            {application.debt_discharge_type
-                              ? application.debt_discharge_type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
-                              : 'Not specified'}
-                          </p>
-                        </div>
-                        
-                        <div>
-                          <p className="text-sm text-gray-700">Year</p>
-                          <p className="font-medium">{application.debt_discharge_year || 'Not specified'}</p>
-                        </div>
-                        
-                        <div>
-                          <p className="text-sm text-gray-700">Status</p>
-                          <p className="font-medium">
-                            {application.debt_discharge_status
-                              ? application.debt_discharge_status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
-                              : 'Not specified'}
-                          </p>
-                        </div>
-                        
-                        {application.debt_discharge_comments && (
-                          <div className="col-span-2 md:col-span-3">
-                            <p className="text-sm text-gray-700">Comments</p>
-                            <p className="text-sm">{application.debt_discharge_comments}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                {expandedSections.personal ? (
+                  <ChevronUp className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-gray-400" />
                 )}
-                
-                {/* Contact Preferences */}
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <Phone className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                    Contact Preferences
-                  </h2>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-500">Preferred Method</p>
-                      <p className="font-medium">
-                        {application.preferred_contact_method === 'email' ? 'Email' : 
-                         application.preferred_contact_method === 'phone' ? 'Phone Call' : 
-                         application.preferred_contact_method === 'sms' ? 'Text Message (SMS)' : 
-                         'Not specified'}
-                      </p>
-                    </div>
-                    
-                    <div>
-                      <p className="text-sm text-gray-500">Consent for Soft Check</p>
-                      <p className="font-medium">{application.consent_soft_check ? 'Yes' : 'No'}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Application Progress */}
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <Clock className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                    Application Progress
-                  </h2>
-                  
-                  <ApplicationTracker
-                    application={application}
-                    stages={stages}
-                  />
-                </div>
-                
-                {/* Internal Notes */}
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                      <FileText className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                      Internal Notes
-                    </h2>
-                    
-                    <button
-                      onClick={() => setShowAddNote(true)}
-                      className="text-sm text-[#3BAA75] hover:text-[#2D8259] font-medium flex items-center"
-                    >
-                      <Edit2 className="h-4 w-4 mr-1" />
-                      Add Note
-                    </button>
-                  </div>
-                  
-                  {application.internal_notes ? (
-                    <div className="bg-gray-50 p-4 rounded-lg whitespace-pre-line">
-                      {application.internal_notes}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      <FileText className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                      <p>No internal notes yet</p>
-                    </div>
-                  )}
-                </div>
               </div>
               
-              {/* Right Column - Financial Metrics & Actions */}
-              <div className="space-y-6">
-                {/* Admin Assignment */}
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <User className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                    Assigned Admin
-                  </h2>
-                  
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-500">Currently Assigned To</p>
-                        <p className="font-medium">
-                          {application.assigned_to_admin_id ? (
-                            adminUsers.find(admin => admin.id === application.assigned_to_admin_id)?.email || 'Unknown Admin'
+              <AnimatePresence>
+                {expandedSections.personal && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            First Name
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              name="first_name"
+                              value={editedApplication.first_name ?? application.first_name ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
                           ) : (
-                            'Unassigned'
+                            <p className="text-gray-900">{application.first_name || 'N/A'}</p>
                           )}
-                        </p>
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Last Name
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              name="last_name"
+                              value={editedApplication.last_name ?? application.last_name ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
+                          ) : (
+                            <p className="text-gray-900">{application.last_name || 'N/A'}</p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Email
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="email"
+                              name="email"
+                              value={editedApplication.email ?? application.email ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
+                          ) : (
+                            <div className="flex items-center">
+                              <Mail className="h-4 w-4 text-gray-400 mr-1" />
+                              <p className="text-gray-900">{application.email || 'N/A'}</p>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Phone
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="tel"
+                              name="phone"
+                              value={editedApplication.phone ?? application.phone ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
+                          ) : (
+                            <div className="flex items-center">
+                              <Phone className="h-4 w-4 text-gray-400 mr-1" />
+                              <p className="text-gray-900">{application.phone || 'N/A'}</p>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Date of Birth
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="date"
+                              name="date_of_birth"
+                              value={editedApplication.date_of_birth ?? application.date_of_birth ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
+                          ) : (
+                            <p className="text-gray-900">{application.date_of_birth ? formatDate(application.date_of_birth) : 'N/A'}</p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Marital Status
+                          </label>
+                          {isEditing ? (
+                            <select
+                              name="marital_status"
+                              value={editedApplication.marital_status ?? application.marital_status ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            >
+                              <option value="">Select Status</option>
+                              <option value="single">Single</option>
+                              <option value="married">Married</option>
+                              <option value="divorced">Divorced</option>
+                              <option value="widowed">Widowed</option>
+                              <option value="separated">Separated</option>
+                              <option value="other">Other</option>
+                            </select>
+                          ) : (
+                            <p className="text-gray-900">
+                              {application.marital_status 
+                                ? application.marital_status.charAt(0).toUpperCase() + application.marital_status.slice(1) 
+                                : 'N/A'}
+                            </p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Dependents
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="number"
+                              name="dependents"
+                              value={editedApplication.dependents ?? application.dependents ?? ''}
+                              onChange={handleInputChange}
+                              min="0"
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
+                          ) : (
+                            <p className="text-gray-900">{application.dependents !== null && application.dependents !== undefined ? application.dependents : 'N/A'}</p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Address
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              name="address"
+                              value={editedApplication.address ?? application.address ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
+                          ) : (
+                            <div className="flex items-center">
+                              <MapPin className="h-4 w-4 text-gray-400 mr-1" />
+                              <p className="text-gray-900">{application.address || 'N/A'}</p>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            City
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              name="city"
+                              value={editedApplication.city ?? application.city ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
+                          ) : (
+                            <p className="text-gray-900">{application.city || 'N/A'}</p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Province
+                          </label>
+                          {isEditing ? (
+                            <select
+                              name="province"
+                              value={editedApplication.province ?? application.province ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            >
+                              <option value="">Select Province</option>
+                              <option value="ON">Ontario</option>
+                              <option value="BC">British Columbia</option>
+                              <option value="AB">Alberta</option>
+                              <option value="MB">Manitoba</option>
+                              <option value="NB">New Brunswick</option>
+                              <option value="NL">Newfoundland and Labrador</option>
+                              <option value="NS">Nova Scotia</option>
+                              <option value="PE">Prince Edward Island</option>
+                              <option value="QC">Quebec</option>
+                              <option value="SK">Saskatchewan</option>
+                            </select>
+                          ) : (
+                            <p className="text-gray-900">{application.province || 'N/A'}</p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Postal Code
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              name="postal_code"
+                              value={editedApplication.postal_code ?? application.postal_code ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
+                          ) : (
+                            <p className="text-gray-900">{application.postal_code || 'N/A'}</p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Has Driver's License
+                          </label>
+                          {isEditing ? (
+                            <select
+                              name="has_driver_license"
+                              value={editedApplication.has_driver_license !== undefined ? String(editedApplication.has_driver_license) : String(application.has_driver_license || false)}
+                              onChange={(e) => setEditedApplication(prev => ({
+                                ...prev,
+                                has_driver_license: e.target.value === 'true'
+                              }))}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            >
+                              <option value="true">Yes</option>
+                              <option value="false">No</option>
+                            </select>
+                          ) : (
+                            <p className="text-gray-900">
+                              {application.has_driver_license === true ? 'Yes' : 
+                               application.has_driver_license === false ? 'No' : 'N/A'}
+                            </p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Preferred Contact Method
+                          </label>
+                          {isEditing ? (
+                            <select
+                              name="preferred_contact_method"
+                              value={editedApplication.preferred_contact_method ?? application.preferred_contact_method ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            >
+                              <option value="">Select Method</option>
+                              <option value="email">Email</option>
+                              <option value="phone">Phone</option>
+                              <option value="sms">SMS</option>
+                            </select>
+                          ) : (
+                            <p className="text-gray-900">
+                              {application.preferred_contact_method 
+                                ? application.preferred_contact_method.charAt(0).toUpperCase() + application.preferred_contact_method.slice(1) 
+                                : 'N/A'}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      
-                      <button
-                        onClick={() => setAssignedAdmin(application.assigned_to_admin_id)}
-                        className="text-sm text-[#3BAA75] hover:text-[#2D8259] font-medium"
-                      >
-                        Change
-                      </button>
                     </div>
-                    
-                    <div className="relative">
-                      <select
-                        value={assignedAdmin || ''}
-                        onChange={(e) => setAssignedAdmin(e.target.value || null)}
-                        className="w-full appearance-none pl-4 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
-                      >
-                        <option value="">Unassigned</option>
-                        {adminUsers.map(admin => (
-                          <option key={admin.id} value={admin.id}>
-                            {admin.email}
-                          </option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    </div>
-                    
-                    <button
-                      onClick={handleAssignAdmin}
-                      disabled={isAssigning}
-                      className="w-full bg-[#3BAA75] text-white px-4 py-2 rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isAssigning ? (
-                        <span className="flex items-center justify-center">
-                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                          Assigning...
-                        </span>
-                      ) : (
-                        'Save Assignment'
-                      )}
-                    </button>
-                  </div>
-                </div>
-                
-                {/* Financial Metrics */}
-                {financialMetrics && (
-                  <div className="bg-white rounded-lg shadow-sm p-6">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                      <PieChart className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                      Financial Metrics
-                    </h2>
-                    
-                    <div className="space-y-4">
-                      <div>
-                        <div className="flex justify-between items-center mb-1">
-                          <p className="text-sm text-gray-500">Total Monthly Income</p>
-                          <p className="font-medium">{formatCurrency(financialMetrics.totalIncome)}</p>
-                        </div>
-                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-green-500 rounded-full" style={{ width: '100%' }} />
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <div className="flex justify-between items-center mb-1">
-                          <p className="text-sm text-gray-500">Total Debt Obligations</p>
-                          <p className="font-medium">{formatCurrency(financialMetrics.totalDebtObligations)}</p>
-                        </div>
-                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-amber-500 rounded-full" 
-                            style={{ 
-                              width: `${Math.min(100, (financialMetrics.totalDebtObligations / financialMetrics.totalIncome) * 100)}%` 
-                            }} 
-                          />
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <div className="flex justify-between items-center mb-1">
-                          <p className="text-sm text-gray-500">Net Disposable Income</p>
-                          <p className="font-medium">{formatCurrency(financialMetrics.netDisposableIncome)}</p>
-                        </div>
-                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-blue-500 rounded-full" 
-                            style={{ 
-                              width: `${Math.min(100, (financialMetrics.netDisposableIncome / financialMetrics.totalIncome) * 100)}%` 
-                            }} 
-                          />
-                        </div>
-                      </div>
-                      
-                      <div className="pt-4 border-t border-gray-200">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm text-gray-500">Debt-to-Income Ratio</p>
-                            <p className={`font-medium ${
-                              financialMetrics.dtiRisk === 'low' ? 'text-green-600' :
-                              financialMetrics.dtiRisk === 'medium' ? 'text-amber-600' :
-                              'text-red-600'
-                            }`}>
-                              {financialMetrics.debtToIncomeRatio.toFixed(1)}%
-                            </p>
-                          </div>
-                          
-                          <div>
-                            <p className="text-sm text-gray-500">Loan-to-Income Ratio</p>
-                            <p className={`font-medium ${
-                              financialMetrics.ltiRisk === 'low' ? 'text-green-600' :
-                              financialMetrics.ltiRisk === 'medium' ? 'text-amber-600' :
-                              'text-red-600'
-                            }`}>
-                              {financialMetrics.loanToIncomeRatio.toFixed(1)}%
-                            </p>
-                          </div>
-                          
-                          <div>
-                            <p className="text-sm text-gray-500">Income Risk</p>
-                            <p className={`font-medium ${
-                              financialMetrics.incomeRisk === 'low' ? 'text-green-600' :
-                              financialMetrics.incomeRisk === 'medium' ? 'text-amber-600' :
-                              'text-red-600'
-                            }`}>
-                              {financialMetrics.incomeRisk.charAt(0).toUpperCase() + financialMetrics.incomeRisk.slice(1)}
-                            </p>
-                          </div>
-                          
-                          <div>
-                            <p className="text-sm text-gray-500">Overall Risk</p>
-                            <p className={`font-medium ${
-                              financialMetrics.overallRisk === 'low' ? 'text-green-600' :
-                              financialMetrics.overallRisk === 'medium' ? 'text-amber-600' :
-                              'text-red-600'
-                            }`}>
-                              {financialMetrics.overallRisk.charAt(0).toUpperCase() + financialMetrics.overallRisk.slice(1)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  </motion.div>
                 )}
-                
-                {/* Quick Actions */}
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <ArrowRight className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                    Quick Actions
-                  </h2>
-                  
-                  <div className="space-y-3">
-                    <a
-                      href={`mailto:${application.email}?subject=Your%20Clearpath%20Motors%20Application%20${application.id.slice(0, 8)}`}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                    >
-                      <span className="flex items-center text-gray-700">
-                        <Mail className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                        Email Applicant
-                      </span>
-                      <ArrowUpRight className="h-4 w-4 text-gray-400" />
-                    </a>
-                    
-                    <a
-                      href={`tel:${application.phone}`}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                    >
-                      <span className="flex items-center text-gray-700">
-                        <Phone className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                        Call Applicant
-                      </span>
-                      <ArrowUpRight className="h-4 w-4 text-gray-400" />
-                    </a>
-                    
-                    <button
-                      onClick={() => setActiveTab('documents')}
-                      className="flex items-center justify-between w-full p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-left"
-                    >
-                      <span className="flex items-center text-gray-700">
-                        <FileCheck className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                        Review Documents
-                      </span>
-                      <ChevronRight className="h-4 w-4 text-gray-400" />
-                    </button>
-                    
-                    <button
-                      onClick={() => setActiveTab('messages')}
-                      className="flex items-center justify-between w-full p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-left"
-                    >
-                      <span className="flex items-center text-gray-700">
-                        <MessageSquare className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                        Send Message
-                      </span>
-                      <ChevronRight className="h-4 w-4 text-gray-400" />
-                    </button>
-                  </div>
+              </AnimatePresence>
+            </div>
+
+            {/* Employment & Income */}
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+              <div 
+                className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center cursor-pointer"
+                onClick={() => toggleSection('employment')}
+              >
+                <div className="flex items-center">
+                  <Briefcase className="h-5 w-5 text-[#3BAA75] mr-2" />
+                  <h2 className="text-lg font-semibold">Employment & Income</h2>
                 </div>
-                
-                {/* Recommended Lenders */}
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <Building className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                    Recommended Lenders
-                  </h2>
-                  
-                  <div className="space-y-3">
-                    {financialMetrics && (
-                      <>
-                        {financialMetrics.overallRisk === 'low' && (
-                          <div className="p-3 bg-green-50 rounded-lg">
-                            <h3 className="font-medium text-green-800 mb-2 flex items-center">
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              A-Lenders (Prime)
-                            </h3>
-                            <p className="text-sm text-green-700 mb-2">
-                              Strong application with low risk. Recommend prime lenders for best rates.
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              {LENDERS.aLenders.slice(0, 3).map(lender => (
-                                <button
-                                  key={lender.id}
-                                  onClick={() => {
-                                    setSelectedLender(lender.id);
-                                    setShowSendToLender(true);
-                                  }}
-                                  className="px-2 py-1 bg-white text-green-700 text-xs rounded border border-green-200 hover:bg-green-100 transition-colors"
-                                >
-                                  {lender.name}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {financialMetrics.overallRisk === 'medium' && (
-                          <div className="p-3 bg-amber-50 rounded-lg">
-                            <h3 className="font-medium text-amber-800 mb-2 flex items-center">
-                              <AlertCircle className="h-4 w-4 mr-1" />
-                              Near-Prime Lenders
-                            </h3>
-                            <p className="text-sm text-amber-700 mb-2">
-                              Moderate risk factors. Recommend near-prime lenders with competitive rates.
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              {[...LENDERS.creditUnions.slice(0, 2), ...LENDERS.bLenders.slice(0, 2)].map(lender => (
-                                <button
-                                  key={lender.id}
-                                  onClick={() => {
-                                    setSelectedLender(lender.id);
-                                    setShowSendToLender(true);
-                                  }}
-                                  className="px-2 py-1 bg-white text-amber-700 text-xs rounded border border-amber-200 hover:bg-amber-100 transition-colors"
-                                >
-                                  {lender.name}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {financialMetrics.overallRisk === 'high' && (
-                          <div className="p-3 bg-red-50 rounded-lg">
-                            <h3 className="font-medium text-red-800 mb-2 flex items-center">
-                              <AlertCircle className="h-4 w-4 mr-1" />
-                              Subprime Lenders
-                            </h3>
-                            <p className="text-sm text-red-700 mb-2">
-                              Higher risk profile. Recommend specialized subprime lenders.
-                            </p>
-                            <div className="flex flex-wrap gap-2">
-                              {LENDERS.bLenders.slice(0, 4).map(lender => (
-                                <button
-                                  key={lender.id}
-                                  onClick={() => {
-                                    setSelectedLender(lender.id);
-                                    setShowSendToLender(true);
-                                  }}
-                                  className="px-2 py-1 bg-white text-red-700 text-xs rounded border border-red-200 hover:bg-red-100 transition-colors"
-                                >
-                                  {lender.name}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    )}
-                    
-                    <button
-                      onClick={() => setShowSendToLender(true)}
-                      className="w-full mt-3 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                    >
-                      Send to Lender
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-          
-          {/* Documents Tab */}
-          {activeTab === 'documents' && (
-            <motion.div
-              key="documents"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="space-y-6"
-            >
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <FileCheck className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                  Document Management
-                </h2>
-                
-                <div className="space-y-6">
-                  <DocumentManager
-                    applicationId={id || ''}
-                    documents={documents}
-                    onUpload={handleDocumentUpload}
-                    onDelete={handleDocumentDelete}
-                  />
-                  
-                  <div className="border-t border-gray-200 pt-6">
-                    <h3 className="text-md font-medium text-gray-900 mb-4">Upload New Document</h3>
-                    
-                    <DocumentUpload
-                      applicationId={id || ''}
-                      documents={documents}
-                      onUpload={handleDocumentUpload}
-                    />
-                  </div>
-                </div>
+                {expandedSections.employment ? (
+                  <ChevronUp className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-gray-400" />
+                )}
               </div>
               
-              {/* Document Review Section */}
-              {documents.filter(doc => doc.status === 'pending').length > 0 && (
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                    <FileText className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                    Pending Document Reviews
-                  </h2>
-                  
-                  <div className="space-y-4">
-                    {documents.filter(doc => doc.status === 'pending').map(doc => (
-                      <div key={doc.id} className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <p className="font-medium">{doc.filename.split('/').pop()}</p>
-                            <p className="text-sm text-gray-500">
-                              Category: {doc.category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              <AnimatePresence>
+                {expandedSections.employment && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Employment Status
+                          </label>
+                          {isEditing ? (
+                            <select
+                              name="employment_status"
+                              value={editedApplication.employment_status ?? application.employment_status ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            >
+                              <option value="">Select Status</option>
+                              <option value="employed">Employed</option>
+                              <option value="self_employed">Self Employed</option>
+                              <option value="unemployed">Unemployed</option>
+                            </select>
+                          ) : (
+                            <p className="text-gray-900">
+                              {application.employment_status 
+                                ? application.employment_status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+                                : 'N/A'}
                             </p>
-                            <p className="text-sm text-gray-500">
-                              Uploaded: {formatDate(doc.uploaded_at)}
-                            </p>
-                          </div>
-                          
-                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">
-                            Pending Review
-                          </span>
+                          )}
                         </div>
                         
-                        <div className="mt-4 space-y-3">
-                          <textarea
-                            placeholder="Add review notes here..."
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
-                            rows={2}
-                            id={`notes-${doc.id}`}
-                          />
-                          
-                          <div className="flex justify-end gap-2">
-                            <button
-                              onClick={() => {
-                                const notes = (document.getElementById(`notes-${doc.id}`) as HTMLTextAreaElement)?.value;
-                                handleDocumentReview(doc.id, 'rejected', notes);
-                              }}
-                              className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
-                            >
-                              Reject
-                            </button>
-                            
-                            <button
-                              onClick={() => {
-                                const notes = (document.getElementById(`notes-${doc.id}`) as HTMLTextAreaElement)?.value;
-                                handleDocumentReview(doc.id, 'approved', notes);
-                              }}
-                              className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-                            >
-                              Approve
-                            </button>
-                          </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Employer Name
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              name="employer_name"
+                              value={editedApplication.employer_name ?? application.employer_name ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
+                          ) : (
+                            <p className="text-gray-900">{application.employer_name || 'N/A'}</p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Occupation
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              name="occupation"
+                              value={editedApplication.occupation ?? application.occupation ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
+                          ) : (
+                            <p className="text-gray-900">{application.occupation || 'N/A'}</p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Employment Duration
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              name="employment_duration"
+                              value={editedApplication.employment_duration ?? application.employment_duration ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                              placeholder="e.g., 2 years"
+                            />
+                          ) : (
+                            <p className="text-gray-900">{application.employment_duration || 'N/A'}</p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Annual Income
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="number"
+                              name="annual_income"
+                              value={editedApplication.annual_income ?? application.annual_income ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
+                          ) : (
+                            <p className="text-gray-900">{formatCurrency(application.annual_income)}</p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Monthly Income
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="number"
+                              name="monthly_income"
+                              value={editedApplication.monthly_income ?? application.monthly_income ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
+                          ) : (
+                            <p className="text-gray-900">{formatCurrency(application.monthly_income)}</p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Other Income
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="number"
+                              name="other_income"
+                              value={editedApplication.other_income ?? application.other_income ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
+                          ) : (
+                            <p className="text-gray-900">{formatCurrency(application.other_income)}</p>
+                          )}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          )}
-          
-          {/* Messages Tab */}
-          {activeTab === 'messages' && (
-            <motion.div
-              key="messages"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="grid lg:grid-cols-3 gap-6"
-            >
-              {/* Messages List */}
-              <div className="lg:col-span-2 bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <MessageSquare className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                  Customer Messages
-                </h2>
-                
-                <div className="space-y-6">
-                  {messages.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">
-                      <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                      <p>No messages yet</p>
-                      <p className="text-sm mt-2">Start the conversation with the customer</p>
                     </div>
-                  ) : (
-                    <div className="space-y-4 max-h-[600px] overflow-y-auto p-2">
-                      {messages.map(message => (
-                        <div
-                          key={message.id}
-                          className={`p-4 rounded-lg ${
-                            message.is_admin
-                              ? 'bg-[#3BAA75]/10 ml-8'
-                              : 'bg-gray-100 mr-8'
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Housing Information */}
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+              <div 
+                className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center cursor-pointer"
+                onClick={() => toggleSection('housing')}
+              >
+                <div className="flex items-center">
+                  <Home className="h-5 w-5 text-[#3BAA75] mr-2" />
+                  <h2 className="text-lg font-semibold">Housing Information</h2>
+                </div>
+                {expandedSections.housing ? (
+                  <ChevronUp className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-gray-400" />
+                )}
+              </div>
+              
+              <AnimatePresence>
+                {expandedSections.housing && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Housing Status
+                          </label>
+                          {isEditing ? (
+                            <select
+                              name="housing_status"
+                              value={editedApplication.housing_status ?? application.housing_status ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            >
+                              <option value="">Select Status</option>
+                              <option value="own">Own</option>
+                              <option value="rent">Rent</option>
+                              <option value="live_with_parents">Live with Parents</option>
+                              <option value="other">Other</option>
+                            </select>
+                          ) : (
+                            <p className="text-gray-900">
+                              {application.housing_status 
+                                ? application.housing_status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+                                : 'N/A'}
+                            </p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Housing Payment
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="number"
+                              name="housing_payment"
+                              value={editedApplication.housing_payment ?? application.housing_payment ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
+                          ) : (
+                            <p className="text-gray-900">{formatCurrency(application.housing_payment)}</p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Residence Duration
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              name="residence_duration"
+                              value={editedApplication.residence_duration ?? application.residence_duration ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                              placeholder="e.g., 3 years"
+                            />
+                          ) : (
+                            <p className="text-gray-900">{application.residence_duration || 'N/A'}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Financing Details */}
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+              <div 
+                className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center cursor-pointer"
+                onClick={() => toggleSection('financing')}
+              >
+                <div className="flex items-center">
+                  <Car className="h-5 w-5 text-[#3BAA75] mr-2" />
+                  <h2 className="text-lg font-semibold">Financing Details</h2>
+                </div>
+                {expandedSections.financing ? (
+                  <ChevronUp className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-gray-400" />
+                )}
+              </div>
+              
+              <AnimatePresence>
+                {expandedSections.financing && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Vehicle Type
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              name="vehicle_type"
+                              value={editedApplication.vehicle_type ?? application.vehicle_type ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
+                          ) : (
+                            <p className="text-gray-900">{application.vehicle_type || 'N/A'}</p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Credit Score
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="number"
+                              name="credit_score"
+                              value={editedApplication.credit_score ?? application.credit_score ?? ''}
+                              onChange={handleInputChange}
+                              min="300"
+                              max="900"
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
+                          ) : (
+                            <p className="text-gray-900">{application.credit_score || 'N/A'}</p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Desired Loan Amount
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="number"
+                              name="desired_loan_amount"
+                              value={editedApplication.desired_loan_amount ?? application.desired_loan_amount ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
+                          ) : (
+                            <p className="text-gray-900">{formatCurrency(application.desired_loan_amount)}</p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Down Payment Amount
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="number"
+                              name="down_payment_amount"
+                              value={editedApplication.down_payment_amount ?? application.down_payment_amount ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
+                          ) : (
+                            <p className="text-gray-900">{formatCurrency(application.down_payment_amount)}</p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Desired Monthly Payment
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="number"
+                              name="desired_monthly_payment"
+                              value={editedApplication.desired_monthly_payment ?? application.desired_monthly_payment ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
+                          ) : (
+                            <p className="text-gray-900">{formatCurrency(application.desired_monthly_payment)}</p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Loan Amount Range
+                          </label>
+                          {isEditing ? (
+                            <div className="grid grid-cols-2 gap-2">
+                              <input
+                                type="number"
+                                name="loan_amount_min"
+                                value={editedApplication.loan_amount_min ?? application.loan_amount_min ?? ''}
+                                onChange={handleInputChange}
+                                className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                                placeholder="Min"
+                              />
+                              <input
+                                type="number"
+                                name="loan_amount_max"
+                                value={editedApplication.loan_amount_max ?? application.loan_amount_max ?? ''}
+                                onChange={handleInputChange}
+                                className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                                placeholder="Max"
+                              />
+                            </div>
+                          ) : (
+                            <p className="text-gray-900">
+                              {application.loan_amount_min && application.loan_amount_max 
+                                ? `${formatCurrency(application.loan_amount_min)} - ${formatCurrency(application.loan_amount_max)}`
+                                : 'N/A'}
+                            </p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Interest Rate
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="number"
+                              name="interest_rate"
+                              value={editedApplication.interest_rate ?? application.interest_rate ?? ''}
+                              onChange={handleInputChange}
+                              step="0.01"
+                              min="0"
+                              max="30"
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
+                          ) : (
+                            <p className="text-gray-900">
+                              {application.interest_rate !== null && application.interest_rate !== undefined 
+                                ? `${application.interest_rate}%` 
+                                : 'N/A'}
+                            </p>
+                          )}
+                        </div>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Loan Term
+                          </label>
+                          {isEditing ? (
+                            <select
+                              name="loan_term"
+                              value={editedApplication.loan_term ?? application.loan_term ?? ''}
+                              onChange={handleInputChange}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            >
+                              <option value="">Select Term</option>
+                              <option value="36">36 months</option>
+                              <option value="48">48 months</option>
+                              <option value="60">60 months</option>
+                              <option value="72">72 months</option>
+                              <option value="84">84 months</option>
+                            </select>
+                          ) : (
+                            <p className="text-gray-900">
+                              {application.loan_term 
+                                ? `${application.loan_term} months` 
+                                : 'N/A'}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Government Benefits */}
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+              <div 
+                className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center cursor-pointer"
+                onClick={() => toggleSection('benefits')}
+              >
+                <div className="flex items-center">
+                  <Shield className="h-5 w-5 text-[#3BAA75] mr-2" />
+                  <h2 className="text-lg font-semibold">Government Benefits</h2>
+                  {application.collects_government_benefits && (
+                    <span className="ml-2 px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                      Receives Benefits
+                    </span>
+                  )}
+                </div>
+                {expandedSections.benefits ? (
+                  <ChevronUp className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-gray-400" />
+                )}
+              </div>
+              
+              <AnimatePresence>
+                {expandedSections.benefits && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-4">
+                      <div className="grid grid-cols-1 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Collects Government Benefits
+                          </label>
+                          {isEditing ? (
+                            <select
+                              name="collects_government_benefits"
+                              value={editedApplication.collects_government_benefits !== undefined ? String(editedApplication.collects_government_benefits) : String(application.collects_government_benefits || false)}
+                              onChange={(e) => setEditedApplication(prev => ({
+                                ...prev,
+                                collects_government_benefits: e.target.value === 'true'
+                              }))}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            >
+                              <option value="true">Yes</option>
+                              <option value="false">No</option>
+                            </select>
+                          ) : (
+                            <p className="text-gray-900">
+                              {application.collects_government_benefits === true ? 'Yes' : 
+                               application.collects_government_benefits === false ? 'No' : 'N/A'}
+                            </p>
+                          )}
+                        </div>
+                        
+                        {(isEditing ? (editedApplication.collects_government_benefits !== undefined ? editedApplication.collects_government_benefits : application.collects_government_benefits) : application.collects_government_benefits) && (
+                          <>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Disability Programs
+                              </label>
+                              {isEditing ? (
+                                <textarea
+                                  name="disability_programs"
+                                  value={
+                                    editedApplication.disability_programs !== undefined
+                                      ? typeof editedApplication.disability_programs === 'string'
+                                        ? editedApplication.disability_programs
+                                        : JSON.stringify(editedApplication.disability_programs, null, 2)
+                                      : application.disability_programs
+                                        ? typeof application.disability_programs === 'string'
+                                          ? application.disability_programs
+                                          : JSON.stringify(application.disability_programs, null, 2)
+                                        : ''
+                                  }
+                                  onChange={handleInputChange}
+                                  className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                                  rows={4}
+                                  placeholder="Enter disability programs as JSON"
+                                />
+                              ) : (
+                                <div className="bg-gray-50 p-3 rounded-lg">
+                                  {application.disability_programs ? (
+                                    <pre className="text-sm whitespace-pre-wrap">
+                                      {typeof application.disability_programs === 'string'
+                                        ? application.disability_programs
+                                        : JSON.stringify(application.disability_programs, null, 2)}
+                                    </pre>
+                                  ) : (
+                                    <p className="text-gray-500 italic">No disability programs specified</p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Debt Discharge / Financial Challenges */}
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+              <div 
+                className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center cursor-pointer"
+                onClick={() => toggleSection('debt')}
+              >
+                <div className="flex items-center">
+                  <DollarSign className="h-5 w-5 text-[#3BAA75] mr-2" />
+                  <h2 className="text-lg font-semibold">Debt Discharge / Financial Challenges</h2>
+                  {application.has_debt_discharge_history && (
+                    <span className="ml-2 px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                      Has Debt History
+                    </span>
+                  )}
+                </div>
+                {expandedSections.debt ? (
+                  <ChevronUp className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-gray-400" />
+                )}
+              </div>
+              
+              <AnimatePresence>
+                {expandedSections.debt && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Has Debt Discharge History
+                          </label>
+                          {isEditing ? (
+                            <select
+                              name="has_debt_discharge_history"
+                              value={editedApplication.has_debt_discharge_history !== undefined ? String(editedApplication.has_debt_discharge_history) : String(application.has_debt_discharge_history || false)}
+                              onChange={(e) => setEditedApplication(prev => ({
+                                ...prev,
+                                has_debt_discharge_history: e.target.value === 'true'
+                              }))}
+                              className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            >
+                              <option value="true">Yes</option>
+                              <option value="false">No</option>
+                            </select>
+                          ) : (
+                            <p className="text-gray-900">
+                              {application.has_debt_discharge_history === true ? 'Yes' : 
+                               application.has_debt_discharge_history === false ? 'No' : 'N/A'}
+                            </p>
+                          )}
+                        </div>
+                        
+                        {(isEditing ? (editedApplication.has_debt_discharge_history !== undefined ? editedApplication.has_debt_discharge_history : application.has_debt_discharge_history) : application.has_debt_discharge_history) && (
+                          <>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Debt Discharge Type
+                              </label>
+                              {isEditing ? (
+                                <select
+                                  name="debt_discharge_type"
+                                  value={editedApplication.debt_discharge_type ?? application.debt_discharge_type ?? ''}
+                                  onChange={handleInputChange}
+                                  className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                                >
+                                  <option value="">Select Type</option>
+                                  <option value="bankruptcy">Bankruptcy</option>
+                                  <option value="consumer_proposal">Consumer Proposal</option>
+                                  <option value="informal_settlement">Informal Settlement</option>
+                                  <option value="other">Other</option>
+                                </select>
+                              ) : (
+                                <p className="text-gray-900">
+                                  {application.debt_discharge_type 
+                                    ? application.debt_discharge_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+                                    : 'N/A'}
+                                </p>
+                              )}
+                            </div>
+                            
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Debt Discharge Year
+                              </label>
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  name="debt_discharge_year"
+                                  value={editedApplication.debt_discharge_year ?? application.debt_discharge_year ?? ''}
+                                  onChange={handleInputChange}
+                                  min="1900"
+                                  max={new Date().getFullYear()}
+                                  className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                                />
+                              ) : (
+                                <p className="text-gray-900">{application.debt_discharge_year || 'N/A'}</p>
+                              )}
+                            </div>
+                            
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Debt Discharge Status
+                              </label>
+                              {isEditing ? (
+                                <select
+                                  name="debt_discharge_status"
+                                  value={editedApplication.debt_discharge_status ?? application.debt_discharge_status ?? ''}
+                                  onChange={handleInputChange}
+                                  className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                                >
+                                  <option value="">Select Status</option>
+                                  <option value="active">Active</option>
+                                  <option value="discharged">Discharged</option>
+                                  <option value="not_sure">Not Sure</option>
+                                </select>
+                              ) : (
+                                <p className="text-gray-900">
+                                  {application.debt_discharge_status 
+                                    ? application.debt_discharge_status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+                                    : 'N/A'}
+                                </p>
+                              )}
+                            </div>
+                            
+                            <div className="md:col-span-2">
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Debt Discharge Comments
+                              </label>
+                              {isEditing ? (
+                                <textarea
+                                  name="debt_discharge_comments"
+                                  value={editedApplication.debt_discharge_comments ?? application.debt_discharge_comments ?? ''}
+                                  onChange={handleInputChange}
+                                  className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                                  rows={3}
+                                />
+                              ) : (
+                                <p className="text-gray-900">{application.debt_discharge_comments || 'N/A'}</p>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Documents */}
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden" id="documents-section">
+              <div 
+                className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center cursor-pointer"
+                onClick={() => toggleSection('documents')}
+              >
+                <div className="flex items-center">
+                  <FileText className="h-5 w-5 text-[#3BAA75] mr-2" />
+                  <h2 className="text-lg font-semibold">Documents</h2>
+                  <span className="ml-2 px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
+                    {documents.length}
+                  </span>
+                </div>
+                {expandedSections.documents ? (
+                  <ChevronUp className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-gray-400" />
+                )}
+              </div>
+              
+              <AnimatePresence>
+                {expandedSections.documents && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-4">
+                      {/* Document Tabs */}
+                      <div className="flex border-b border-gray-200 mb-4">
+                        <button
+                          onClick={() => setActiveDocumentTab('manage')}
+                          className={`px-4 py-2 font-medium text-sm ${
+                            activeDocumentTab === 'manage'
+                              ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                              : 'text-gray-500 hover:text-gray-700'
                           }`}
                         >
-                          <div className="flex justify-between items-start mb-2">
-                            <p className="text-sm font-medium">
-                              {message.is_admin ? 'Admin' : application.first_name}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {formatDateTime(message.created_at)}
-                            </p>
-                          </div>
-                          <p className="text-sm">{message.message}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <div className="flex gap-2">
-                      <textarea
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Type your message here..."
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
-                        rows={3}
-                      />
-                    </div>
-                    
-                    <div className="flex justify-end mt-3">
-                      <button
-                        onClick={handleSendMessage}
-                        disabled={!newMessage || isSendingMessage}
-                        className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                      >
-                        {isSendingMessage ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Sending...
-                          </>
+                          Manage Documents
+                        </button>
+                        <button
+                          onClick={() => setActiveDocumentTab('upload')}
+                          className={`px-4 py-2 font-medium text-sm ${
+                            activeDocumentTab === 'upload'
+                              ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                              : 'text-gray-500 hover:text-gray-700'
+                          }`}
+                        >
+                          Upload New Document
+                        </button>
+                      </div>
+
+                      {/* Document Content */}
+                      <AnimatePresence mode="wait">
+                        {activeDocumentTab === 'manage' ? (
+                          <motion.div
+                            key="manage"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            {documents.length === 0 ? (
+                              <div className="text-center py-8 text-gray-500">
+                                <FileText className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                                <p>No documents uploaded yet</p>
+                                <button
+                                  onClick={() => setActiveDocumentTab('upload')}
+                                  className="mt-4 px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors"
+                                >
+                                  Upload Document
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="space-y-4">
+                                {documents.map((document) => (
+                                  <div 
+                                    key={document.id} 
+                                    className="border border-gray-200 rounded-lg p-4 hover:border-[#3BAA75]/50 transition-colors"
+                                  >
+                                    <div className="flex items-start justify-between">
+                                      <div>
+                                        <div className="flex items-center">
+                                          <FileText className="h-5 w-5 text-gray-400 mr-2" />
+                                          <h3 className="font-medium text-gray-900">
+                                            {document.category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                          </h3>
+                                          <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${getDocumentStatusColor(document.status)}`}>
+                                            {document.status.charAt(0).toUpperCase() + document.status.slice(1)}
+                                          </span>
+                                        </div>
+                                        <p className="text-sm text-gray-500 mt-1">
+                                          {document.filename.split('/').pop()}
+                                        </p>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                          Uploaded: {formatDateTime(document.uploaded_at)}
+                                        </p>
+                                        {document.reviewed_at && (
+                                          <p className="text-xs text-gray-500">
+                                            Reviewed: {formatDateTime(document.reviewed_at)}
+                                          </p>
+                                        )}
+                                        {document.review_notes && (
+                                          <div className="mt-2 p-2 bg-gray-50 rounded-lg text-sm text-gray-700">
+                                            <p className="font-medium text-xs text-gray-500 mb-1">Review Notes:</p>
+                                            <p>{document.review_notes}</p>
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="flex space-x-2">
+                                        <button
+                                          onClick={() => {
+                                            setSelectedDocument(document);
+                                            setShowDocumentReviewModal(true);
+                                          }}
+                                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                                          title="Review Document"
+                                        >
+                                          <Eye className="h-5 w-5" />
+                                        </button>
+                                        <button
+                                          onClick={() => handleDocumentDelete(document.id)}
+                                          className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors"
+                                          title="Delete Document"
+                                        >
+                                          <Trash2 className="h-5 w-5" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </motion.div>
                         ) : (
-                          <>
-                            <Send className="h-4 w-4 mr-2" />
-                            Send Message
-                          </>
+                          <motion.div
+                            key="upload"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <DocumentUpload
+                              applicationId={application.id}
+                              documents={documents}
+                              onUpload={handleDocumentUpload}
+                              isUploading={uploading}
+                              uploadError={uploadError}
+                            />
+                          </motion.div>
                         )}
-                      </button>
+                      </AnimatePresence>
                     </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Application Stages */}
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+              <div 
+                className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center cursor-pointer"
+                onClick={() => toggleSection('stages')}
+              >
+                <div className="flex items-center">
+                  <Clock className="h-5 w-5 text-[#3BAA75] mr-2" />
+                  <h2 className="text-lg font-semibold">Application Stages</h2>
+                </div>
+                <div className="flex items-center">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowStageModal(true);
+                    }}
+                    className="mr-2 px-3 py-1 bg-[#3BAA75] text-white text-sm rounded-lg hover:bg-[#2D8259] transition-colors"
+                  >
+                    Add Stage
+                  </button>
+                  {expandedSections.stages ? (
+                    <ChevronUp className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-gray-400" />
+                  )}
+                </div>
+              </div>
+              
+              <AnimatePresence>
+                {expandedSections.stages && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-4">
+                      {stages.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                          <Clock className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                          <p>No stages recorded yet</p>
+                          <button
+                            onClick={() => setShowStageModal(true)}
+                            className="mt-4 px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors"
+                          >
+                            Add Stage
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          {/* Vertical line */}
+                          <div className="absolute left-[21px] top-0 h-full w-px bg-gray-200" />
+
+                          <div className="space-y-6">
+                            {stages.map((stage) => (
+                              <div key={stage.id} className="relative flex items-start">
+                                {/* Stage indicator */}
+                                <div
+                                  className={`
+                                    w-11 h-11 rounded-full flex items-center justify-center z-10
+                                    ${stage.status === 'completed' ? 'bg-[#3BAA75] text-white' : 'bg-gray-100 text-gray-400'}
+                                  `}
+                                >
+                                  {stage.status === 'completed' ? (
+                                    <CheckCircle className="h-5 w-5" />
+                                  ) : (
+                                    <span>{stage.stage_number}</span>
+                                  )}
+                                </div>
+
+                                {/* Stage content */}
+                                <div className="ml-4 flex-1">
+                                  <h3 className="font-semibold text-gray-900">
+                                    Stage {stage.stage_number}
+                                  </h3>
+                                  <p className="text-sm text-gray-600 mt-1">
+                                    Status: {stage.status.charAt(0).toUpperCase() + stage.status.slice(1)}
+                                  </p>
+                                  <p className="text-sm text-gray-500 mt-1">
+                                    {formatDateTime(stage.timestamp)}
+                                  </p>
+                                  {stage.notes && (
+                                    <p className="mt-2 text-sm bg-gray-50 p-2 rounded text-gray-600">
+                                      {stage.notes}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Application Flags */}
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+              <div 
+                className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center cursor-pointer"
+                onClick={() => toggleSection('flags')}
+              >
+                <div className="flex items-center">
+                  <Flag className="h-5 w-5 text-[#3BAA75] mr-2" />
+                  <h2 className="text-lg font-semibold">Application Flags</h2>
+                  {flags.filter(f => !f.resolved_at).length > 0 && (
+                    <span className="ml-2 px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
+                      {flags.filter(f => !f.resolved_at).length} Active
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowFlagModal(true);
+                    }}
+                    className="mr-2 px-3 py-1 bg-[#3BAA75] text-white text-sm rounded-lg hover:bg-[#2D8259] transition-colors"
+                  >
+                    Add Flag
+                  </button>
+                  {expandedSections.flags ? (
+                    <ChevronUp className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="h-5 w-5 text-gray-400" />
+                  )}
+                </div>
+              </div>
+              
+              <AnimatePresence>
+                {expandedSections.flags && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-4">
+                      {flags.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                          <Flag className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                          <p>No flags for this application</p>
+                          <button
+                            onClick={() => setShowFlagModal(true)}
+                            className="mt-4 px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors"
+                          >
+                            Add Flag
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {flags.map((flag) => (
+                            <div 
+                              key={flag.id} 
+                              className={`border rounded-lg p-4 ${flag.resolved_at ? 'border-gray-200 bg-gray-50' : 'border-red-200 bg-red-50'}`}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <div className="flex items-center">
+                                    <h3 className="font-medium text-gray-900">
+                                      {flag.flag_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                    </h3>
+                                    <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${getSeverityColor(flag.severity)}`}>
+                                      {flag.severity.charAt(0).toUpperCase() + flag.severity.slice(1)}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-gray-600 mt-1">
+                                    {flag.description}
+                                  </p>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Created: {formatDateTime(flag.created_at)}
+                                  </p>
+                                  {flag.resolved_at && (
+                                    <p className="text-xs text-gray-500">
+                                      Resolved: {formatDateTime(flag.resolved_at)}
+                                    </p>
+                                  )}
+                                </div>
+                                {!flag.resolved_at && (
+                                  <button
+                                    onClick={() => handleResolveFlag(flag.id)}
+                                    className="px-3 py-1 bg-[#3BAA75] text-white text-sm rounded-lg hover:bg-[#2D8259] transition-colors"
+                                  >
+                                    Resolve
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Activity Log */}
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+              <div 
+                className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center cursor-pointer"
+                onClick={() => toggleSection('activity')}
+              >
+                <div className="flex items-center">
+                  <Clock className="h-5 w-5 text-[#3BAA75] mr-2" />
+                  <h2 className="text-lg font-semibold">Activity Log</h2>
+                </div>
+                {expandedSections.activity ? (
+                  <ChevronUp className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-gray-400" />
+                )}
+              </div>
+              
+              <AnimatePresence>
+                {expandedSections.activity && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-4">
+                      {activityLog.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                          <Clock className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                          <p>No activity recorded yet</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-6">
+                          {activityLog.map((activity, index) => (
+                            <div key={activity.id} className="relative">
+                              {index !== activityLog.length - 1 && (
+                                <div className="absolute top-8 left-4 bottom-0 w-px bg-gray-200" />
+                              )}
+                              <div className="flex gap-4">
+                                <div className="relative z-10">
+                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${activity.is_admin_action ? 'bg-blue-500' : 'bg-[#3BAA75]'} text-white text-xs font-medium`}>
+                                    {activity.is_admin_action ? 'A' : 'U'}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div className="flex items-center">
+                                    <p className="font-medium text-gray-900">
+                                      {activity.is_admin_action ? 'Admin' : 'User'}
+                                    </p>
+                                    <span className="mx-1 text-gray-500">•</span>
+                                    <p className="text-sm text-gray-500">
+                                      {formatDateTime(activity.created_at)}
+                                    </p>
+                                  </div>
+                                  <p className="text-gray-600 mt-1">
+                                    {activity.action.replace(/_/g, ' ')}
+                                  </p>
+                                  {activity.details && Object.keys(activity.details).length > 0 && (
+                                    <div className="mt-2 p-2 bg-gray-50 rounded-lg text-sm">
+                                      <pre className="whitespace-pre-wrap text-xs text-gray-600">
+                                        {JSON.stringify(activity.details, null, 2)}
+                                      </pre>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+
+          {/* Right Column - Actions & Info */}
+          <div className="space-y-6">
+            {/* Application Status */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-semibold mb-4">Application Status</h2>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Status</span>
+                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(application.status)}`}>
+                    {formatStatus(application.status)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Current Stage</span>
+                  <span className="font-medium">
+                    {application.current_stage} of 7
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Created</span>
+                  <span className="text-gray-900">{formatDate(application.created_at)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Last Updated</span>
+                  <span className="text-gray-900">{formatDate(application.updated_at)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Consultation</span>
+                  <span className="text-gray-900">
+                    {application.consultation_time 
+                      ? formatDateTime(application.consultation_time)
+                      : 'Not Scheduled'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Assigned To</span>
+                  <div>
+                    {application.assigned_to_admin_id ? (
+                      <span className="text-gray-900">
+                        {adminUsers.find(u => u.id === application.assigned_to_admin_id)?.email || 'Unknown Admin'}
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setShowAssignModal(true)}
+                        className="text-sm text-[#3BAA75] hover:text-[#2D8259] font-medium"
+                      >
+                        Assign
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
               
-              {/* Message Templates */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <FileText className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                  Message Templates
-                </h2>
+              <div className="mt-6 pt-6 border-t border-gray-200 flex flex-col gap-3">
+                <button
+                  onClick={() => setShowStatusModal(true)}
+                  className="w-full px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors flex items-center justify-center gap-2"
+                >
+                  <Clock className="h-5 w-5" />
+                  <span>Update Status</span>
+                </button>
                 
-                <div className="space-y-3">
-                  <button
-                    onClick={() => setNewMessage("Hi there! I'm reviewing your application and wanted to check in. Is there anything specific you'd like to know about the process?")}
-                    className="w-full text-left p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <p className="font-medium text-gray-900">Initial Check-in</p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Friendly first message to establish contact
-                    </p>
-                  </button>
-                  
-                  <button
-                    onClick={() => setNewMessage("I've reviewed your application and we need a few more documents to proceed. Could you please upload your proof of income and ID through the dashboard? Let me know if you need any help.")}
-                    className="w-full text-left p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <p className="font-medium text-gray-900">Request Documents</p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Ask for missing documentation
-                    </p>
-                  </button>
-                  
-                  <button
-                    onClick={() => setNewMessage("Great news! Your application has been pre-approved. I'll be sending more details shortly about next steps and available vehicles that match your criteria.")}
-                    className="w-full text-left p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <p className="font-medium text-gray-900">Pre-Approval Notice</p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Inform about pre-approval status
-                    </p>
-                  </button>
-                  
-                  <button
-                    onClick={() => setNewMessage("I noticed you haven't uploaded all the required documents yet. Is there anything I can help clarify about what's needed? We can't proceed with your application until we have all the necessary documentation.")}
-                    className="w-full text-left p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <p className="font-medium text-gray-900">Document Follow-up</p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Reminder about missing documents
-                    </p>
-                  </button>
-                  
-                  <button
-                    onClick={() => setNewMessage("Would you be available for a quick call to discuss your application? I have some options I'd like to go over with you. Please let me know what time works best for you.")}
-                    className="w-full text-left p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <p className="font-medium text-gray-900">Schedule Call</p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Request a phone consultation
-                    </p>
-                  </button>
-                </div>
+                <button
+                  onClick={() => setShowAssignModal(true)}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <UserCheck className="h-5 w-5" />
+                  <span>Assign Application</span>
+                </button>
+                
+                <button
+                  onClick={() => setShowFlagModal(true)}
+                  className="w-full px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors flex items-center justify-center gap-2"
+                >
+                  <Flag className="h-5 w-5" />
+                  <span>Add Flag</span>
+                </button>
               </div>
-            </motion.div>
-          )}
-          
-          {/* Activity Log Tab */}
-          {activeTab === 'activity' && (
-            <motion.div
-              key="activity"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="bg-white rounded-lg shadow-sm p-6"
-            >
-              <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-                <Clock className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                Activity Log
-              </h2>
+            </div>
+
+            {/* Messages */}
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+              <div 
+                className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center cursor-pointer"
+                onClick={() => toggleSection('messages')}
+              >
+                <div className="flex items-center">
+                  <MessageSquare className="h-5 w-5 text-[#3BAA75] mr-2" />
+                  <h2 className="text-lg font-semibold">Messages</h2>
+                  {messages.filter(m => !m.read && !m.is_admin).length > 0 && (
+                    <span className="ml-2 px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
+                      {messages.filter(m => !m.read && !m.is_admin).length} Unread
+                    </span>
+                  )}
+                </div>
+                {expandedSections.messages ? (
+                  <ChevronUp className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-gray-400" />
+                )}
+              </div>
               
-              {activityLog.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Clock className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                  <p>No activity recorded yet</p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {activityLog.map((activity, index) => (
-                    <div key={activity.id} className="relative">
-                      {index !== activityLog.length - 1 && (
-                        <div className="absolute top-8 left-4 bottom-0 w-px bg-gray-200" />
-                      )}
-                      <div className="flex gap-4">
-                        <div className="relative z-10">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium ${
-                            activity.is_admin_action ? 'bg-blue-500' : 'bg-[#3BAA75]'
-                          }`}>
-                            {activity.is_admin_action ? 'A' : 'U'}
+              <AnimatePresence>
+                {expandedSections.messages && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-4">
+                      <div className="h-64 overflow-y-auto mb-4 border border-gray-200 rounded-lg p-4">
+                        {messages.length === 0 ? (
+                          <div className="text-center py-8 text-gray-500">
+                            <MessageSquare className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                            <p>No messages yet</p>
                           </div>
-                        </div>
-                        <div>
-                          <div className="flex items-center">
-                            <p className="font-medium text-gray-900">
-                              {activity.is_admin_action ? 'Admin' : application.first_name}
-                            </p>
-                            <span className="mx-1 text-gray-500">•</span>
-                            <p className="text-sm text-gray-500">
-                              {formatDateTime(activity.created_at)}
-                            </p>
+                        ) : (
+                          <div className="space-y-4">
+                            {messages.map((message) => (
+                              <div 
+                                key={message.id} 
+                                className={`flex ${message.is_admin ? 'justify-end' : 'justify-start'}`}
+                              >
+                                <div 
+                                  className={`max-w-[80%] rounded-lg p-3 ${
+                                    message.is_admin 
+                                      ? 'bg-[#3BAA75] text-white' 
+                                      : 'bg-gray-100 text-gray-800'
+                                  }`}
+                                >
+                                  <p className="text-sm">{message.message}</p>
+                                  <div className="flex justify-between items-center mt-1">
+                                    <span className="text-xs opacity-80">
+                                      {formatDateTime(message.created_at)}
+                                    </span>
+                                    <span className="text-xs opacity-80">
+                                      {message.is_admin ? 'Admin' : 'User'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                          <p className="text-gray-600 mt-1">
-                            {formatActivityAction(activity.action)}
-                            {activity.details && activity.action === 'send_to_lender' && (
-                              <span> to <strong>{activity.details.lender_name}</strong></span>
-                            )}
-                            {activity.details && activity.action === 'update_document' && (
-                              <span> to <strong>{activity.details.status}</strong></span>
-                            )}
-                          </p>
-                          
-                          {activity.details && activity.details.note && (
-                            <p className="text-sm bg-gray-50 p-2 rounded mt-2 text-gray-600">
-                              {activity.details.note}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </motion.div>
-          )}
-          
-          {/* Flags Tab */}
-          {activeTab === 'flags' && (
-            <motion.div
-              key="flags"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
-              className="bg-white rounded-lg shadow-sm p-6"
-            >
-              <h2 className="text-lg font-semibold text-gray-900 mb-6 flex items-center">
-                <AlertCircle className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                Application Flags
-              </h2>
-              
-              {flags.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <CheckCircle className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                  <p>No flags on this application</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {flags.map(flag => (
-                    <div
-                      key={flag.id}
-                      className={`border rounded-lg p-4 ${
-                        flag.severity === 'critical' ? 'border-red-200 bg-red-50' :
-                        flag.severity === 'high' ? 'border-amber-200 bg-amber-50' :
-                        flag.severity === 'medium' ? 'border-yellow-200 bg-yellow-50' :
-                        'border-blue-200 bg-blue-50'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className={`font-medium ${
-                            flag.severity === 'critical' ? 'text-red-700' :
-                            flag.severity === 'high' ? 'text-amber-700' :
-                            flag.severity === 'medium' ? 'text-yellow-700' :
-                            'text-blue-700'
-                          }`}>
-                            {flag.flag_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                          </h3>
-                          <p className="text-sm mt-1">
-                            {flag.description}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-2">
-                            Flagged on {formatDate(flag.created_at)}
-                          </p>
-                        </div>
-                        
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          flag.severity === 'critical' ? 'bg-red-200 text-red-800' :
-                          flag.severity === 'high' ? 'bg-amber-200 text-amber-800' :
-                          flag.severity === 'medium' ? 'bg-yellow-200 text-yellow-800' :
-                          'bg-blue-200 text-blue-800'
-                        }`}>
-                          {flag.severity.charAt(0).toUpperCase() + flag.severity.slice(1)}
-                        </span>
+                        )}
                       </div>
                       
-                      {flag.resolved_at ? (
-                        <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between">
-                          <div className="flex items-center text-green-600 text-sm">
-                            <CheckCircle className="h-4 w-4 mr-1" />
-                            Resolved on {formatDate(flag.resolved_at)}
-                          </div>
-                          
-                          <button className="text-xs text-gray-500 hover:text-gray-700">
-                            View Details
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="mt-3 pt-3 border-t border-gray-200 flex justify-end">
-                          <button className="px-3 py-1 bg-white text-gray-700 rounded border border-gray-300 text-sm hover:bg-gray-50 transition-colors">
-                            Mark as Resolved
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newMessage}
+                          onChange={(e) => setNewMessage(e.target.value)}
+                          placeholder="Type your message..."
+                          className="flex-1 rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        />
+                        <button
+                          onClick={handleSendMessage}
+                          disabled={!newMessage.trim() || sendingMessage}
+                          className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {sendingMessage ? (
+                            <RefreshCw className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <Send className="h-5 w-5" />
+                          )}
+                        </button>
+                      </div>
                     </div>
-                  ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Internal Notes */}
+            <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+              <div 
+                className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center cursor-pointer"
+                onClick={() => toggleSection('notes')}
+              >
+                <div className="flex items-center">
+                  <FileText className="h-5 w-5 text-[#3BAA75] mr-2" />
+                  <h2 className="text-lg font-semibold">Internal Notes</h2>
                 </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+                {expandedSections.notes ? (
+                  <ChevronUp className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-gray-400" />
+                )}
+              </div>
+              
+              <AnimatePresence>
+                {expandedSections.notes && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-4">
+                      <textarea
+                        value={editedApplication.internal_notes !== undefined ? editedApplication.internal_notes : application.internal_notes || ''}
+                        onChange={(e) => setEditedApplication(prev => ({
+                          ...prev,
+                          internal_notes: e.target.value
+                        }))}
+                        className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        rows={5}
+                        placeholder="Add internal notes here (only visible to admins)"
+                      />
+                      
+                      <div className="mt-4 flex justify-end">
+                        <button
+                          onClick={handleSaveNotes}
+                          disabled={savingNotes || (editedApplication.internal_notes === application.internal_notes)}
+                          className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          {savingNotes ? (
+                            <RefreshCw className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <Save className="h-5 w-5" />
+                          )}
+                          <span>Save Notes</span>
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
+              <div className="space-y-3">
+                <button
+                  onClick={() => setActiveDocumentTab('upload')}
+                  className="w-full px-4 py-3 text-left bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors flex items-center"
+                >
+                  <Upload className="h-5 w-5 text-[#3BAA75] mr-3" />
+                  <span>Upload Document</span>
+                </button>
+                
+                <button
+                  onClick={() => setShowStageModal(true)}
+                  className="w-full px-4 py-3 text-left bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors flex items-center"
+                >
+                  <Clock className="h-5 w-5 text-[#3BAA75] mr-3" />
+                  <span>Update Stage</span>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    const mailtoLink = `mailto:${application.email}?subject=Your Clearpath Application&body=Hello ${application.first_name},`;
+                    window.open(mailtoLink);
+                  }}
+                  className="w-full px-4 py-3 text-left bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors flex items-center"
+                >
+                  <Mail className="h-5 w-5 text-[#3BAA75] mr-3" />
+                  <span>Email Customer</span>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    const telLink = `tel:${application.phone}`;
+                    window.open(telLink);
+                  }}
+                  className="w-full px-4 py-3 text-left bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors flex items-center"
+                >
+                  <Phone className="h-5 w-5 text-[#3BAA75] mr-3" />
+                  <span>Call Customer</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      
-      {/* Modals */}
-      {/* Change Status Modal */}
-      {showChangeStatus && (
+
+      {/* Status Update Modal */}
+      {showStatusModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Update Application Status
-              </h3>
+              <h3 className="font-semibold text-lg">Update Application Status</h3>
               <button
-                onClick={() => setShowChangeStatus(false)}
+                onClick={() => setShowStatusModal(false)}
                 className="text-gray-400 hover:text-gray-500"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             
-            <div className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Current Status
-                </label>
-                <div className="p-2 bg-gray-50 rounded-lg text-gray-700">
-                  {formatStatus(application.status)}
-                </div>
-              </div>
-              
-              <div>
+            <div className="p-4">
+              <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   New Status
                 </label>
                 <select
                   value={newStatus}
                   onChange={(e) => setNewStatus(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
                 >
                   <option value="">Select Status</option>
-                  {APPLICATION_STATUSES.map(status => (
-                    <option key={status.value} value={status.value}>
-                      {status.label}
+                  <option value="submitted">Submitted</option>
+                  <option value="under_review">Under Review</option>
+                  <option value="pending_documents">Pending Documents</option>
+                  <option value="pre_approved">Pre-Approved</option>
+                  <option value="vehicle_selection">Vehicle Selection</option>
+                  <option value="final_approval">Final Approval</option>
+                  <option value="finalized">Finalized</option>
+                </select>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notes (Optional)
+                </label>
+                <textarea
+                  value={statusNote}
+                  onChange={(e) => setStatusNote(e.target.value)}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                  rows={3}
+                  placeholder="Add notes about this status change"
+                />
+              </div>
+              
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowStatusModal(false)}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleStatusChange}
+                  disabled={!newStatus}
+                  className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Update Status
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Modal */}
+      {showAssignModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="font-semibold text-lg">Assign Application</h3>
+              <button
+                onClick={() => setShowAssignModal(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="p-4">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Assign To
+                </label>
+                <select
+                  value={selectedAdmin}
+                  onChange={(e) => setSelectedAdmin(e.target.value)}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                >
+                  <option value="">Select Admin</option>
+                  {adminUsers.map((admin) => (
+                    <option key={admin.id} value={admin.id}>
+                      {admin.email}
                     </option>
                   ))}
                 </select>
               </div>
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Status Note (Optional)
-                </label>
-                <textarea
-                  value={statusNote}
-                  onChange={(e) => setStatusNote(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
-                  rows={3}
-                  placeholder="Add a note about this status change..."
-                />
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowAssignModal(false)}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAssignAdmin}
+                  disabled={!selectedAdmin}
+                  className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Assign
+                </button>
               </div>
-            </div>
-            
-            <div className="p-4 border-t border-gray-200 flex justify-end gap-3">
-              <button
-                onClick={() => setShowChangeStatus(false)}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleStatusChange}
-                disabled={!newStatus || isUpdating}
-                className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-              >
-                {isUpdating ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Updating...
-                  </>
-                ) : (
-                  'Update Status'
-                )}
-              </button>
             </div>
           </div>
         </div>
       )}
-      
-      {/* Send to Lender Modal */}
-      {showSendToLender && (
+
+      {/* Document Review Modal */}
+      {showDocumentReviewModal && selectedDocument && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full">
             <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Send Application to Lender
-              </h3>
+              <h3 className="font-semibold text-lg">Review Document</h3>
               <button
-                onClick={() => setShowSendToLender(false)}
+                onClick={() => {
+                  setShowDocumentReviewModal(false);
+                  setSelectedDocument(null);
+                  setDocumentReviewStatus('approved');
+                  setDocumentReviewNotes('');
+                }}
                 className="text-gray-400 hover:text-gray-500"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             
-            <div className="p-4 space-y-4">
-              <div>
+            <div className="p-4">
+              <div className="mb-4">
+                <h4 className="font-medium text-gray-900 mb-1">
+                  {selectedDocument.category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                </h4>
+                <p className="text-sm text-gray-500">
+                  {selectedDocument.filename.split('/').pop()}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Uploaded: {formatDateTime(selectedDocument.uploaded_at)}
+                </p>
+                <p className="text-xs text-gray-500">
+                  Current Status: 
+                  <span className={`ml-1 px-2 py-0.5 text-xs font-medium rounded-full ${getDocumentStatusColor(selectedDocument.status)}`}>
+                    {selectedDocument.status.charAt(0).toUpperCase() + selectedDocument.status.slice(1)}
+                  </span>
+                </p>
+              </div>
+              
+              <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Select Lender
+                  Review Status
+                </label>
+                <div className="flex gap-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="documentStatus"
+                      value="approved"
+                      checked={documentReviewStatus === 'approved'}
+                      onChange={() => setDocumentReviewStatus('approved')}
+                      className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300"
+                    />
+                    <span className="ml-2 text-gray-700">Approve</span>
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="documentStatus"
+                      value="rejected"
+                      checked={documentReviewStatus === 'rejected'}
+                      onChange={() => setDocumentReviewStatus('rejected')}
+                      className="h-4 w-4 text-red-600 focus:ring-red-600 border-gray-300"
+                    />
+                    <span className="ml-2 text-gray-700">Reject</span>
+                  </label>
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Review Notes {documentReviewStatus === 'rejected' && <span className="text-red-500">*</span>}
+                </label>
+                <textarea
+                  value={documentReviewNotes}
+                  onChange={(e) => setDocumentReviewNotes(e.target.value)}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                  rows={3}
+                  placeholder={documentReviewStatus === 'rejected' 
+                    ? "Please explain why this document is being rejected" 
+                    : "Optional notes for approved documents"}
+                  required={documentReviewStatus === 'rejected'}
+                />
+                {documentReviewStatus === 'rejected' && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    * Required for rejected documents. This will be visible to the customer.
+                  </p>
+                )}
+              </div>
+              
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowDocumentReviewModal(false);
+                    setSelectedDocument(null);
+                    setDocumentReviewStatus('approved');
+                    setDocumentReviewNotes('');
+                  }}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDocumentReview}
+                  disabled={submittingDocumentReview || (documentReviewStatus === 'rejected' && !documentReviewNotes.trim())}
+                  className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submittingDocumentReview ? (
+                    <RefreshCw className="h-5 w-5 animate-spin" />
+                  ) : (
+                    'Submit Review'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Flag Modal */}
+      {showFlagModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="font-semibold text-lg">Add Application Flag</h3>
+              <button
+                onClick={() => setShowFlagModal(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="p-4">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Flag Type
+                </label>
+                <input
+                  type="text"
+                  value={newFlag.flag_type}
+                  onChange={(e) => setNewFlag(prev => ({ ...prev, flag_type: e.target.value }))}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                  placeholder="e.g., income_verification, document_issue"
+                  required
+                />
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Severity
                 </label>
                 <select
-                  value={selectedLender}
-                  onChange={(e) => setSelectedLender(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                  value={newFlag.severity}
+                  onChange={(e) => setNewFlag(prev => ({ ...prev, severity: e.target.value as 'low' | 'medium' | 'high' | 'critical' }))}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
                 >
-                  <option value="">Select Lender</option>
-                  <optgroup label="A-Lenders (Prime)">
-                    {LENDERS.aLenders.map(lender => (
-                      <option key={lender.id} value={lender.id}>
-                        {lender.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Credit Unions & Alt Banks">
-                    {LENDERS.creditUnions.map(lender => (
-                      <option key={lender.id} value={lender.id}>
-                        {lender.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="B-Lenders (Subprime)">
-                    {LENDERS.bLenders.map(lender => (
-                      <option key={lender.id} value={lender.id}>
-                        {lender.name}
-                      </option>
-                    ))}
-                  </optgroup>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="critical">Critical</option>
                 </select>
               </div>
               
-              <div>
+              <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Note to Lender (Optional)
+                  Description
                 </label>
                 <textarea
-                  value={lenderNote}
-                  onChange={(e) => setLenderNote(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                  value={newFlag.description}
+                  onChange={(e) => setNewFlag(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
                   rows={3}
-                  placeholder="Add any specific details for the lender..."
+                  placeholder="Describe the issue or concern"
+                  required
                 />
               </div>
-            </div>
-            
-            <div className="p-4 border-t border-gray-200 flex justify-end gap-3">
-              <button
-                onClick={() => setShowSendToLender(false)}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSendToLender}
-                disabled={!selectedLender || isUpdating}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-              >
-                {isUpdating ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  'Send to Lender'
-                )}
-              </button>
+              
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowFlagModal(false)}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddFlag}
+                  disabled={submittingFlag || !newFlag.flag_type || !newFlag.description}
+                  className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submittingFlag ? (
+                    <RefreshCw className="h-5 w-5 animate-spin" />
+                  ) : (
+                    'Add Flag'
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
-      
-      {/* Add Note Modal */}
-      {showAddNote && (
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Add Internal Note
-              </h3>
+              <h3 className="font-semibold text-lg">Delete Application</h3>
               <button
-                onClick={() => setShowAddNote(false)}
+                onClick={() => setShowDeleteModal(false)}
                 className="text-gray-400 hover:text-gray-500"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             
-            <div className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Note
-                </label>
-                <textarea
-                  value={internalNote}
-                  onChange={(e) => setInternalNote(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
-                  rows={5}
-                  placeholder="Add your internal note here..."
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  This note is only visible to admins and will not be shared with the applicant.
+            <div className="p-4">
+              <div className="mb-6">
+                <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                <p className="text-gray-700 text-center">
+                  Are you sure you want to delete this application? This action cannot be undone.
                 </p>
               </div>
+              
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteApplication}
+                  disabled={deletingApplication}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {deletingApplication ? (
+                    <RefreshCw className="h-5 w-5 animate-spin" />
+                  ) : (
+                    'Delete Application'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Stage Modal */}
+      {showStageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+              <h3 className="font-semibold text-lg">Add Application Stage</h3>
+              <button
+                onClick={() => setShowStageModal(false)}
+                className="text-gray-400 hover:text-gray-500"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
             
-            <div className="p-4 border-t border-gray-200 flex justify-end gap-3">
-              <button
-                onClick={() => setShowAddNote(false)}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddNote}
-                disabled={!internalNote || isUpdating}
-                className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-              >
-                {isUpdating ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  'Save Note'
-                )}
-              </button>
+            <div className="p-4">
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Stage Number
+                </label>
+                <select
+                  value={newStage}
+                  onChange={(e) => setNewStage(Number(e.target.value))}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                >
+                  <option value={1}>Stage 1 - Application Submitted</option>
+                  <option value={2}>Stage 2 - Under Review</option>
+                  <option value={3}>Stage 3 - Pending Documents</option>
+                  <option value={4}>Stage 4 - Pre-Approved</option>
+                  <option value={5}>Stage 5 - Vehicle Selection</option>
+                  <option value={6}>Stage 6 - Final Approval</option>
+                  <option value={7}>Stage 7 - Deal Finalized</option>
+                </select>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notes
+                </label>
+                <textarea
+                  value={stageNote}
+                  onChange={(e) => setStageNote(e.target.value)}
+                  className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                  rows={3}
+                  placeholder="Add notes about this stage"
+                />
+              </div>
+              
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowStageModal(false)}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddStage}
+                  disabled={submittingStage}
+                  className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submittingStage ? (
+                    <RefreshCw className="h-5 w-5 animate-spin" />
+                  ) : (
+                    'Add Stage'
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
     </div>
   );
-};
-
-// Helper function to format activity actions
-const formatActivityAction = (action: string) => {
-  switch (action) {
-    case 'update_application':
-      return 'updated the application';
-    case 'upload_document':
-      return 'uploaded a document';
-    case 'update_document':
-      return 'updated a document';
-    case 'delete_document':
-      return 'deleted a document';
-    case 'send_to_lender':
-      return 'sent the application';
-    case 'add_note':
-      return 'added a note';
-    case 'assign_admin':
-      return 'assigned the application';
-    default:
-      return action.replace(/_/g, ' ');
-  }
 };
 
 export default ApplicationView;
