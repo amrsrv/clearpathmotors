@@ -262,20 +262,6 @@ const ApplicationView = () => {
 
       if (error) throw error;
 
-      // Create activity log
-      await supabase
-        .from('activity_log')
-        .insert({
-          application_id: application.id,
-          user_id: user?.id,
-          action: 'status_update',
-          details: {
-            old_status: application.status,
-            new_status: newStatus
-          },
-          is_admin_action: true
-        });
-
       // Send notification to user
       if (application.user_id) {
         await supabase

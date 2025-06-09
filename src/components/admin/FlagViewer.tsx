@@ -31,9 +31,6 @@ interface ApplicationFlag {
     last_name: string;
     email: string;
   };
-  resolver?: {
-    email: string;
-  };
 }
 
 export const FlagViewer: React.FC = () => {
@@ -81,8 +78,7 @@ export const FlagViewer: React.FC = () => {
         .from('application_flags')
         .select(`
           *,
-          application:application_id(first_name, last_name, email),
-          resolver:resolved_by(email)
+          application:application_id(first_name, last_name, email)
         `)
         .order('created_at', { ascending: false });
         
@@ -136,21 +132,6 @@ export const FlagViewer: React.FC = () => {
         .eq('id', selectedFlag.id);
         
       if (error) throw error;
-      
-      // Create activity log
-      await supabase
-        .from('activity_log')
-        .insert({
-          application_id: selectedFlag.application_id,
-          user_id: user.id,
-          action: 'resolve_flag',
-          details: {
-            flag_id: selectedFlag.id,
-            flag_type: selectedFlag.flag_type,
-            resolution_note: resolutionNote
-          },
-          is_admin_action: true
-        });
       
       toast.success('Flag resolved successfully');
       setSelectedFlag(null);

@@ -39,7 +39,6 @@ import toast from 'react-hot-toast';
 import type { Application, Document, ApplicationStage, Notification } from '../../types/database';
 import { MessageCenter } from '../../components/admin/MessageCenter';
 import { NotificationCenter } from '../../components/admin/NotificationCenter';
-import { AuditLogViewer } from '../../components/admin/AuditLogViewer';
 import { FlagViewer } from '../../components/admin/FlagViewer';
 
 interface AdminDashboardProps {}
@@ -64,20 +63,6 @@ interface Task {
   userId?: string;
 }
 
-interface ActivityItem {
-  id: string;
-  action: string;
-  details: any;
-  timestamp: string;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    isAdmin: boolean;
-  };
-  applicationId?: string;
-}
-
 const AdminDashboard: React.FC<AdminDashboardProps> = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -91,13 +76,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = () => {
     newThisWeek: 0
   });
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [activityLog, setActivityLog] = useState<ActivityItem[]>([]);
   const [alerts, setAlerts] = useState<{id: string, message: string, type: 'warning' | 'critical'}[]>([]);
   const [adminUser, setAdminUser] = useState<AdminUser | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [applicationTrend, setApplicationTrend] = useState<number[]>([]);
   const [approvalRate, setApprovalRate] = useState<number>(0);
-  const [activeTab, setActiveTab] = useState<'overview' | 'messages' | 'notifications' | 'audit' | 'flags'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'messages' | 'notifications' | 'flags'>('overview');
 
   useEffect(() => {
     loadDashboardData();
@@ -155,29 +139,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = () => {
       )
       .subscribe();
 
-    // Activity log changes
-    const activityLogChannel = supabase
-      .channel('admin-dashboard-activity')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'activity_log'
-        },
-        (payload) => {
-          console.log('Activity log change received:', payload);
-          
-          // Refresh activity log
-          loadActivityLog();
-        }
-      )
-      .subscribe();
-
     return () => {
       supabase.removeChannel(applicationsChannel);
       supabase.removeChannel(documentsChannel);
-      supabase.removeChannel(activityLogChannel);
     };
   };
 
@@ -202,9 +166,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = () => {
       
       // Load tasks
       await loadTasks();
-      
-      // Load activity log
-      await loadActivityLog();
       
       // Load alerts
       await loadAlerts();
@@ -367,69 +328,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = () => {
     }
   };
 
-  const loadActivityLog = async () => {
-    try {
-      // Get recent activity from activity_log table
-      const { data: activityData, error: activityError } = await supabase
-        .from('activity_log')
-        .select(`
-          id,
-          action,
-          details,
-          created_at,
-          application_id,
-          user_id,
-          is_admin_action
-        `)
-        .order('created_at', { ascending: false })
-        .limit(10);
-        
-      if (activityError) {
-        throw activityError;
-      }
-
-      // Format activity data without fetching user details from admin API
-      const formattedActivity = (activityData || []).map(activity => {
-        // Create a user object based on available data
-        const isAdmin = activity.is_admin_action === true;
-        const userId = activity.user_id || 'system';
-        
-        // Generate a display name and email based on user_id and admin status
-        let displayName: string;
-        let displayEmail: string;
-        
-        if (userId === 'system' || !activity.user_id) {
-          displayName = 'System';
-          displayEmail = 'system@clearpathmotors.com';
-        } else {
-          // Create a generic display name from user ID
-          const shortId = userId.substring(0, 8);
-          displayName = isAdmin ? `Admin ${shortId}` : `User ${shortId}`;
-          displayEmail = isAdmin ? `admin-${shortId}@clearpathmotors.com` : `user-${shortId}@clearpathmotors.com`;
-        }
-        
-        return {
-          id: activity.id,
-          action: activity.action,
-          details: activity.details,
-          timestamp: activity.created_at,
-          applicationId: activity.application_id,
-          user: {
-            id: userId,
-            name: displayName,
-            email: displayEmail,
-            isAdmin: isAdmin
-          }
-        };
-      });
-      
-      setActivityLog(formattedActivity);
-    } catch (error) {
-      console.error('Error loading activity log:', error);
-      throw error;
-    }
-  };
-
   const loadAlerts = async () => {
     try {
       const alerts: {id: string, message: string, type: 'warning' | 'critical'}[] = [];
@@ -544,21 +442,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = () => {
     );
   };
 
-  const formatActivityAction = (action: string) => {
-    switch (action) {
-      case 'update_application':
-        return 'updated an application';
-      case 'insert_application':
-        return 'created a new application';
-      case 'upload_document':
-        return 'uploaded a document';
-      case 'update_document':
-        return 'updated a document';
-      default:
-        return action.replace(/_/g, ' ');
-    }
-  };
-
   const formatTimeAgo = (timestamp: string) => {
     const date = parseISO(timestamp);
     
@@ -640,7 +523,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = () => {
               { id: 'overview', label: 'Overview', icon: <BarChart3 className="h-4 w-4" /> },
               { id: 'messages', label: 'Messages', icon: <MessageSquare className="h-4 w-4" /> },
               { id: 'notifications', label: 'Notifications', icon: <Bell className="h-4 w-4" /> },
-              { id: 'audit', label: 'Audit Log', icon: <FileCheck className="h-4 w-4" /> },
               { id: 'flags', label: 'Flags', icon: <Flag className="h-4 w-4" /> }
             ].map((tab) => (
               <button
@@ -898,76 +780,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                       </div>
                     )}
                   </motion.div>
-
-                  {/* Activity Feed */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                    className="bg-white rounded-lg shadow-sm p-6"
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-lg font-semibold flex items-center">
-                        <Clock className="h-5 w-5 text-[#3BAA75] mr-2" />
-                        Recent Activity
-                      </h2>
-                    </div>
-                    
-                    {activityLog.length === 0 ? (
-                      <div className="text-center py-8 text-gray-500">
-                        <Clock className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                        <p>No recent activity to display</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-6">
-                        {activityLog.map((activity, index) => (
-                          <div key={activity.id} className="relative">
-                            {index !== activityLog.length - 1 && (
-                              <div className="absolute top-8 left-4 bottom-0 w-px bg-gray-200" />
-                            )}
-                            <div className="flex gap-4">
-                              <div className="relative z-10">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium ${getRandomColor(activity.user.id)}`}>
-                                  {getInitials(activity.user.name)}
-                                </div>
-                              </div>
-                              <div>
-                                <div className="flex items-center">
-                                  <p className="font-medium text-gray-900">
-                                    {activity.user.name}
-                                  </p>
-                                  <span className="mx-1 text-gray-500">•</span>
-                                  <p className="text-sm text-gray-500">
-                                    {formatTimeAgo(activity.timestamp)}
-                                  </p>
-                                </div>
-                                <p className="text-gray-600 mt-1">
-                                  {activity.user.name} {formatActivityAction(activity.action)}
-                                  {activity.applicationId && (
-                                    <button
-                                      onClick={() => navigate(`/admin/applications/${activity.applicationId}`)}
-                                      className="ml-1 text-[#3BAA75] hover:text-[#2D8259] font-medium"
-                                    >
-                                      View
-                                    </button>
-                                  )}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    
-                    <div className="mt-4 text-center">
-                      <button 
-                        onClick={() => setActiveTab('audit')}
-                        className="text-sm text-[#3BAA75] hover:text-[#2D8259] font-medium"
-                      >
-                        View All Activity
-                      </button>
-                    </div>
-                  </motion.div>
                 </div>
 
                 {/* Right Column */}
@@ -1138,17 +950,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = () => {
               exit={{ opacity: 0, y: -20 }}
             >
               <NotificationCenter showAllUsers={true} />
-            </motion.div>
-          )}
-
-          {activeTab === 'audit' && (
-            <motion.div
-              key="audit"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-            >
-              <AuditLogViewer />
             </motion.div>
           )}
 
