@@ -54,25 +54,8 @@ Deno.serve(async (req) => {
 
     const token = authHeader.replace('Bearer ', '');
 
-    // Create a client with the user's token to verify their session
-    const supabaseUser = createClient(
-      supabaseUrl,
-      Deno.env.get('SUPABASE_ANON_KEY') || '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-        global: {
-          headers: {
-            Authorization: authHeader,
-          },
-        },
-      }
-    );
-
-    // Verify the user's session using the user client
-    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+    // Verify the user's session using the admin client with the JWT token
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
 
     if (userError || !user) {
       console.error('User verification failed:', userError);
