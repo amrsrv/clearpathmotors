@@ -10,29 +10,33 @@ import {
   ChevronUp,
   Filter,
   Calendar,
-  ArrowRight
+  ArrowRight,
+  Plus,
+  Edit,
+  Trash2
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { format, subDays } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 
-interface AuditLog {
+interface ActivityLog {
   id: string;
-  admin_id: string | null;
+  user_id: string | null;
+  application_id: string | null;
   action: string;
-  target_type: string;
-  target_id: string;
   details: any;
+  is_admin_action: boolean;
+  is_visible_to_user: boolean;
   created_at: string;
-  admin?: {
+  user?: {
     email: string;
   };
 }
 
 export const AuditLogViewer: React.FC = () => {
   const navigate = useNavigate();
-  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -64,10 +68,10 @@ export const AuditLogViewer: React.FC = () => {
       setLoading(true);
       
       let query = supabase
-        .from('audit_logs')
+        .from('activity_log')
         .select(`
           *,
-          admin:admin_id(email)
+          user:user_id(email)
         `)
         .order('created_at', { ascending: false })
         .range(0, ITEMS_PER_PAGE - 1);
@@ -110,8 +114,8 @@ export const AuditLogViewer: React.FC = () => {
       setLogs(data || []);
       setHasMore(data.length === ITEMS_PER_PAGE);
     } catch (error) {
-      console.error('Error loading audit logs:', error);
-      toast.error('Failed to load audit logs');
+      console.error('Error loading activity logs:', error);
+      toast.error('Failed to load activity logs');
     } finally {
       setLoading(false);
       setIsRefreshing(false);
@@ -121,10 +125,10 @@ export const AuditLogViewer: React.FC = () => {
   const loadMoreLogs = async () => {
     try {
       let query = supabase
-        .from('audit_logs')
+        .from('activity_log')
         .select(`
           *,
-          admin:admin_id(email)
+          user:user_id(email)
         `)
         .order('created_at', { ascending: false })
         .range(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE - 1);
@@ -171,8 +175,8 @@ export const AuditLogViewer: React.FC = () => {
         setHasMore(data.length === ITEMS_PER_PAGE);
       }
     } catch (error) {
-      console.error('Error loading more audit logs:', error);
-      toast.error('Failed to load more audit logs');
+      console.error('Error loading more activity logs:', error);
+      toast.error('Failed to load more activity logs');
     }
   };
 
@@ -203,9 +207,8 @@ export const AuditLogViewer: React.FC = () => {
     const searchLower = searchTerm.toLowerCase();
     return (
       log.action.toLowerCase().includes(searchLower) ||
-      log.target_type.toLowerCase().includes(searchLower) ||
-      log.admin?.email?.toLowerCase().includes(searchLower) ||
-      log.target_id.toLowerCase().includes(searchLower)
+      log.user?.email?.toLowerCase().includes(searchLower) ||
+      (log.application_id && log.application_id.toLowerCase().includes(searchLower))
     );
   });
 
@@ -213,7 +216,7 @@ export const AuditLogViewer: React.FC = () => {
     <div className="bg-white rounded-xl shadow-lg overflow-hidden">
       <div className="p-6 border-b border-gray-200">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Audit Log</h2>
+          <h2 className="text-xl font-semibold">Activity Log</h2>
           <button
             onClick={handleRefresh}
             className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
@@ -228,7 +231,7 @@ export const AuditLogViewer: React.FC = () => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
               type="text"
-              placeholder="Search audit logs..."
+              placeholder="Search activity logs..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 w-full rounded-lg border border-gray-300 focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent h-10"
@@ -265,12 +268,12 @@ export const AuditLogViewer: React.FC = () => {
                       className="w-full appearance-none pl-4 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
                     >
                       <option value="">All Actions</option>
-                      <option value="insert_application">Create Application</option>
-                      <option value="update_application">Update Application</option>
-                      <option value="delete_application">Delete Application</option>
-                      <option value="upload_document">Upload Document</option>
-                      <option value="status_update">Status Update</option>
-                      <option value="bulk_status_update">Bulk Status Update</option>
+                      <option value="application_created">Application Created</option>
+                      <option value="application_updated">Application Updated</option>
+                      <option value="document_uploaded">Document Uploaded</option>
+                      <option value="status_changed">Status Changed</option>
+                      <option value="stage_changed">Stage Changed</option>
+                      <option value="admin_message">Admin Message</option>
                     </select>
                     <ChevronDown className="absolute right-3 top-[60%] transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   </div>
@@ -307,7 +310,7 @@ export const AuditLogViewer: React.FC = () => {
         ) : filteredLogs.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <Clock className="h-12 w-12 mx-auto mb-3 opacity-20" />
-            <p>No audit logs found</p>
+            <p>No activity logs found</p>
             <p className="text-sm mt-1">Try adjusting your search or filters</p>
           </div>
         ) : (
@@ -319,13 +322,13 @@ export const AuditLogViewer: React.FC = () => {
                     Time
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Admin
+                    User
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Action
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Target
+                    Application
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Details
@@ -345,8 +348,11 @@ export const AuditLogViewer: React.FC = () => {
                         </div>
                         <div className="ml-3">
                           <div className="text-sm font-medium text-gray-900">
-                            {log.admin?.email || 'System'}
+                            {log.user?.email || 'System'}
                           </div>
+                          {log.is_admin_action && (
+                            <div className="text-xs text-purple-600">Admin Action</div>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -357,13 +363,16 @@ export const AuditLogViewer: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{log.target_type}</div>
-                      <div className="text-xs text-gray-500">{log.target_id.slice(0, 8)}...</div>
+                      {log.application_id ? (
+                        <div className="text-sm text-gray-900">{log.application_id.slice(0, 8)}...</div>
+                      ) : (
+                        <div className="text-sm text-gray-400">-</div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {log.target_type === 'application' && (
+                      {log.application_id && (
                         <button
-                          onClick={() => navigate(`/admin/applications/${log.target_id}`)}
+                          onClick={() => navigate(`/admin/applications/${log.application_id}`)}
                           className="text-[#3BAA75] hover:text-[#2D8259] flex items-center"
                         >
                           View Application
@@ -397,13 +406,4 @@ export const AuditLogViewer: React.FC = () => {
       </div>
     </div>
   );
-};
-
-// For TypeScript
-const Plus = ({ className }: { className?: string }) => {
-  return <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>;
-};
-
-const Edit = ({ className }: { className?: string }) => {
-  return <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>;
 };

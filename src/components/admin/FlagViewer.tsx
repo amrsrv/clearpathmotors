@@ -9,7 +9,8 @@ import {
   ChevronUp,
   Filter,
   ArrowRight,
-  X
+  X,
+  Search
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { format } from 'date-fns';
