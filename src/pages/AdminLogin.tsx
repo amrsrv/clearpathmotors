@@ -24,7 +24,7 @@ const AdminLogin = () => {
           navigate('/admin');
         } else {
           await supabase.auth.signOut();
-          setError('Unauthorized access');
+          setError('Unauthorized access. Admin privileges required.');
         }
       }
     };
@@ -62,7 +62,7 @@ const AdminLogin = () => {
       const isAdmin = user?.app_metadata?.is_admin === true;
       if (!isAdmin) {
         await supabase.auth.signOut();
-        throw new Error('Unauthorized access');
+        throw new Error('Unauthorized access. Admin privileges required.');
       }
 
       // Redirect to admin dashboard
@@ -81,7 +81,7 @@ const AdminLogin = () => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <Link to="/">
           <img
-            src="https://iili.io/3svxrYu.md.png"
+            src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//clearpathlogo.png"
             alt="Clearpath Motors Logo"
             className="mx-auto h-16"
           />

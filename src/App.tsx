@@ -39,9 +39,10 @@ declare global {
 interface PrivateRouteProps {
   children: React.ReactNode;
   requiresAdmin?: boolean;
+  requiresUser?: boolean;
 }
 
-const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, requiresAdmin }) => {
+const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, requiresAdmin, requiresUser }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
 
@@ -59,7 +60,12 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, requiresAdmin }) 
 
   // Check for admin role if required
   if (requiresAdmin && !user.app_metadata?.is_admin) {
-    return <Navigate to="/dashboard\" replace />;
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // Check for user role if required (redirect admins to admin dashboard)
+  if (requiresUser && user.app_metadata?.is_admin) {
+    return <Navigate to="/admin" replace />;
   }
 
   return <>{children}</>;
@@ -90,7 +96,7 @@ const App = () => {
             <Route path="/calculator" element={<Calculator />} />
             <Route path="/faq" element={<FAQ />} />
             <Route path="/contact" element={<Contact />} />
-            <Route path="/get-approved" element={<Navigate to="/get-prequalified\" replace />} />
+            <Route path="/get-approved" element={<Navigate to="/get-prequalified" replace />} />
             <Route path="/get-prequalified" element={<GetApproved />} />
             <Route path="/create-account" element={<CreateAccount />} />
             <Route path="/qualification-results" element={<QualificationResults />} />
@@ -106,7 +112,7 @@ const App = () => {
             <Route
               path="/dashboard"
               element={
-                <PrivateRoute>
+                <PrivateRoute requiresUser>
                   <Dashboard />
                 </PrivateRoute>
               }

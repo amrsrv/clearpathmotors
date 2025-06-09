@@ -57,10 +57,16 @@ const Dashboard = () => {
       return;
     }
 
+    // Check if user is admin, redirect to admin dashboard if true
+    if (user?.app_metadata?.is_admin === true) {
+      navigate('/admin');
+      return;
+    }
+
     if (user) {
       loadDashboardData();
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     if (!application?.id || !user?.id) return;
