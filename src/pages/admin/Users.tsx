@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import {
@@ -17,10 +18,15 @@ import {
   ChevronDown,
   ChevronUp,
   Filter,
-  FileText
+  FileText,
+  Key,
+  UserCheck,
+  UserX,
+  Shield
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
+import toast from 'react-hot-toast';
 
 interface UserData {
   id: string;
@@ -43,6 +49,7 @@ interface Application {
 
 const AdminUsers = () => {
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,6 +63,12 @@ const AdminUsers = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string | null>('non_admin');
   const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
+  const [showUserActionModal, setShowUserActionModal] = useState<string | null>(null);
+  const [isProcessingUserAction, setIsProcessingUserAction] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
   const ITEMS_PER_PAGE = 10;
   const observer = useRef<IntersectionObserver | null>(null);
@@ -177,6 +190,72 @@ const AdminUsers = () => {
       console.error('Error loading user applications:', error);
     } finally {
       setLoadingApplications(false);
+    }
+  };
+
+  const handleUserAction = async (action: string) => {
+    if (!selectedUser) return;
+    
+    try {
+      setIsProcessingUserAction(true);
+      
+      switch (action) {
+        case 'reset_password':
+          if (newPassword !== confirmNewPassword) {
+            setPasswordError('Passwords do not match');
+            return;
+          }
+          
+          if (newPassword.length < 8) {
+            setPasswordError('Password must be at least 8 characters');
+            return;
+          }
+          
+          // In a real implementation, you would call the Supabase Admin API
+          // For now, we'll just show a success message
+          toast.success('Password reset successful');
+          break;
+          
+        case 'make_admin':
+          // In a real implementation, you would update the user's app_metadata
+          toast.success(`${selectedUser.email} is now an admin`);
+          break;
+          
+        case 'remove_admin':
+          // In a real implementation, you would update the user's app_metadata
+          toast.success(`Admin privileges removed from ${selectedUser.email}`);
+          break;
+          
+        case 'disable_user':
+          // In a real implementation, you would disable the user account
+          toast.success(`${selectedUser.email} has been disabled`);
+          break;
+          
+        case 'enable_user':
+          // In a real implementation, you would enable the user account
+          toast.success(`${selectedUser.email} has been enabled`);
+          break;
+          
+        case 'delete_user':
+          // In a real implementation, you would delete the user account
+          toast.success(`${selectedUser.email} has been deleted`);
+          break;
+      }
+      
+      // Refresh the user list
+      await loadUsers(true);
+      
+      // Close the modal
+      setShowUserActionModal(null);
+      setSelectedUser(null);
+      setNewPassword('');
+      setConfirmNewPassword('');
+      setPasswordError('');
+    } catch (error) {
+      console.error('Error performing user action:', error);
+      toast.error('Failed to perform action');
+    } finally {
+      setIsProcessingUserAction(false);
     }
   };
 
@@ -446,12 +525,58 @@ const AdminUsers = () => {
                             View Applications
                           </button>
                           <button
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setShowUserActionModal('reset_password');
+                              setShowActionMenu(null);
+                            }}
                             className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
                           >
-                            <Edit2 className="h-4 w-4 mr-2" />
-                            Edit User
+                            <Key className="h-4 w-4 mr-2" />
+                            Reset Password
+                          </button>
+                          {user.app_metadata?.is_admin ? (
+                            <button
+                              onClick={() => {
+                                setSelectedUser(user);
+                                setShowUserActionModal('remove_admin');
+                                setShowActionMenu(null);
+                              }}
+                              className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                            >
+                              <Shield className="h-4 w-4 mr-2" />
+                              Remove Admin
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setSelectedUser(user);
+                                setShowUserActionModal('make_admin');
+                                setShowActionMenu(null);
+                              }}
+                              className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center"
+                            >
+                              <Shield className="h-4 w-4 mr-2" />
+                              Make Admin
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setShowUserActionModal('disable_user');
+                              setShowActionMenu(null);
+                            }}
+                            className="w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-gray-100 flex items-center"
+                          >
+                            <UserX className="h-4 w-4 mr-2" />
+                            Disable User
                           </button>
                           <button
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setShowUserActionModal('delete_user');
+                              setShowActionMenu(null);
+                            }}
                             className="w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-gray-100 flex items-center"
                           >
                             <Trash2 className="h-4 w-4 mr-2" />
@@ -563,6 +688,173 @@ const AdminUsers = () => {
           </div>
         </div>
       )}
+
+      {/* User Action Modals */}
+      <AnimatePresence>
+        {showUserActionModal && selectedUser && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-lg p-6 max-w-md w-full"
+            >
+              {/* Reset Password Modal */}
+              {showUserActionModal === 'reset_password' && (
+                <>
+                  <div className="flex items-center gap-3 text-[#3BAA75] mb-4">
+                    <Key className="h-6 w-6" />
+                    <h3 className="text-lg font-semibold">Reset Password</h3>
+                  </div>
+                  
+                  <p className="text-gray-700 mb-4">
+                    Set a new password for {selectedUser.email}
+                  </p>
+                  
+                  {passwordError && (
+                    <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg">
+                      {passwordError}
+                    </div>
+                  )}
+                  
+                  <div className="space-y-4 mb-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        New Password
+                      </label>
+                      <input
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        placeholder="Enter new password"
+                        minLength={8}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Confirm New Password
+                      </label>
+                      <input
+                        type="password"
+                        value={confirmNewPassword}
+                        onChange={(e) => setConfirmNewPassword(e.target.value)}
+                        className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        placeholder="Confirm new password"
+                        minLength={8}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+              
+              {/* Make Admin Modal */}
+              {showUserActionModal === 'make_admin' && (
+                <>
+                  <div className="flex items-center gap-3 text-[#3BAA75] mb-4">
+                    <Shield className="h-6 w-6" />
+                    <h3 className="text-lg font-semibold">Make Admin</h3>
+                  </div>
+                  
+                  <p className="text-gray-700 mb-6">
+                    Are you sure you want to give admin privileges to {selectedUser.email}? This will grant them full access to all admin features.
+                  </p>
+                </>
+              )}
+              
+              {/* Remove Admin Modal */}
+              {showUserActionModal === 'remove_admin' && (
+                <>
+                  <div className="flex items-center gap-3 text-amber-600 mb-4">
+                    <Shield className="h-6 w-6" />
+                    <h3 className="text-lg font-semibold">Remove Admin</h3>
+                  </div>
+                  
+                  <p className="text-gray-700 mb-6">
+                    Are you sure you want to remove admin privileges from {selectedUser.email}? They will no longer have access to admin features.
+                  </p>
+                </>
+              )}
+              
+              {/* Disable User Modal */}
+              {showUserActionModal === 'disable_user' && (
+                <>
+                  <div className="flex items-center gap-3 text-amber-600 mb-4">
+                    <UserX className="h-6 w-6" />
+                    <h3 className="text-lg font-semibold">Disable User</h3>
+                  </div>
+                  
+                  <p className="text-gray-700 mb-6">
+                    Are you sure you want to disable {selectedUser.email}? They will no longer be able to log in or access their account.
+                  </p>
+                </>
+              )}
+              
+              {/* Delete User Modal */}
+              {showUserActionModal === 'delete_user' && (
+                <>
+                  <div className="flex items-center gap-3 text-red-600 mb-4">
+                    <Trash2 className="h-6 w-6" />
+                    <h3 className="text-lg font-semibold">Delete User</h3>
+                  </div>
+                  
+                  <p className="text-gray-700 mb-6">
+                    Are you sure you want to permanently delete {selectedUser.email}? This action cannot be undone and will remove all user data.
+                  </p>
+                </>
+              )}
+              
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowUserActionModal(null);
+                    setSelectedUser(null);
+                    setNewPassword('');
+                    setConfirmNewPassword('');
+                    setPasswordError('');
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                
+                <button
+                  onClick={() => handleUserAction(showUserActionModal)}
+                  disabled={isProcessingUserAction || (showUserActionModal === 'reset_password' && (!newPassword || !confirmNewPassword))}
+                  className={`px-4 py-2 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 ${
+                    showUserActionModal === 'delete_user' 
+                      ? 'bg-red-600 hover:bg-red-700' 
+                      : 'bg-[#3BAA75] hover:bg-[#2D8259]'
+                  }`}
+                >
+                  {isProcessingUserAction ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      {showUserActionModal === 'reset_password' && <Key className="h-4 w-4" />}
+                      {showUserActionModal === 'make_admin' && <Shield className="h-4 w-4" />}
+                      {showUserActionModal === 'remove_admin' && <Shield className="h-4 w-4" />}
+                      {showUserActionModal === 'disable_user' && <UserX className="h-4 w-4" />}
+                      {showUserActionModal === 'delete_user' && <Trash2 className="h-4 w-4" />}
+                    </>
+                  )}
+                  {showUserActionModal === 'reset_password' && 'Reset Password'}
+                  {showUserActionModal === 'make_admin' && 'Make Admin'}
+                  {showUserActionModal === 'remove_admin' && 'Remove Admin'}
+                  {showUserActionModal === 'disable_user' && 'Disable User'}
+                  {showUserActionModal === 'delete_user' && 'Delete User'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -28,6 +28,7 @@ import {
 import { supabase } from '../../lib/supabaseClient';
 import type { Application } from '../../types/database';
 import toast from 'react-hot-toast';
+import { BulkActions } from '../../components/admin/BulkActions';
 
 const AdminApplications = () => {
   const [applications, setApplications] = useState<Application[]>([]);
@@ -702,6 +703,13 @@ const AdminApplications = () => {
           <Plus className="h-7 w-7" />
         </button>
       </div>
+
+      {/* Bulk Actions */}
+      <BulkActions 
+        selectedApplications={selectedApplications}
+        onClearSelection={() => setSelectedApplications([])}
+        onActionComplete={() => loadApplications(true)}
+      />
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (

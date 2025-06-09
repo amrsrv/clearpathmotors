@@ -36,6 +36,10 @@ import { supabase } from '../../lib/supabaseClient';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import type { Application, Document, ApplicationStage, Notification } from '../../types/database';
+import { MessageCenter } from '../../components/admin/MessageCenter';
+import { NotificationCenter } from '../../components/admin/NotificationCenter';
+import { AuditLogViewer } from '../../components/admin/AuditLogViewer';
+import { FlagViewer } from '../../components/admin/FlagViewer';
 
 interface AdminDashboardProps {}
 
@@ -92,6 +96,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [applicationTrend, setApplicationTrend] = useState<number[]>([]);
   const [approvalRate, setApprovalRate] = useState<number>(0);
+  const [activeTab, setActiveTab] = useState<'overview' | 'messages' | 'notifications' | 'audit' | 'flags'>('overview');
 
   useEffect(() => {
     loadDashboardData();
@@ -613,13 +618,43 @@ const AdminDashboard: React.FC<AdminDashboardProps> = () => {
               </p>
             </div>
             
-            <button
-              onClick={() => loadDashboardData()}
-              className="p-2 text-gray-700 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
-              disabled={isRefreshing}
-            >
-              <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => loadDashboardData()}
+                className="p-2 text-gray-700 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+                disabled={isRefreshing}
+              >
+                <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex space-x-8 overflow-x-auto">
+            {[
+              { id: 'overview', label: 'Overview', icon: <BarChart3 className="h-4 w-4" /> },
+              { id: 'messages', label: 'Messages', icon: <MessageSquare className="h-4 w-4" /> },
+              { id: 'notifications', label: 'Notifications', icon: <Bell className="h-4 w-4" /> },
+              { id: 'audit', label: 'Audit Log', icon: <FileCheck className="h-4 w-4" /> },
+              { id: 'flags', label: 'Flags', icon: <Flag className="h-4 w-4" /> }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'border-[#3BAA75] text-[#3BAA75]'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -639,436 +674,494 @@ const AdminDashboard: React.FC<AdminDashboardProps> = () => {
           </div>
         )}
 
-        {/* Welcome Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-lg shadow-sm p-6 mb-6"
-        >
-          <div className="flex items-center">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold ${getRandomColor(adminUser?.id || 'admin')}`}>
-              {adminUser?.email ? getInitials(adminUser.email.split('@')[0]) : 'A'}
-            </div>
-            <div className="ml-4">
-              <h2 className="text-xl font-semibold">
-                {adminUser?.email ? (
-                  <>Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {adminUser.email.split('@')[0]}!</>
-                ) : (
-                  <>Welcome to the ClearPath Admin Dashboard</>
-                )}
-              </h2>
-              <p className="text-gray-600">Here's what's happening today</p>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-          {[
-            {
-              title: 'Total Applications',
-              value: stats.totalApplications,
-              icon: <FileText className="h-5 w-5 text-blue-500" />,
-              color: 'bg-blue-50'
-            },
-            {
-              title: 'Under Review',
-              value: stats.underReview,
-              icon: <Clock className="h-5 w-5 text-yellow-500" />,
-              color: 'bg-yellow-50'
-            },
-            {
-              title: 'Approved',
-              value: stats.approved,
-              icon: <CheckCircle className="h-5 w-5 text-green-500" />,
-              color: 'bg-green-50'
-            },
-            {
-              title: 'Pending Follow-up',
-              value: stats.pendingFollowup,
-              icon: <AlertCircle className="h-5 w-5 text-orange-500" />,
-              color: 'bg-orange-50'
-            },
-            {
-              title: 'Rejected',
-              value: stats.rejected,
-              icon: <XCircle className="h-5 w-5 text-red-500" />,
-              color: 'bg-red-50'
-            },
-            {
-              title: 'New This Week',
-              value: stats.newThisWeek,
-              icon: <Calendar className="h-5 w-5 text-purple-500" />,
-              color: 'bg-purple-50',
-              trend: stats.newThisWeek > 0 ? <TrendingUp className="h-4 w-4 text-green-500" /> : <TrendingDown className="h-4 w-4 text-red-500" />
-            }
-          ].map((stat, index) => (
+        <AnimatePresence mode="wait">
+          {activeTab === 'overview' && (
             <motion.div
-              key={stat.title}
+              key="overview"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className={`${stat.color} rounded-lg p-4`}
+              exit={{ opacity: 0, y: -20 }}
             >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-gray-500">{stat.title}</p>
-                  <div className="flex items-center">
-                    <p className="text-xl font-semibold mt-1">{stat.value}</p>
-                    {stat.trend && <span className="ml-2">{stat.trend}</span>}
-                  </div>
-                </div>
-                {stat.icon}
-              </div>
-            </motion.div>
-          ))}
-        </div>
-
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Left Column */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Alerts Section */}
-            {alerts.length > 0 && (
+              {/* Welcome Section */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-lg shadow-sm p-6"
+                className="bg-white rounded-lg shadow-sm p-6 mb-6"
               >
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold flex items-center">
-                    <Bell className="h-5 w-5 text-amber-500 mr-2" />
-                    Alerts & Notifications
-                  </h2>
-                </div>
-                
-                <div className="space-y-3">
-                  {alerts.map((alert) => (
-                    <div 
-                      key={alert.id}
-                      className={`p-3 rounded-lg flex items-start ${
-                        alert.type === 'critical' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
-                      }`}
-                    >
-                      <AlertCircle className="h-5 w-5 mt-0.5 mr-2 flex-shrink-0" />
-                      <div>
-                        <p>{alert.message}</p>
-                        <div className="mt-2">
-                          <button 
-                            onClick={() => navigate('/admin/applications')}
-                            className={`text-sm font-medium ${
-                              alert.type === 'critical' ? 'text-red-700 hover:text-red-800' : 'text-amber-700 hover:text-amber-800'
-                            } flex items-center`}
-                          >
-                            View Applications
-                            <ChevronRight className="h-4 w-4 ml-1" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="flex items-center">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold ${getRandomColor(adminUser?.id || 'admin')}`}>
+                    {adminUser?.email ? getInitials(adminUser.email.split('@')[0]) : 'A'}
+                  </div>
+                  <div className="ml-4">
+                    <h2 className="text-xl font-semibold">
+                      {adminUser?.email ? (
+                        <>Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 18 ? 'afternoon' : 'evening'}, {adminUser.email.split('@')[0]}!</>
+                      ) : (
+                        <>Welcome to the ClearPath Admin Dashboard</>
+                      )}
+                    </h2>
+                    <p className="text-gray-600">Here's what's happening today</p>
+                  </div>
                 </div>
               </motion.div>
-            )}
 
-            {/* Priority Tasks */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="bg-white rounded-lg shadow-sm p-6"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold flex items-center">
-                  <CheckSquare className="h-5 w-5 text-[#3BAA75] mr-2" />
-                  Priority Tasks
-                </h2>
-              </div>
-              
-              {tasks.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Inbox className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                  <p>No pending tasks today! Enjoy your day.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {tasks.map((task) => (
-                    <div 
-                      key={task.id}
-                      className={`
-                        relative overflow-hidden rounded-lg border-2 p-4 transition-all
-                        ${task.completed 
-                          ? 'border-gray-200 bg-gray-50' 
-                          : task.priority === 'high' 
-                            ? 'border-red-200 bg-red-50' 
-                            : task.priority === 'medium'
-                              ? 'border-amber-200 bg-amber-50'
-                              : 'border-blue-200 bg-blue-50'
-                        }
-                      `}
-                    >
-                      <div className="flex items-start">
-                        <div className="flex-shrink-0 pt-0.5">
-                          <input
-                            type="checkbox"
-                            checked={task.completed}
-                            onChange={() => handleTaskToggle(task.id)}
-                            className="h-5 w-5 rounded border-gray-300 text-[#3BAA75] focus:ring-[#3BAA75]"
-                          />
-                        </div>
-                        <div className="ml-3 flex-1">
-                          <div className="flex items-center justify-between">
-                            <p className={`font-medium ${task.completed ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
-                              {task.title}
-                            </p>
-                            <div className={`text-xs px-2 py-1 rounded-full ${
-                              task.priority === 'high' 
-                                ? 'bg-red-100 text-red-800' 
-                                : task.priority === 'medium'
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : 'bg-blue-100 text-blue-800'
-                            }`}>
-                              {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
-                            </div>
-                          </div>
-                          <p className={`text-sm mt-1 ${task.completed ? 'text-gray-400' : 'text-gray-600'}`}>
-                            {task.description}
-                          </p>
-                          <div className="mt-2 flex items-center justify-between">
-                            <span className="text-xs text-gray-500">
-                              Due: {format(new Date(task.dueDate), 'MMM d, yyyy')}
-                            </span>
-                            {task.applicationId && (
-                              <button
-                                onClick={() => navigate(`/admin/applications/${task.applicationId}`)}
-                                className="text-xs text-[#3BAA75] hover:text-[#2D8259] font-medium flex items-center"
-                              >
-                                View Application
-                                <ChevronRight className="h-3 w-3 ml-1" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </motion.div>
-
-            {/* Activity Feed */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="bg-white rounded-lg shadow-sm p-6"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold flex items-center">
-                  <Clock className="h-5 w-5 text-[#3BAA75] mr-2" />
-                  Recent Activity
-                </h2>
-              </div>
-              
-              {activityLog.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Clock className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                  <p>No recent activity to display</p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {activityLog.map((activity, index) => (
-                    <div key={activity.id} className="relative">
-                      {index !== activityLog.length - 1 && (
-                        <div className="absolute top-8 left-4 bottom-0 w-px bg-gray-200" />
-                      )}
-                      <div className="flex gap-4">
-                        <div className="relative z-10">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium ${getRandomColor(activity.user.id)}`}>
-                            {getInitials(activity.user.name)}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="flex items-center">
-                            <p className="font-medium text-gray-900">
-                              {activity.user.name}
-                            </p>
-                            <span className="mx-1 text-gray-500">•</span>
-                            <p className="text-sm text-gray-500">
-                              {formatTimeAgo(activity.timestamp)}
-                            </p>
-                          </div>
-                          <p className="text-gray-600 mt-1">
-                            {activity.user.name} {formatActivityAction(activity.action)}
-                            {activity.applicationId && (
-                              <button
-                                onClick={() => navigate(`/admin/applications/${activity.applicationId}`)}
-                                className="ml-1 text-[#3BAA75] hover:text-[#2D8259] font-medium"
-                              >
-                                View
-                              </button>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              <div className="mt-4 text-center">
-                <button className="text-sm text-[#3BAA75] hover:text-[#2D8259] font-medium">
-                  View All Activity
-                </button>
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Right Column */}
-          <div className="space-y-6">
-            {/* Quick Links */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="bg-white rounded-lg shadow-sm p-6"
-            >
-              <h2 className="text-lg font-semibold mb-4 flex items-center">
-                <Zap className="h-5 w-5 text-[#3BAA75] mr-2" />
-                Quick Actions
-              </h2>
-              
-              <div className="grid grid-cols-2 gap-4">
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
                 {[
                   {
-                    title: 'New Application',
-                    icon: <PlusCircle className="h-6 w-6 text-white" />,
-                    color: 'bg-[#3BAA75]',
-                    action: () => navigate('/admin/applications')
+                    title: 'Total Applications',
+                    value: stats.totalApplications,
+                    icon: <FileText className="h-5 w-5 text-blue-500" />,
+                    color: 'bg-blue-50'
                   },
                   {
-                    title: 'View Applications',
-                    icon: <FileText className="h-6 w-6 text-white" />,
-                    color: 'bg-blue-500',
-                    action: () => navigate('/admin/applications')
+                    title: 'Under Review',
+                    value: stats.underReview,
+                    icon: <Clock className="h-5 w-5 text-yellow-500" />,
+                    color: 'bg-yellow-50'
                   },
                   {
-                    title: 'Manage Users',
-                    icon: <Users className="h-6 w-6 text-white" />,
-                    color: 'bg-purple-500',
-                    action: () => navigate('/admin/users')
+                    title: 'Approved',
+                    value: stats.approved,
+                    icon: <CheckCircle className="h-5 w-5 text-green-500" />,
+                    color: 'bg-green-50'
                   },
                   {
-                    title: 'Send Notifications',
-                    icon: <Send className="h-6 w-6 text-white" />,
-                    color: 'bg-amber-500',
-                    action: () => navigate('/admin/settings')
+                    title: 'Pending Follow-up',
+                    value: stats.pendingFollowup,
+                    icon: <AlertCircle className="h-5 w-5 text-orange-500" />,
+                    color: 'bg-orange-50'
+                  },
+                  {
+                    title: 'Rejected',
+                    value: stats.rejected,
+                    icon: <XCircle className="h-5 w-5 text-red-500" />,
+                    color: 'bg-red-50'
+                  },
+                  {
+                    title: 'New This Week',
+                    value: stats.newThisWeek,
+                    icon: <Calendar className="h-5 w-5 text-purple-500" />,
+                    color: 'bg-purple-50',
+                    trend: stats.newThisWeek > 0 ? <TrendingUp className="h-4 w-4 text-green-500" /> : <TrendingDown className="h-4 w-4 text-red-500" />
                   }
-                ].map((action, index) => (
-                  <motion.button
-                    key={action.title}
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
-                    onClick={action.action}
-                    className={`${action.color} text-white p-4 rounded-lg flex flex-col items-center justify-center text-center h-24 shadow-sm hover:shadow-md transition-all`}
+                ].map((stat, index) => (
+                  <motion.div
+                    key={stat.title}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className={`${stat.color} rounded-lg p-4`}
                   >
-                    <div className="bg-white/20 rounded-full p-2 mb-2">
-                      {action.icon}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs text-gray-500">{stat.title}</p>
+                        <div className="flex items-center">
+                          <p className="text-xl font-semibold mt-1">{stat.value}</p>
+                          {stat.trend && <span className="ml-2">{stat.trend}</span>}
+                        </div>
+                      </div>
+                      {stat.icon}
                     </div>
-                    <span className="text-sm font-medium">{action.title}</span>
-                  </motion.button>
+                  </motion.div>
                 ))}
               </div>
-            </motion.div>
 
-            {/* Application Trends */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="bg-white rounded-lg shadow-sm p-6"
-            >
-              <h2 className="text-lg font-semibold mb-4 flex items-center">
-                <BarChart3 className="h-5 w-5 text-[#3BAA75] mr-2" />
-                Application Trends
-              </h2>
-              
-              <div className="h-40 flex items-end justify-between">
-                {applicationTrend.map((count, index) => {
-                  const day = new Date();
-                  day.setDate(day.getDate() - (6 - index));
-                  const dayName = format(day, 'EEE');
-                  const height = count === 0 ? 5 : Math.max(20, Math.min(100, (count / Math.max(...applicationTrend)) * 100));
-                  
-                  return (
-                    <div key={index} className="flex flex-col items-center">
-                      <div 
-                        className="w-8 bg-[#3BAA75]/80 rounded-t-sm hover:bg-[#3BAA75] transition-colors"
-                        style={{ height: `${height}%` }}
-                      />
-                      <div className="text-xs text-gray-500 mt-2">{dayName}</div>
+              <div className="grid lg:grid-cols-3 gap-6">
+                {/* Left Column */}
+                <div className="lg:col-span-2 space-y-6">
+                  {/* Alerts Section */}
+                  {alerts.length > 0 && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-white rounded-lg shadow-sm p-6"
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-lg font-semibold flex items-center">
+                          <Bell className="h-5 w-5 text-amber-500 mr-2" />
+                          Alerts & Notifications
+                        </h2>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        {alerts.map((alert) => (
+                          <div 
+                            key={alert.id}
+                            className={`p-3 rounded-lg flex items-start ${
+                              alert.type === 'critical' ? 'bg-red-50 text-red-700' : 'bg-amber-50 text-amber-700'
+                            }`}
+                          >
+                            <AlertCircle className="h-5 w-5 mt-0.5 mr-2 flex-shrink-0" />
+                            <div>
+                              <p>{alert.message}</p>
+                              <div className="mt-2">
+                                <button 
+                                  onClick={() => navigate('/admin/applications')}
+                                  className={`text-sm font-medium ${
+                                    alert.type === 'critical' ? 'text-red-700 hover:text-red-800' : 'text-amber-700 hover:text-amber-800'
+                                  } flex items-center`}
+                                >
+                                  View Applications
+                                  <ChevronRight className="h-4 w-4 ml-1" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Priority Tasks */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="bg-white rounded-lg shadow-sm p-6"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-lg font-semibold flex items-center">
+                        <CheckSquare className="h-5 w-5 text-[#3BAA75] mr-2" />
+                        Priority Tasks
+                      </h2>
                     </div>
-                  );
-                })}
-              </div>
-              
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-500">Approval Rate</p>
-                    <p className="text-xl font-semibold">{approvalRate}%</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Weekly Average</p>
-                    <p className="text-xl font-semibold">
-                      {applicationTrend.reduce((sum, count) => sum + count, 0) / 7 > 0 
-                        ? (applicationTrend.reduce((sum, count) => sum + count, 0) / 7).toFixed(1) 
-                        : '0'}
-                    </p>
-                  </div>
+                    
+                    {tasks.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <Inbox className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                        <p>No pending tasks today! Enjoy your day.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {tasks.map((task) => (
+                          <div 
+                            key={task.id}
+                            className={`
+                              relative overflow-hidden rounded-lg border-2 p-4 transition-all
+                              ${task.completed 
+                                ? 'border-gray-200 bg-gray-50' 
+                                : task.priority === 'high' 
+                                  ? 'border-red-200 bg-red-50' 
+                                  : task.priority === 'medium'
+                                    ? 'border-amber-200 bg-amber-50'
+                                    : 'border-blue-200 bg-blue-50'
+                              }
+                            `}
+                          >
+                            <div className="flex items-start">
+                              <div className="flex-shrink-0 pt-0.5">
+                                <input
+                                  type="checkbox"
+                                  checked={task.completed}
+                                  onChange={() => handleTaskToggle(task.id)}
+                                  className="h-5 w-5 rounded border-gray-300 text-[#3BAA75] focus:ring-[#3BAA75]"
+                                />
+                              </div>
+                              <div className="ml-3 flex-1">
+                                <div className="flex items-center justify-between">
+                                  <p className={`font-medium ${task.completed ? 'text-gray-500 line-through' : 'text-gray-900'}`}>
+                                    {task.title}
+                                  </p>
+                                  <div className={`text-xs px-2 py-1 rounded-full ${
+                                    task.priority === 'high' 
+                                      ? 'bg-red-100 text-red-800' 
+                                      : task.priority === 'medium'
+                                        ? 'bg-amber-100 text-amber-800'
+                                        : 'bg-blue-100 text-blue-800'
+                                  }`}>
+                                    {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                                  </div>
+                                </div>
+                                <p className={`text-sm mt-1 ${task.completed ? 'text-gray-400' : 'text-gray-600'}`}>
+                                  {task.description}
+                                </p>
+                                <div className="mt-2 flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">
+                                    Due: {format(new Date(task.dueDate), 'MMM d, yyyy')}
+                                  </span>
+                                  {task.applicationId && (
+                                    <button
+                                      onClick={() => navigate(`/admin/applications/${task.applicationId}`)}
+                                      className="text-xs text-[#3BAA75] hover:text-[#2D8259] font-medium flex items-center"
+                                    >
+                                      View Application
+                                      <ChevronRight className="h-3 w-3 ml-1" />
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </motion.div>
+
+                  {/* Activity Feed */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="bg-white rounded-lg shadow-sm p-6"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-lg font-semibold flex items-center">
+                        <Clock className="h-5 w-5 text-[#3BAA75] mr-2" />
+                        Recent Activity
+                      </h2>
+                    </div>
+                    
+                    {activityLog.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <Clock className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                        <p>No recent activity to display</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {activityLog.map((activity, index) => (
+                          <div key={activity.id} className="relative">
+                            {index !== activityLog.length - 1 && (
+                              <div className="absolute top-8 left-4 bottom-0 w-px bg-gray-200" />
+                            )}
+                            <div className="flex gap-4">
+                              <div className="relative z-10">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium ${getRandomColor(activity.user.id)}`}>
+                                  {getInitials(activity.user.name)}
+                                </div>
+                              </div>
+                              <div>
+                                <div className="flex items-center">
+                                  <p className="font-medium text-gray-900">
+                                    {activity.user.name}
+                                  </p>
+                                  <span className="mx-1 text-gray-500">•</span>
+                                  <p className="text-sm text-gray-500">
+                                    {formatTimeAgo(activity.timestamp)}
+                                  </p>
+                                </div>
+                                <p className="text-gray-600 mt-1">
+                                  {activity.user.name} {formatActivityAction(activity.action)}
+                                  {activity.applicationId && (
+                                    <button
+                                      onClick={() => navigate(`/admin/applications/${activity.applicationId}`)}
+                                      className="ml-1 text-[#3BAA75] hover:text-[#2D8259] font-medium"
+                                    >
+                                      View
+                                    </button>
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    <div className="mt-4 text-center">
+                      <button 
+                        onClick={() => setActiveTab('audit')}
+                        className="text-sm text-[#3BAA75] hover:text-[#2D8259] font-medium"
+                      >
+                        View All Activity
+                      </button>
+                    </div>
+                  </motion.div>
+                </div>
+
+                {/* Right Column */}
+                <div className="space-y-6">
+                  {/* Quick Links */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    className="bg-white rounded-lg shadow-sm p-6"
+                  >
+                    <h2 className="text-lg font-semibold mb-4 flex items-center">
+                      <Zap className="h-5 w-5 text-[#3BAA75] mr-2" />
+                      Quick Actions
+                    </h2>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      {[
+                        {
+                          title: 'New Application',
+                          icon: <PlusCircle className="h-6 w-6 text-white" />,
+                          color: 'bg-[#3BAA75]',
+                          action: () => navigate('/admin/applications')
+                        },
+                        {
+                          title: 'View Applications',
+                          icon: <FileText className="h-6 w-6 text-white" />,
+                          color: 'bg-blue-500',
+                          action: () => navigate('/admin/applications')
+                        },
+                        {
+                          title: 'Manage Users',
+                          icon: <Users className="h-6 w-6 text-white" />,
+                          color: 'bg-purple-500',
+                          action: () => navigate('/admin/users')
+                        },
+                        {
+                          title: 'Send Notifications',
+                          icon: <Send className="h-6 w-6 text-white" />,
+                          color: 'bg-amber-500',
+                          action: () => setActiveTab('notifications')
+                        }
+                      ].map((action, index) => (
+                        <motion.button
+                          key={action.title}
+                          whileHover={{ scale: 1.03 }}
+                          whileTap={{ scale: 0.97 }}
+                          onClick={action.action}
+                          className={`${action.color} text-white p-4 rounded-lg flex flex-col items-center justify-center text-center h-24 shadow-sm hover:shadow-md transition-all`}
+                        >
+                          <div className="bg-white/20 rounded-full p-2 mb-2">
+                            {action.icon}
+                          </div>
+                          <span className="text-sm font-medium">{action.title}</span>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </motion.div>
+
+                  {/* Application Trends */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.4 }}
+                    className="bg-white rounded-lg shadow-sm p-6"
+                  >
+                    <h2 className="text-lg font-semibold mb-4 flex items-center">
+                      <BarChart3 className="h-5 w-5 text-[#3BAA75] mr-2" />
+                      Application Trends
+                    </h2>
+                    
+                    <div className="h-40 flex items-end justify-between">
+                      {applicationTrend.map((count, index) => {
+                        const day = new Date();
+                        day.setDate(day.getDate() - (6 - index));
+                        const dayName = format(day, 'EEE');
+                        const height = count === 0 ? 5 : Math.max(20, Math.min(100, (count / Math.max(...applicationTrend)) * 100));
+                        
+                        return (
+                          <div key={index} className="flex flex-col items-center">
+                            <div 
+                              className="w-8 bg-[#3BAA75]/80 rounded-t-sm hover:bg-[#3BAA75] transition-colors"
+                              style={{ height: `${height}%` }}
+                            />
+                            <div className="text-xs text-gray-500 mt-2">{dayName}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-500">Approval Rate</p>
+                          <p className="text-xl font-semibold">{approvalRate}%</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-500">Weekly Average</p>
+                          <p className="text-xl font-semibold">
+                            {applicationTrend.reduce((sum, count) => sum + count, 0) / 7 > 0 
+                              ? (applicationTrend.reduce((sum, count) => sum + count, 0) / 7).toFixed(1) 
+                              : '0'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  {/* Help & Resources */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                    className="bg-white rounded-lg shadow-sm p-6"
+                  >
+                    <h2 className="text-lg font-semibold mb-4 flex items-center">
+                      <HelpCircle className="h-5 w-5 text-[#3BAA75] mr-2" />
+                      Help & Resources
+                    </h2>
+                    
+                    <div className="space-y-3">
+                      <a 
+                        href="#" 
+                        className="block p-3 border border-gray-200 rounded-lg hover:border-[#3BAA75]/50 hover:bg-[#3BAA75]/5 transition-colors"
+                      >
+                        <div className="font-medium">Admin Guide</div>
+                        <div className="text-sm text-gray-500">Learn how to use the admin dashboard</div>
+                      </a>
+                      
+                      <a 
+                        href="#" 
+                        className="block p-3 border border-gray-200 rounded-lg hover:border-[#3BAA75]/50 hover:bg-[#3BAA75]/5 transition-colors"
+                      >
+                        <div className="font-medium">Application Review Process</div>
+                        <div className="text-sm text-gray-500">Step-by-step guide for reviewing applications</div>
+                      </a>
+                      
+                      <a 
+                        href="#" 
+                        className="block p-3 border border-gray-200 rounded-lg hover:border-[#3BAA75]/50 hover:bg-[#3BAA75]/5 transition-colors"
+                      >
+                        <div className="font-medium">Contact Support</div>
+                        <div className="text-sm text-gray-500">Get help with technical issues</div>
+                      </a>
+                    </div>
+                  </motion.div>
                 </div>
               </div>
             </motion.div>
+          )}
 
-            {/* Help & Resources */}
+          {activeTab === 'messages' && (
             <motion.div
+              key="messages"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-              className="bg-white rounded-lg shadow-sm p-6"
+              exit={{ opacity: 0, y: -20 }}
             >
-              <h2 className="text-lg font-semibold mb-4 flex items-center">
-                <HelpCircle className="h-5 w-5 text-[#3BAA75] mr-2" />
-                Help & Resources
-              </h2>
-              
-              <div className="space-y-3">
-                <a 
-                  href="#" 
-                  className="block p-3 border border-gray-200 rounded-lg hover:border-[#3BAA75]/50 hover:bg-[#3BAA75]/5 transition-colors"
-                >
-                  <div className="font-medium">Admin Guide</div>
-                  <div className="text-sm text-gray-500">Learn how to use the admin dashboard</div>
-                </a>
-                
-                <a 
-                  href="#" 
-                  className="block p-3 border border-gray-200 rounded-lg hover:border-[#3BAA75]/50 hover:bg-[#3BAA75]/5 transition-colors"
-                >
-                  <div className="font-medium">Application Review Process</div>
-                  <div className="text-sm text-gray-500">Step-by-step guide for reviewing applications</div>
-                </a>
-                
-                <a 
-                  href="#" 
-                  className="block p-3 border border-gray-200 rounded-lg hover:border-[#3BAA75]/50 hover:bg-[#3BAA75]/5 transition-colors"
-                >
-                  <div className="font-medium">Contact Support</div>
-                  <div className="text-sm text-gray-500">Get help with technical issues</div>
-                </a>
-              </div>
+              <MessageCenter />
             </motion.div>
-          </div>
-        </div>
+          )}
+
+          {activeTab === 'notifications' && (
+            <motion.div
+              key="notifications"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <NotificationCenter showAllUsers={true} />
+            </motion.div>
+          )}
+
+          {activeTab === 'audit' && (
+            <motion.div
+              key="audit"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <AuditLogViewer />
+            </motion.div>
+          )}
+
+          {activeTab === 'flags' && (
+            <motion.div
+              key="flags"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <FlagViewer />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
