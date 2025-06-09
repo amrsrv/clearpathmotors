@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
@@ -24,7 +24,12 @@ import {
   FileCheck,
   ArrowUpRight,
   Wallet,
-  CalendarClock
+  CalendarClock,
+  MessageSquare,
+  Plus,
+  BarChart3,
+  Shield,
+  Inbox
 } from 'lucide-react';
 import type { Application, ApplicationStage, Document, Notification } from '../types/database';
 import { PreQualifiedBadge } from '../components/PreQualifiedBadge';
@@ -35,6 +40,7 @@ import { NotificationCenter } from '../components/NotificationCenter';
 import { AppointmentScheduler } from '../components/AppointmentScheduler';
 import toast from 'react-hot-toast';
 import { DocumentManager } from '../components/DocumentManager';
+import { UserMessageCenter } from '../components/UserMessageCenter';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -47,6 +53,14 @@ const Dashboard = () => {
   const [error, setError] = useState<string | null>(null);
   const [prequalificationData, setPrequalificationData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'upload' | 'manage'>('upload');
+  const [activeSection, setActiveSection] = useState<'documents' | 'messages' | 'activity'>('documents');
+  
+  // Summary stats
+  const [summaryStats, setSummaryStats] = useState({
+    totalApplications: 0,
+    approvedApplications: 0,
+    unreadMessages: 0
+  });
   
   // Move the useDocumentUpload hook to the component level
   const { uploadDocument, deleteDocument, uploading, error: uploadError } = useDocumentUpload(application?.id || '');
@@ -190,6 +204,9 @@ const Dashboard = () => {
           
           // Reload notifications to get the latest state
           await loadNotifications(user.id);
+          
+          // Update summary stats
+          await loadSummaryStats();
         }
       )
       .subscribe();
@@ -227,11 +244,33 @@ const Dashboard = () => {
       )
       .subscribe();
 
+    // Set up real-time subscription for admin messages
+    const messagesChannel = supabase
+      .channel('admin-messages-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'admin_messages',
+          filter: `user_id=eq.${user.id}`
+        },
+        async () => {
+          // Update unread messages count
+          await loadSummaryStats();
+          
+          // Show toast notification for new message
+          toast.success('You have a new message from support');
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(applicationsChannel);
       supabase.removeChannel(documentsChannel);
       supabase.removeChannel(notificationsChannel);
       supabase.removeChannel(stagesChannel);
+      supabase.removeChannel(messagesChannel);
     };
   }, [application?.id, user?.id]);
 
@@ -289,6 +328,9 @@ const Dashboard = () => {
       // Load notifications
       await loadNotifications(user.id);
 
+      // Load summary stats
+      await loadSummaryStats();
+
       // Set prequalification data
       updatePrequalificationData(applicationData);
 
@@ -297,6 +339,46 @@ const Dashboard = () => {
       setError(error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadSummaryStats = async () => {
+    if (!user) return;
+
+    try {
+      // Count total applications for this user
+      const { count: totalCount, error: totalError } = await supabase
+        .from('applications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      // Count approved applications
+      const { count: approvedCount, error: approvedError } = await supabase
+        .from('applications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .in('status', ['pre_approved', 'finalized']);
+
+      // Count unread messages
+      const { count: unreadCount, error: unreadError } = await supabase
+        .from('admin_messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('is_admin', true)
+        .eq('read', false);
+
+      if (totalError || approvedError || unreadError) {
+        console.error('Error loading summary stats:', { totalError, approvedError, unreadError });
+        return;
+      }
+
+      setSummaryStats({
+        totalApplications: totalCount || 0,
+        approvedApplications: approvedCount || 0,
+        unreadMessages: unreadCount || 0
+      });
+    } catch (error) {
+      console.error('Error loading summary stats:', error);
     }
   };
 
@@ -484,6 +566,59 @@ const Dashboard = () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Summary Stats */}
+        <div className="grid grid-cols-3 gap-4 mb-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-xl p-6 shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Applications</p>
+                <p className="text-2xl font-semibold mt-1">{summaryStats.totalApplications}</p>
+              </div>
+              <div className="bg-blue-50 p-3 rounded-full">
+                <FileText className="h-6 w-6 text-blue-500" />
+              </div>
+            </div>
+          </motion.div>
+          
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-white rounded-xl p-6 shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Approved</p>
+                <p className="text-2xl font-semibold mt-1">{summaryStats.approvedApplications}</p>
+              </div>
+              <div className="bg-green-50 p-3 rounded-full">
+                <CheckCircle className="h-6 w-6 text-green-500" />
+              </div>
+            </div>
+          </motion.div>
+          
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-white rounded-xl p-6 shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Unread Messages</p>
+                <p className="text-2xl font-semibold mt-1">{summaryStats.unreadMessages}</p>
+              </div>
+              <div className="bg-amber-50 p-3 rounded-full">
+                <MessageSquare className="h-6 w-6 text-amber-500" />
+              </div>
+            </div>
+          </motion.div>
+        </div>
+
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Main Content - Left Side */}
           <div className="lg:col-span-2 space-y-8">
@@ -517,113 +652,214 @@ const Dashboard = () => {
               </motion.div>
             )}
 
-            {/* Quick Actions */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {[
-                {
-                  icon: <FileCheck className="h-6 w-6" />,
-                  label: "Upload Documents",
-                  action: () => {
-                    setActiveTab('upload');
-                    document.getElementById('document-section')?.scrollIntoView({ behavior: 'smooth' });
-                  }
-                },
-                {
-                  icon: <FileText className="h-6 w-6" />,
-                  label: "Manage Documents",
-                  action: () => {
-                    setActiveTab('manage');
-                    document.getElementById('document-section')?.scrollIntoView({ behavior: 'smooth' });
-                  }
-                },
-                {
-                  icon: <Calendar className="h-6 w-6" />,
-                  label: "Schedule Consultation",
-                  action: () => document.getElementById('appointment-section')?.scrollIntoView({ behavior: 'smooth' })
-                }
-              ].map((action, index) => (
-                <button
-                  key={action.label}
-                  onClick={action.action}
-                  className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition-all text-center"
+            {/* Applications Hub */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-semibold">Applications Hub</h2>
+                <Link
+                  to="/get-prequalified"
+                  className="flex items-center gap-2 text-[#3BAA75] hover:text-[#2D8259] font-medium"
                 >
-                  <div className="bg-[#3BAA75]/10 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <div className="text-[#3BAA75]">{action.icon}</div>
-                  </div>
-                  <span className="text-sm font-medium text-gray-900">{action.label}</span>
-                </button>
-              ))}
+                  <Plus className="h-5 w-5" />
+                  <span>Start New Application</span>
+                </Link>
+              </div>
+              
+              {/* Application Progress */}
+              <ApplicationTracker
+                application={application}
+                stages={stages}
+              />
             </div>
 
-            {/* Application Progress */}
-            <ApplicationTracker
-              application={application}
-              stages={stages}
-            />
-
-            {/* Document Section */}
-            <div id="document-section" className="space-y-4">
-              {/* Document Tabs */}
+            {/* Section Tabs */}
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
               <div className="flex border-b border-gray-200">
                 <button
-                  onClick={() => setActiveTab('upload')}
-                  className={`px-4 py-2 font-medium text-sm ${
-                    activeTab === 'upload'
+                  onClick={() => setActiveSection('documents')}
+                  className={`flex-1 px-4 py-3 font-medium text-sm ${
+                    activeSection === 'documents'
                       ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  Upload Documents
+                  <div className="flex items-center justify-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Document Center
+                  </div>
                 </button>
                 <button
-                  onClick={() => setActiveTab('manage')}
-                  className={`px-4 py-2 font-medium text-sm ${
-                    activeTab === 'manage'
+                  onClick={() => setActiveSection('messages')}
+                  className={`flex-1 px-4 py-3 font-medium text-sm ${
+                    activeSection === 'messages'
                       ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
                 >
-                  Manage Documents
+                  <div className="flex items-center justify-center gap-2">
+                    <MessageSquare className="h-5 w-5" />
+                    Message Center
+                    {summaryStats.unreadMessages > 0 && (
+                      <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                        {summaryStats.unreadMessages}
+                      </span>
+                    )}
+                  </div>
+                </button>
+                <button
+                  onClick={() => setActiveSection('activity')}
+                  className={`flex-1 px-4 py-3 font-medium text-sm ${
+                    activeSection === 'activity'
+                      ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <Clock className="h-5 w-5" />
+                    Activity
+                  </div>
                 </button>
               </div>
 
-              {/* Document Content */}
-              <AnimatePresence mode="wait">
-                {activeTab === 'upload' ? (
-                  <motion.div
-                    key="upload"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <DocumentUpload
-                      applicationId={application.id}
-                      documents={documents}
-                      onUpload={handleDocumentUpload}
-                      isUploading={uploading}
-                      uploadError={uploadError}
-                    />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="manage"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <DocumentManager
-                      applicationId={application.id}
-                      documents={documents}
-                      onUpload={handleDocumentUpload}
-                      onDelete={handleDocumentDelete}
-                      isUploading={uploading}
-                      uploadError={uploadError}
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {/* Section Content */}
+              <div className="p-6">
+                <AnimatePresence mode="wait">
+                  {activeSection === 'documents' && (
+                    <motion.div
+                      key="documents"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {/* Document Tabs */}
+                      <div className="flex border-b border-gray-200 mb-6">
+                        <button
+                          onClick={() => setActiveTab('upload')}
+                          className={`px-4 py-2 font-medium text-sm ${
+                            activeTab === 'upload'
+                              ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                              : 'text-gray-500 hover:text-gray-700'
+                          }`}
+                        >
+                          Upload Documents
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('manage')}
+                          className={`px-4 py-2 font-medium text-sm ${
+                            activeTab === 'manage'
+                              ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                              : 'text-gray-500 hover:text-gray-700'
+                          }`}
+                        >
+                          Manage Documents
+                        </button>
+                      </div>
+
+                      {/* Document Content */}
+                      <AnimatePresence mode="wait">
+                        {activeTab === 'upload' ? (
+                          <motion.div
+                            key="upload"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <DocumentUpload
+                              applicationId={application.id}
+                              documents={documents}
+                              onUpload={handleDocumentUpload}
+                              isUploading={uploading}
+                              uploadError={uploadError}
+                            />
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            key="manage"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <DocumentManager
+                              applicationId={application.id}
+                              documents={documents}
+                              onUpload={handleDocumentUpload}
+                              onDelete={handleDocumentDelete}
+                              isUploading={uploading}
+                              uploadError={uploadError}
+                            />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  )}
+
+                  {activeSection === 'messages' && (
+                    <motion.div
+                      key="messages"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <UserMessageCenter 
+                        userId={user?.id || ''} 
+                        applicationId={application.id} 
+                      />
+                    </motion.div>
+                  )}
+
+                  {activeSection === 'activity' && (
+                    <motion.div
+                      key="activity"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <div className="space-y-6">
+                        <h3 className="text-lg font-semibold">Recent Activity</h3>
+                        
+                        {stages.length === 0 ? (
+                          <div className="text-center py-8 text-gray-500">
+                            <Clock className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                            <p>No activity yet</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-6">
+                            {stages.slice(-5).reverse().map((stage) => (
+                              <div key={stage.id} className="relative">
+                                <div className="flex gap-4">
+                                  <div className="relative z-10">
+                                    <div className="w-10 h-10 rounded-full bg-[#3BAA75]/10 flex items-center justify-center">
+                                      <Clock className="h-5 w-5 text-[#3BAA75]" />
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center">
+                                      <p className="font-medium text-gray-900">
+                                        Stage {stage.stage_number} - {stage.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                      </p>
+                                    </div>
+                                    <p className="text-gray-600 mt-1">
+                                      {stage.notes || `Your application has ${stage.status === 'completed' ? 'completed' : 'entered'} stage ${stage.stage_number}.`}
+                                    </p>
+                                    <p className="text-sm text-gray-500 mt-2">
+                                      {format(new Date(stage.timestamp), 'MMM d, yyyy h:mm a')}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
 
             {/* Appointment Scheduler */}
@@ -650,6 +886,54 @@ const Dashboard = () => {
                   }
                 }}
               />
+            </div>
+
+            {/* Future Payments Block (Placeholder) */}
+            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <Wallet className="h-5 w-5 text-[#3BAA75]" />
+                  Future Payments
+                </h2>
+                <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-1 rounded">Coming Soon</span>
+              </div>
+              <p className="text-gray-600 mb-4">
+                Once your loan is finalized, you'll be able to view and manage your payments here.
+              </p>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="flex items-center justify-between text-gray-500">
+                  <span>Next Payment</span>
+                  <span>--/--/----</span>
+                </div>
+                <div className="flex items-center justify-between text-gray-500 mt-2">
+                  <span>Amount</span>
+                  <span>$---</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Add-On Services Block (Placeholder) */}
+            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-[#3BAA75]" />
+                  Add-On Services
+                </h2>
+                <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-1 rounded">Coming Soon</span>
+              </div>
+              <p className="text-gray-600 mb-4">
+                Enhance your vehicle ownership experience with additional services and protection plans.
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-50 p-4 rounded-lg text-center">
+                  <p className="font-medium text-gray-700">Extended Warranty</p>
+                  <p className="text-sm text-gray-500">Protect your investment</p>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg text-center">
+                  <p className="font-medium text-gray-700">GAP Insurance</p>
+                  <p className="text-sm text-gray-500">Coverage for the unexpected</p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -690,29 +974,68 @@ const Dashboard = () => {
               onMarkAsRead={handleMarkNotificationAsRead}
             />
 
-            {/* Recent Activity */}
+            {/* Quick Links */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
               className="bg-white rounded-xl p-6 shadow-lg"
             >
-              <h2 className="text-xl font-semibold mb-6">Recent Activity</h2>
-              <div className="space-y-4">
-                {stages.slice(-3).reverse().map((stage) => (
-                  <div key={stage.id} className="flex items-start gap-3">
-                    <div className="bg-[#3BAA75]/10 rounded-full p-2">
-                      <Clock className="h-5 w-5 text-[#3BAA75]" />
+              <h2 className="text-xl font-semibold mb-4">Quick Links</h2>
+              <div className="space-y-3">
+                <a 
+                  href="#appointment-section" 
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-center">
+                    <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
+                      <CalendarClock className="h-5 w-5 text-[#3BAA75]" />
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">
-                        Stage {stage.stage_number} - {stage.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {format(new Date(stage.timestamp), 'MMM d, h:mm a')}
-                      </p>
-                    </div>
+                    <span className="font-medium">Schedule Consultation</span>
                   </div>
-                ))}
+                  <ChevronRight className="h-5 w-5 text-gray-400" />
+                </a>
+                
+                <a 
+                  href="#" 
+                  onClick={() => setActiveSection('documents')}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-center">
+                    <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
+                      <FileCheck className="h-5 w-5 text-[#3BAA75]" />
+                    </div>
+                    <span className="font-medium">Upload Documents</span>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-gray-400" />
+                </a>
+                
+                <a 
+                  href="#" 
+                  onClick={() => setActiveSection('messages')}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-center">
+                    <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
+                      <MessageSquare className="h-5 w-5 text-[#3BAA75]" />
+                    </div>
+                    <span className="font-medium">Message Support</span>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-gray-400" />
+                </a>
+                
+                <Link
+                  to="/calculator"
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-center">
+                    <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
+                      <BarChart3 className="h-5 w-5 text-[#3BAA75]" />
+                    </div>
+                    <span className="font-medium">Payment Calculator</span>
+                  </div>
+                  <ArrowUpRight className="h-5 w-5 text-gray-400" />
+                </Link>
               </div>
             </motion.div>
           </div>
