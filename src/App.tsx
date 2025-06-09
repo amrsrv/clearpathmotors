@@ -60,7 +60,7 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, requiresAdmin, re
 
   // Check for admin role if required
   if (requiresAdmin && !user.app_metadata?.is_admin) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/dashboard\" replace />;
   }
 
   // Check for user role if required (redirect admins to admin dashboard)
@@ -96,7 +96,7 @@ const App = () => {
             <Route path="/calculator" element={<Calculator />} />
             <Route path="/faq" element={<FAQ />} />
             <Route path="/contact" element={<Contact />} />
-            <Route path="/get-approved" element={<Navigate to="/get-prequalified" replace />} />
+            <Route path="/get-approved" element={<Navigate to="/get-prequalified\" replace />} />
             <Route path="/get-prequalified" element={<GetApproved />} />
             <Route path="/create-account" element={<CreateAccount />} />
             <Route path="/qualification-results" element={<QualificationResults />} />
