@@ -62,19 +62,8 @@ Deno.serve(async (req) => {
       throw new Error('Invalid user session');
     }
 
-    // Check if user is an admin by querying the users table
-    const { data: userData, error: userDataError } = await supabaseAdmin
-      .from('users')
-      .select('raw_app_meta_data')
-      .eq('id', user.id)
-      .single();
-
-    if (userDataError) {
-      console.error('Error fetching user data:', userDataError);
-      throw new Error('Failed to verify admin status');
-    }
-
-    const isAdmin = userData?.raw_app_meta_data?.is_admin === true;
+    // Check if user is an admin directly from the user's app_metadata
+    const isAdmin = user.app_metadata?.is_admin === true;
     if (!isAdmin) {
       throw new Error('Unauthorized - Admin access required');
     }
@@ -102,6 +91,8 @@ Deno.serve(async (req) => {
         filteredUsers = filteredUsers.filter(u => u.email_confirmed_at === null);
       } else if (status === 'admin') {
         filteredUsers = filteredUsers.filter(u => u.app_metadata?.is_admin === true);
+      } else if (status === 'non_admin') {
+        filteredUsers = filteredUsers.filter(u => u.app_metadata?.is_admin !== true);
       }
     }
 

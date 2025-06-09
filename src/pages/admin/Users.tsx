@@ -16,7 +16,8 @@ import {
   Trash2,
   ChevronDown,
   ChevronUp,
-  Filter
+  Filter,
+  FileText
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
@@ -27,7 +28,7 @@ interface UserData {
   created_at: string;
   last_sign_in_at: string | null;
   email_confirmed_at: string | null;
-  raw_app_meta_data: any;
+  app_metadata: any;
 }
 
 interface Application {
@@ -53,7 +54,7 @@ const AdminUsers = () => {
   const [hasMore, setHasMore] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string | null>('non_admin');
   const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
 
   const ITEMS_PER_PAGE = 10;
@@ -345,6 +346,7 @@ const AdminUsers = () => {
                           className="w-full appearance-none pl-4 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
                         >
                           <option value="">All Users</option>
+                          <option value="non_admin">Non-Admins</option>
                           <option value="verified">Verified</option>
                           <option value="unverified">Unverified</option>
                           <option value="admin">Admins</option>
@@ -418,11 +420,11 @@ const AdminUsers = () => {
 
                     <div className="mt-3">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        user.raw_app_meta_data?.is_admin
+                        user.app_metadata?.is_admin
                           ? 'bg-purple-100 text-purple-700'
                           : 'bg-gray-100 text-gray-700'
                       }`}>
-                        {user.raw_app_meta_data?.is_admin ? 'Admin' : 'User'}
+                        {user.app_metadata?.is_admin ? 'Admin' : 'User'}
                       </span>
                     </div>
 
