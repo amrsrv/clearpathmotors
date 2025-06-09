@@ -30,7 +30,8 @@ import {
   HelpCircle,
   FileWarning,
   UserPlus,
-  Send
+  Send,
+  Flag
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { Link } from 'react-router-dom';
