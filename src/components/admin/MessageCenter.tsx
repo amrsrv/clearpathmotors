@@ -102,14 +102,31 @@ export const MessageCenter: React.FC = () => {
       if (messageUsers && messageUsers.length > 0) {
         const userIds = [...new Set(messageUsers.map(m => m.user_id))];
         
-        // Get user emails from auth.users
-        const { data: userData, error: userError } = await supabase.auth.admin.listUsers();
-        
-        if (userError) throw userError;
+        // Get user emails using the list-users Edge Function
+        const { data: session } = await supabase.auth.getSession();
+        if (!session.session) {
+          throw new Error('No active session');
+        }
+
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-users`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ userIds }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to fetch user data');
+        }
+
+        const { users: userData } = await response.json();
         
         // Create a map of user IDs to emails
         const userMap = new Map();
-        userData.users.forEach(u => {
+        userData.forEach((u: any) => {
           userMap.set(u.id, u.email);
         });
         

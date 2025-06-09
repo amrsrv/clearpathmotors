@@ -16,12 +16,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Get query parameters
-    const url = new URL(req.url);
-    const start = parseInt(url.searchParams.get('start') || '0');
-    const limit = parseInt(url.searchParams.get('limit') || '10');
-    const status = url.searchParams.get('status');
-
     // Get environment variables
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -68,38 +62,80 @@ Deno.serve(async (req) => {
       throw new Error('Unauthorized - Admin access required');
     }
 
-    // Calculate pagination
-    const page = Math.floor(start / limit) + 1;
-
-    // Get the list of users using admin client
-    const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers({
-      page: page,
-      perPage: limit,
-    });
-    
-    if (error) {
-      console.error('Error listing users:', error);
-      throw error;
-    }
-
-    // Filter users if status is provided
-    let filteredUsers = users || [];
-    if (status) {
-      if (status === 'verified') {
-        filteredUsers = filteredUsers.filter(u => u.email_confirmed_at !== null);
-      } else if (status === 'unverified') {
-        filteredUsers = filteredUsers.filter(u => u.email_confirmed_at === null);
-      } else if (status === 'admin') {
-        filteredUsers = filteredUsers.filter(u => u.app_metadata?.is_admin === true);
-      } else if (status === 'non_admin') {
-        filteredUsers = filteredUsers.filter(u => u.app_metadata?.is_admin !== true);
+    // Handle different request methods
+    if (req.method === 'POST') {
+      // Handle POST request for specific user IDs (for MessageCenter)
+      const body = await req.json();
+      const { userIds } = body;
+      
+      if (!userIds || !Array.isArray(userIds)) {
+        throw new Error('userIds array is required in request body');
       }
-    }
 
-    return new Response(JSON.stringify({ users: filteredUsers }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
-    });
+      // Get users by IDs
+      const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers();
+      
+      if (error) {
+        console.error('Error listing users:', error);
+        throw error;
+      }
+
+      // Filter users by the provided IDs
+      const filteredUsers = (users || []).filter(u => userIds.includes(u.id));
+      
+      // Return only the necessary user data
+      const userData = filteredUsers.map(u => ({
+        id: u.id,
+        email: u.email,
+        created_at: u.created_at,
+        email_confirmed_at: u.email_confirmed_at,
+        app_metadata: u.app_metadata
+      }));
+
+      return new Response(JSON.stringify({ users: userData }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
+    } else {
+      // Handle GET request (existing functionality for Users page)
+      const url = new URL(req.url);
+      const start = parseInt(url.searchParams.get('start') || '0');
+      const limit = parseInt(url.searchParams.get('limit') || '10');
+      const status = url.searchParams.get('status');
+
+      // Calculate pagination
+      const page = Math.floor(start / limit) + 1;
+
+      // Get the list of users using admin client
+      const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers({
+        page: page,
+        perPage: limit,
+      });
+      
+      if (error) {
+        console.error('Error listing users:', error);
+        throw error;
+      }
+
+      // Filter users if status is provided
+      let filteredUsers = users || [];
+      if (status) {
+        if (status === 'verified') {
+          filteredUsers = filteredUsers.filter(u => u.email_confirmed_at !== null);
+        } else if (status === 'unverified') {
+          filteredUsers = filteredUsers.filter(u => u.email_confirmed_at === null);
+        } else if (status === 'admin') {
+          filteredUsers = filteredUsers.filter(u => u.app_metadata?.is_admin === true);
+        } else if (status === 'non_admin') {
+          filteredUsers = filteredUsers.filter(u => u.app_metadata?.is_admin !== true);
+        }
+      }
+
+      return new Response(JSON.stringify({ users: filteredUsers }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200,
+      });
+    }
 
   } catch (error) {
     console.error('Error in list-users function:', error);
