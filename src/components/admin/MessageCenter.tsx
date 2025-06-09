@@ -102,32 +102,21 @@ export const MessageCenter: React.FC = () => {
       if (messageUsers && messageUsers.length > 0) {
         const userIds = [...new Set(messageUsers.map(m => m.user_id))];
         
-        // Get user emails using the list-users Edge Function
-        const { data: session } = await supabase.auth.getSession();
-        if (!session.session) {
-          throw new Error('No active session');
-        }
-
-        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-users`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ userIds }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to fetch user data');
-        }
-
-        const { users: userData } = await response.json();
+        // Get user details from applications table instead of auth API
+        const { data: userDetails, error: userError } = await supabase
+          .from('applications')
+          .select('user_id, email, first_name, last_name')
+          .in('user_id', userIds)
+          .not('user_id', 'is', null);
+          
+        if (userError) throw userError;
         
         // Create a map of user IDs to emails
         const userMap = new Map();
-        userData.forEach((u: any) => {
-          userMap.set(u.id, u.email);
+        userDetails?.forEach((u) => {
+          if (u.user_id) {
+            userMap.set(u.user_id, u.email);
+          }
         });
         
         // Process users with messages
@@ -137,13 +126,15 @@ export const MessageCenter: React.FC = () => {
           const lastMessage = userMessages[0]; // First message (most recent)
           const unreadCount = userMessages.filter(m => !m.read && !m.is_admin).length;
           
-          processedUsers.push({
-            id: userId,
-            email: userMap.get(userId) || 'Unknown User',
-            unreadCount,
-            lastMessage: lastMessage.message,
-            lastMessageTime: lastMessage.created_at
-          });
+          if (userMap.has(userId)) {
+            processedUsers.push({
+              id: userId,
+              email: userMap.get(userId) || 'Unknown User',
+              unreadCount,
+              lastMessage: lastMessage.message,
+              lastMessageTime: lastMessage.created_at
+            });
+          }
         });
         
         setUsers(processedUsers);

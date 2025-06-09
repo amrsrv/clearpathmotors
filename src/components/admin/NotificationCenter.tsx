@@ -28,9 +28,13 @@ interface Notification {
 
 interface NotificationCenterProps {
   showAllUsers?: boolean;
+  onMarkAsRead?: (id: string) => Promise<void>;
 }
 
-export const NotificationCenter: React.FC<NotificationCenterProps> = ({ showAllUsers = false }) => {
+export const NotificationCenter: React.FC<NotificationCenterProps> = ({ 
+  showAllUsers = false,
+  onMarkAsRead
+}) => {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,46 +53,62 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ showAllU
     } else {
       loadNotifications(user?.id);
     }
-  }, [user?.id, showAllUsers]);
+    
+    // Set up real-time subscription for notifications
+    const notificationsChannel = supabase
+      .channel('notifications-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: showAllUsers ? undefined : `user_id=eq.${user?.id}`
+        },
+        () => {
+          if (showAllUsers && selectedUserId) {
+            loadNotifications(selectedUserId);
+          } else {
+            loadNotifications(user?.id);
+          }
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(notificationsChannel);
+    };
+  }, [user?.id, showAllUsers, selectedUserId]);
 
   const loadUsers = async () => {
     try {
       setLoading(true);
       
-      // Get the current session
-      const { data: { session } } = await supabase.auth.getSession();
+      // Get users from applications table instead of auth API
+      const { data, error } = await supabase
+        .from('applications')
+        .select('user_id, email, first_name, last_name')
+        .not('user_id', 'is', null)
+        .order('created_at', { ascending: false });
+        
+      if (error) throw error;
       
-      if (!session) {
-        throw new Error('No active session');
-      }
+      // Filter out duplicates and format user data
+      const uniqueUsers = Array.from(
+        new Map(data?.map(item => [item.user_id, item]).filter(item => item[0] !== null))
+        .values()
+      );
       
-      // Call the edge function instead of direct admin API
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-users`;
-      
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to fetch users: ${response.status} ${errorText}`);
-      }
-      
-      const userData = await response.json();
-      
-      setUsers(userData.users.map((u: any) => ({
-        id: u.id,
-        email: u.email
+      setUsers(uniqueUsers.map(u => ({
+        id: u.user_id,
+        email: u.email,
+        name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email
       })));
       
       // If no user is selected, select the first one
-      if (userData.users.length > 0 && !selectedUserId) {
-        setSelectedUserId(userData.users[0].id);
-        loadNotifications(userData.users[0].id);
+      if (uniqueUsers.length > 0 && !selectedUserId) {
+        setSelectedUserId(uniqueUsers[0].user_id);
+        loadNotifications(uniqueUsers[0].user_id);
       }
     } catch (error) {
       console.error('Error loading users:', error);
@@ -123,6 +143,12 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ showAllU
 
   const handleMarkAsRead = async (id: string) => {
     try {
+      // If parent component provided a handler, use it
+      if (onMarkAsRead) {
+        await onMarkAsRead(id);
+        return;
+      }
+      
       const { error } = await supabase
         .from('notifications')
         .update({ read: true })
@@ -184,7 +210,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ showAllU
   };
 
   const filteredUsers = users.filter(u => 
-    u.email.toLowerCase().includes(searchTerm.toLowerCase())
+    u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -253,7 +280,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ showAllU
                     }`}
                   >
                     <User className="h-4 w-4 mr-2" />
-                    <span className="truncate">{u.email}</span>
+                    <span className="truncate">{u.name || u.email}</span>
                   </button>
                 ))}
               </div>

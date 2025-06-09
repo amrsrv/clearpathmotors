@@ -856,7 +856,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = () => {
                         const day = new Date();
                         day.setDate(day.getDate() - (6 - index));
                         const dayName = format(day, 'EEE');
-                        const height = count === 0 ? 5 : Math.max(20, Math.min(100, (count / Math.max(...applicationTrend)) * 100));
+                        const height = count === 0 ? 5 : Math.max(20, Math.min(100, (count / Math.max(...applicationTrend, 1)) * 100));
                         
                         return (
                           <div key={index} className="flex flex-col items-center">
