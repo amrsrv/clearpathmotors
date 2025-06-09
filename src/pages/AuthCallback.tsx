@@ -11,16 +11,6 @@ const AuthCallback = () => {
         const { data: { user } } = await supabase.auth.getUser();
         
         if (user) {
-          // Check if user is an admin
-          const isAdmin = user.app_metadata?.is_admin === true;
-          
-          if (isAdmin) {
-            // Redirect admin to admin dashboard
-            navigate('/admin');
-            return;
-          }
-          
-          // For regular users, continue with normal flow
           // Check if an application exists with the user's email
           const { data: existingApplicationByEmail, error: emailError } = await supabase
             .from('applications')

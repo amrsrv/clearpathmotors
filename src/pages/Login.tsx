@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, ArrowRight, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { GoogleSignInButton } from '../components/GoogleSignInButton';
-import { supabase } from '../lib/supabaseClient';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -21,19 +20,9 @@ const Login = () => {
 
   useEffect(() => {
     if (user && !loading) {
-      // Check if user is admin
-      const isAdmin = user.app_metadata?.is_admin === true;
-      
-      if (isAdmin) {
-        // Redirect admin to admin dashboard
-        navigate('/admin');
-      } else {
-        // Redirect regular user to user dashboard or the page they were trying to access
-        const from = location.state?.from?.pathname || '/dashboard';
-        navigate(from, { replace: true });
-      }
+      navigate('/dashboard');
     }
-  }, [user, loading, navigate, location.state]);
+  }, [user, loading, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
@@ -55,7 +44,8 @@ const Login = () => {
         throw signInError;
       }
 
-      // The redirection will be handled in the useEffect above
+      const from = location.state?.from?.pathname || '/dashboard';
+      navigate(from, { replace: true });
     } catch (error: any) {
       console.error('Login error:', error);
       setError(error.message || 'An error occurred while signing in. Please try again.');
