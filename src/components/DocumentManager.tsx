@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useDocumentUpload } from '../hooks/useDocumentUpload';
+import { useAuth } from '../hooks/useAuth';
 import type { Document } from '../types/database';
 import { supabase } from '../lib/supabaseClient';
 import toast from 'react-hot-toast';
@@ -38,6 +39,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
   isUploading = false,
   uploadError = null
 }) => {
+  const { user } = useAuth();
   const [documentUrls, setDocumentUrls] = useState<Record<string, string>>({});
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -52,6 +54,9 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
   const [reviewNotes, setReviewNotes] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
   const { getFileUrl, deleteDocument } = useDocumentUpload(applicationId);
+
+  // Check if current user is an admin
+  const isAdmin = user?.app_metadata?.is_admin === true;
 
   // Simulate upload progress when replacing a document
   useEffect(() => {
@@ -381,16 +386,19 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
                               <Eye className="h-5 w-5" />
                             </button>
                             
-                            <button
-                              onClick={() => {
-                                setSelectedDocument(doc);
-                                setShowReviewModal(true);
-                              }}
-                              className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
-                              title="Review Document"
-                            >
-                              <CheckCircle className="h-5 w-5" />
-                            </button>
+                            {/* Only show review button for admins */}
+                            {isAdmin && (
+                              <button
+                                onClick={() => {
+                                  setSelectedDocument(doc);
+                                  setShowReviewModal(true);
+                                }}
+                                className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
+                                title="Review Document"
+                              >
+                                <CheckCircle className="h-5 w-5" />
+                              </button>
+                            )}
                             
                             <button
                               onClick={() => setShowReplaceConfirm(doc.id)}
@@ -569,8 +577,8 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
         </div>
       )}
 
-      {/* Document Review Modal */}
-      {showReviewModal && selectedDocument && (
+      {/* Document Review Modal - Only visible to admins */}
+      {showReviewModal && selectedDocument && isAdmin && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div className="p-4 border-b border-gray-200 flex items-center justify-between">
