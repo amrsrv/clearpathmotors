@@ -23,15 +23,24 @@ Deno.serve(async (req) => {
     const status = url.searchParams.get('status');
 
     // Create Supabase client with service role key
+    // Use the environment variables that are automatically available in Supabase Edge Functions
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing required environment variables');
+    }
+
     const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      supabaseUrl,
+      supabaseServiceKey,
       {
         auth: {
           autoRefreshToken: false,
           persistSession: false,
         },
-    });
+      }
+    );
 
     // Get the Authorization header from the request
     const authHeader = req.headers.get('Authorization');
@@ -80,6 +89,8 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
+    console.error('Error in list-users function:', error);
+    
     return new Response(
       JSON.stringify({
         error: error.message || 'An error occurred while fetching users',
