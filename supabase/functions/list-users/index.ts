@@ -22,15 +22,19 @@ Deno.serve(async (req) => {
     const limit = parseInt(url.searchParams.get('limit') || '10');
     const status = url.searchParams.get('status');
 
-    // Create Supabase client with service role key
-    // Use the environment variables that are automatically available in Supabase Edge Functions
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    // Get environment variables
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
     if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('Missing environment variables:', { 
+        hasUrl: !!supabaseUrl, 
+        hasServiceKey: !!supabaseServiceKey 
+      });
       throw new Error('Missing required environment variables');
     }
 
+    // Create Supabase client with service role key for admin operations
     const supabaseAdmin = createClient(
       supabaseUrl,
       supabaseServiceKey,
@@ -48,38 +52,73 @@ Deno.serve(async (req) => {
       throw new Error('No authorization header');
     }
 
-    // Verify the user's session
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(
-      authHeader.replace('Bearer ', '')
+    const token = authHeader.replace('Bearer ', '');
+
+    // Create a client with the user's token to verify their session
+    const supabaseUser = createClient(
+      supabaseUrl,
+      Deno.env.get('SUPABASE_ANON_KEY') || '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+        global: {
+          headers: {
+            Authorization: authHeader,
+          },
+        },
+      }
     );
 
+    // Verify the user's session using the user client
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+
     if (userError || !user) {
+      console.error('User verification failed:', userError);
       throw new Error('Invalid user session');
     }
 
-    // Check if user is an admin
-    const isAdmin = user.app_metadata?.is_admin === true;
+    // Check if user is an admin by querying the users table
+    const { data: userData, error: userDataError } = await supabaseAdmin
+      .from('users')
+      .select('raw_app_meta_data')
+      .eq('id', user.id)
+      .single();
+
+    if (userDataError) {
+      console.error('Error fetching user data:', userDataError);
+      throw new Error('Failed to verify admin status');
+    }
+
+    const isAdmin = userData?.raw_app_meta_data?.is_admin === true;
     if (!isAdmin) {
       throw new Error('Unauthorized - Admin access required');
     }
 
-    // Get the list of users
+    // Calculate pagination
+    const page = Math.floor(start / limit) + 1;
+
+    // Get the list of users using admin client
     const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers({
-      page: Math.floor(start / limit) + 1,
+      page: page,
       perPage: limit,
     });
     
-    if (error) throw error;
+    if (error) {
+      console.error('Error listing users:', error);
+      throw error;
+    }
 
     // Filter users if status is provided
-    let filteredUsers = users;
+    let filteredUsers = users || [];
     if (status) {
       if (status === 'verified') {
-        filteredUsers = users.filter(u => u.email_confirmed_at !== null);
+        filteredUsers = filteredUsers.filter(u => u.email_confirmed_at !== null);
       } else if (status === 'unverified') {
-        filteredUsers = users.filter(u => u.email_confirmed_at === null);
+        filteredUsers = filteredUsers.filter(u => u.email_confirmed_at === null);
       } else if (status === 'admin') {
-        filteredUsers = users.filter(u => u.app_metadata?.is_admin === true);
+        filteredUsers = filteredUsers.filter(u => u.app_metadata?.is_admin === true);
       }
     }
 
