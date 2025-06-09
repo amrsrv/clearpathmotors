@@ -10,7 +10,10 @@ import {
   Send,
   X,
   User,
-  Users
+  Users,
+  FileText,
+  Edit,
+  Clock
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
@@ -26,6 +29,20 @@ interface Notification {
   created_at: string;
 }
 
+interface ApplicationUpdate {
+  id: string;
+  application_id: string;
+  user_id: string;
+  action: string;
+  details: any;
+  created_at: string;
+  application?: {
+    first_name: string;
+    last_name: string;
+    email: string;
+  };
+}
+
 interface NotificationCenterProps {
   showAllUsers?: boolean;
   onMarkAsRead?: (id: string) => Promise<void>;
@@ -37,6 +54,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 }) => {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [applicationUpdates, setApplicationUpdates] = useState<ApplicationUpdate[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [users, setUsers] = useState<any[]>([]);
@@ -46,6 +64,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const [notificationMessage, setNotificationMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [showComposer, setShowComposer] = useState(false);
+  const [activeTab, setActiveTab] = useState<'notifications' | 'updates'>('notifications');
 
   useEffect(() => {
     if (showAllUsers) {
@@ -75,10 +94,33 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       )
       .subscribe();
       
+    // Set up real-time subscription for activity log (application updates)
+    const activityLogChannel = supabase
+      .channel('activity-log-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'activity_log'
+        },
+        () => {
+          loadApplicationUpdates();
+        }
+      )
+      .subscribe();
+      
     return () => {
       supabase.removeChannel(notificationsChannel);
+      supabase.removeChannel(activityLogChannel);
     };
   }, [user?.id, showAllUsers, selectedUserId]);
+
+  useEffect(() => {
+    if (showAllUsers) {
+      loadApplicationUpdates();
+    }
+  }, [showAllUsers]);
 
   const loadUsers = async () => {
     try {
@@ -136,6 +178,32 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     } catch (error) {
       console.error('Error loading notifications:', error);
       toast.error('Failed to load notifications');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadApplicationUpdates = async () => {
+    try {
+      setLoading(true);
+      
+      // Get application updates from activity_log
+      const { data, error } = await supabase
+        .from('activity_log')
+        .select(`
+          *,
+          application:application_id(first_name, last_name, email)
+        `)
+        .not('is_admin_action', 'eq', true) // Only get user-initiated actions
+        .order('created_at', { ascending: false })
+        .limit(50);
+        
+      if (error) throw error;
+      
+      setApplicationUpdates(data || []);
+    } catch (error) {
+      console.error('Error loading application updates:', error);
+      toast.error('Failed to load application updates');
     } finally {
       setLoading(false);
     }
@@ -209,6 +277,29 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     setShowUserSelector(false);
   };
 
+  const formatUpdateAction = (action: string, details: any) => {
+    switch (action) {
+      case 'update_application':
+        let changedFields = [];
+        if (details.old && details.new) {
+          for (const key in details.new) {
+            if (details.old[key] !== details.new[key] && details.old[key] !== null && details.new[key] !== null) {
+              changedFields.push(key.replace(/_/g, ' '));
+            }
+          }
+        }
+        return `updated their application${changedFields.length > 0 ? ` (changed: ${changedFields.join(', ')})` : ''}`;
+      case 'upload_document':
+        return `uploaded a document: ${details.category || 'file'}`;
+      case 'delete_document':
+        return `deleted a document: ${details.category || 'file'}`;
+      case 'user_message_sent':
+        return 'sent a new message';
+      default:
+        return action.replace(/_/g, ' ');
+    }
+  };
+
   const filteredUsers = users.filter(u => 
     u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -246,6 +337,38 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Tabs - Only show for admin view */}
+      {showAllUsers && (
+        <div className="flex border-b border-gray-200 mb-4">
+          <button
+            onClick={() => setActiveTab('notifications')}
+            className={`px-4 py-2 font-medium text-sm ${
+              activeTab === 'notifications'
+                ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Bell className="h-4 w-4" />
+              Notifications
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab('updates')}
+            className={`px-4 py-2 font-medium text-sm ${
+              activeTab === 'updates'
+                ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Edit className="h-4 w-4" />
+              Application Updates
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* User Selector Dropdown */}
       <AnimatePresence>
@@ -364,67 +487,152 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         )}
       </AnimatePresence>
 
-      <div className="space-y-4">
-        <AnimatePresence>
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <RefreshCw className="h-8 w-8 text-[#3BAA75] animate-spin" />
-            </div>
-          ) : notifications.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <Bell className="w-12 h-12 mx-auto mb-3 opacity-20" />
-              <p>No notifications yet</p>
-            </div>
-          ) : (
-            notifications.map(notification => (
-              <motion.div
-                key={notification.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className={`
-                  p-4 rounded-lg transition-colors
-                  ${notification.read ? 'bg-gray-50' : 'bg-[#3BAA75]/5 border border-[#3BAA75]/10'}
-                `}
-              >
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0">
-                    {notification.title.includes('Approved') ? (
-                      <CheckCircle className="w-5 h-5 text-green-500" />
-                    ) : notification.title.includes('Rejected') ? (
-                      <AlertCircle className="w-5 h-5 text-red-500" />
-                    ) : (
-                      <Info className="w-5 h-5 text-[#3BAA75]" />
-                    )}
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900">
-                      {notification.title}
-                    </p>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {notification.message}
-                    </p>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-xs text-gray-500">
-                        {format(new Date(notification.created_at), 'MMM d, yyyy h:mm a')}
-                      </span>
-                      {!notification.read && (
-                        <button
-                          onClick={() => handleMarkAsRead(notification.id)}
-                          className="text-xs text-[#3BAA75] hover:text-[#2D8259] font-medium"
-                        >
-                          Mark as read
-                        </button>
+      <AnimatePresence mode="wait">
+        {activeTab === 'notifications' && (
+          <motion.div
+            key="notifications"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-4"
+          >
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="h-8 w-8 text-[#3BAA75] animate-spin" />
+              </div>
+            ) : notifications.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Bell className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                <p>No notifications yet</p>
+              </div>
+            ) : (
+              notifications.map(notification => (
+                <motion.div
+                  key={notification.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className={`
+                    p-4 rounded-lg transition-colors
+                    ${notification.read ? 'bg-gray-50' : 'bg-[#3BAA75]/5 border border-[#3BAA75]/10'}
+                  `}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0">
+                      {notification.title.includes('Approved') ? (
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                      ) : notification.title.includes('Rejected') ? (
+                        <AlertCircle className="w-5 h-5 text-red-500" />
+                      ) : (
+                        <Info className="w-5 h-5 text-[#3BAA75]" />
                       )}
                     </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900">
+                        {notification.title}
+                      </p>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {notification.message}
+                      </p>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-xs text-gray-500">
+                          {format(new Date(notification.created_at), 'MMM d, yyyy h:mm a')}
+                        </span>
+                        {!notification.read && (
+                          <button
+                            onClick={() => handleMarkAsRead(notification.id)}
+                            className="text-xs text-[#3BAA75] hover:text-[#2D8259] font-medium"
+                          >
+                            Mark as read
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            ))
-          )}
-        </AnimatePresence>
-      </div>
+                </motion.div>
+              ))
+            )}
+          </motion.div>
+        )}
+
+        {activeTab === 'updates' && (
+          <motion.div
+            key="updates"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-4"
+          >
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <RefreshCw className="h-8 w-8 text-[#3BAA75] animate-spin" />
+              </div>
+            ) : applicationUpdates.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <FileText className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                <p>No application updates yet</p>
+              </div>
+            ) : (
+              applicationUpdates.map(update => (
+                <motion.div
+                  key={update.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  className="p-4 rounded-lg bg-gray-50 border border-gray-200"
+                >
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0">
+                      {update.action.includes('upload') ? (
+                        <FileText className="w-5 h-5 text-blue-500" />
+                      ) : update.action.includes('delete') ? (
+                        <AlertCircle className="w-5 h-5 text-red-500" />
+                      ) : update.action.includes('message') ? (
+                        <MessageSquare className="w-5 h-5 text-purple-500" />
+                      ) : (
+                        <Edit className="w-5 h-5 text-amber-500" />
+                      )}
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium text-gray-900">
+                          {update.application?.first_name} {update.application?.last_name}
+                        </p>
+                        <span className="text-xs text-gray-500">
+                          {format(new Date(update.created_at), 'MMM d, h:mm a')}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {formatUpdateAction(update.action, update.details)}
+                      </p>
+                      <div className="flex justify-end mt-2">
+                        <button
+                          onClick={() => navigate(`/admin/applications/${update.application_id}`)}
+                          className="text-xs text-[#3BAA75] hover:text-[#2D8259] font-medium flex items-center"
+                        >
+                          View Application
+                          <ChevronRight className="h-3 w-3 ml-1" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
+};
+
+// For TypeScript
+const navigate = (path: string) => {
+  window.location.href = path;
+};
+
+const ChevronRight = ({ className }: { className?: string }) => {
+  return <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="m9 18 6-6-6-6"/></svg>;
 };

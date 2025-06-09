@@ -31,7 +31,8 @@ import {
   FileWarning,
   UserPlus,
   Send,
-  Flag
+  Flag,
+  History
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { Link } from 'react-router-dom';
@@ -40,6 +41,7 @@ import type { Application, Document, ApplicationStage, Notification } from '../.
 import { MessageCenter } from '../../components/admin/MessageCenter';
 import { NotificationCenter } from '../../components/admin/NotificationCenter';
 import { FlagViewer } from '../../components/admin/FlagViewer';
+import { AuditLogViewer } from '../../components/admin/AuditLogViewer';
 
 interface AdminDashboardProps {}
 
@@ -81,7 +83,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [applicationTrend, setApplicationTrend] = useState<number[]>([]);
   const [approvalRate, setApprovalRate] = useState<number>(0);
-  const [activeTab, setActiveTab] = useState<'overview' | 'messages' | 'notifications' | 'flags'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'messages' | 'notifications' | 'flags' | 'audit'>('overview');
 
   useEffect(() => {
     loadDashboardData();
@@ -523,7 +525,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = () => {
               { id: 'overview', label: 'Overview', icon: <BarChart3 className="h-4 w-4" /> },
               { id: 'messages', label: 'Messages', icon: <MessageSquare className="h-4 w-4" /> },
               { id: 'notifications', label: 'Notifications', icon: <Bell className="h-4 w-4" /> },
-              { id: 'flags', label: 'Flags', icon: <Flag className="h-4 w-4" /> }
+              { id: 'flags', label: 'Flags', icon: <Flag className="h-4 w-4" /> },
+              { id: 'audit', label: 'Audit Log', icon: <History className="h-4 w-4" /> }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -961,6 +964,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = () => {
               exit={{ opacity: 0, y: -20 }}
             >
               <FlagViewer />
+            </motion.div>
+          )}
+
+          {activeTab === 'audit' && (
+            <motion.div
+              key="audit"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+            >
+              <AuditLogViewer />
             </motion.div>
           )}
         </AnimatePresence>
