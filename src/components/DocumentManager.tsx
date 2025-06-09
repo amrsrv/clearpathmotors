@@ -12,7 +12,8 @@ import {
   CheckCircle, 
   Clock, 
   Eye, 
-  Upload
+  Upload,
+  X
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useDocumentUpload } from '../hooks/useDocumentUpload';
@@ -251,7 +252,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
       
-      // Create document review
+      // Create document review - the database trigger will automatically update the document status
       const { error: reviewError } = await supabase
         .from('document_reviews')
         .insert({
@@ -262,18 +263,6 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
         });
       
       if (reviewError) throw reviewError;
-      
-      // Update document status directly (the trigger will handle this server-side, but we update local state)
-      const updatedDocuments = documents.map(doc => 
-        doc.id === selectedDocument.id 
-          ? { 
-              ...doc, 
-              status: reviewStatus, 
-              review_notes: reviewNotes,
-              reviewed_at: new Date().toISOString()
-            } 
-          : doc
-      );
       
       // Create notification for user
       if (selectedDocument.application_id) {
@@ -301,22 +290,8 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
       setReviewStatus('approved');
       setReviewNotes('');
       
-      toast.success(`Document ${reviewStatus === 'approved' ? 'approved' : 'rejected'} successfully`);
+      toast.success(`Document review submitted successfully. Status will be updated automatically.`);
       
-      // Refresh documents
-      const { data, error } = await supabase
-        .from('documents')
-        .select('*')
-        .eq('application_id', applicationId)
-        .order('uploaded_at', { ascending: false });
-      
-      if (error) throw error;
-      
-      if (data) {
-        // Update the documents list in the parent component
-        // This is a workaround since we can't directly update the parent's state
-        window.location.reload();
-      }
     } catch (error: any) {
       console.error('Error reviewing document:', error);
       toast.error('Failed to review document');
