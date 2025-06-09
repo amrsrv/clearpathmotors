@@ -55,12 +55,32 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ showAllU
     try {
       setLoading(true);
       
-      // Get users from auth.users
-      const { data: userData, error: userError } = await supabase.auth.admin.listUsers();
+      // Get the current session
+      const { data: { session } } = await supabase.auth.getSession();
       
-      if (userError) throw userError;
+      if (!session) {
+        throw new Error('No active session');
+      }
       
-      setUsers(userData.users.map(u => ({
+      // Call the edge function instead of direct admin API
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-users`;
+      
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch users: ${response.status} ${errorText}`);
+      }
+      
+      const userData = await response.json();
+      
+      setUsers(userData.users.map((u: any) => ({
         id: u.id,
         email: u.email
       })));
