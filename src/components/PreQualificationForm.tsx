@@ -1,7 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Car, Truck, Sun as Suv, Bus, DollarSign, User, Mail, Phone, Calendar, MapPin, Building, Briefcase, CreditCard, Home, Clock, AlertCircle, CheckCircle, ArrowRight, HelpCircle, MessageSquare, Wallet, Shield } from 'lucide-react';
+import { 
+  Car, 
+  Truck, 
+  Suv, 
+  Bus, 
+  DollarSign, 
+  User, 
+  Mail, 
+  Phone, 
+  Calendar, 
+  MapPin, 
+  Building, 
+  Briefcase, 
+  CreditCard, 
+  Home, 
+  Clock, 
+  AlertCircle, 
+  CheckCircle, 
+  ArrowRight, 
+  HelpCircle, 
+  MessageSquare, 
+  Wallet, 
+  Shield
+} from 'lucide-react';
 import { ProgressBar } from './ProgressBar';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
@@ -1388,7 +1411,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                         required
                       />
                       <label htmlFor="termsAccepted" className="ml-2 block text-sm text-gray-900">
-                        I agree to the <a href="/terms" className="text-[#3BAA75] hover:underline" target="_blank">Terms of Service</a> and <a href="/privacy" className="text-[#3BAA75] hover:underline" target="_blank">Privacy Policy</a>
+                        I agree to the <a href="/terms" className="text-[#3BAA75] hover:underline" target="_blank">Terms of Service</a> and <a href="/privacy" className=\"text-[#3BAA75] hover:underline" target=\"_blank">Privacy Policy</a>
                       </label>
                     </div>
                   </div>
