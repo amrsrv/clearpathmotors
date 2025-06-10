@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -30,7 +30,8 @@ import {
   BarChart3,
   Shield,
   Inbox,
-  ArrowRight
+  ArrowRight,
+  Layers
 } from 'lucide-react';
 import type { Application, ApplicationStage, Document, Notification } from '../types/database';
 import { PreQualifiedBadge } from '../components/PreQualifiedBadge';
@@ -66,6 +67,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [prequalificationData, setPrequalificationData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'upload' | 'manage'>('upload');
   const [showApplicationSelector, setShowApplicationSelector] = useState(false);
+  const [desktopActiveTab, setDesktopActiveTab] = useState<'overview' | 'documents' | 'messages' | 'profile'>('overview');
   
   // Summary stats
   const [summaryStats, setSummaryStats] = useState({
@@ -570,7 +572,8 @@ const Dashboard: React.FC<DashboardProps> = ({
     );
   }
 
-  const renderContent = () => {
+  // Mobile-specific content renderer
+  const renderMobileContent = () => {
     switch (activeSection) {
       case 'documents':
         return (
@@ -911,10 +914,344 @@ const Dashboard: React.FC<DashboardProps> = ({
           </motion.div>
         </div>
 
+        {/* Desktop Tabs - Only visible on desktop */}
+        <div className="hidden lg:flex border-b border-gray-200 mb-6">
+          <button
+            onClick={() => setDesktopActiveTab('overview')}
+            className={`px-4 py-2 font-medium text-sm ${
+              desktopActiveTab === 'overview'
+                ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Layers className="h-5 w-5" />
+              Overview
+            </div>
+          </button>
+          <button
+            onClick={() => setDesktopActiveTab('documents')}
+            className={`px-4 py-2 font-medium text-sm ${
+              desktopActiveTab === 'documents'
+                ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Documents
+            </div>
+          </button>
+          <button
+            onClick={() => setDesktopActiveTab('messages')}
+            className={`px-4 py-2 font-medium text-sm ${
+              desktopActiveTab === 'messages'
+                ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5" />
+              Messages
+              {summaryStats.unreadMessages > 0 && (
+                <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {summaryStats.unreadMessages}
+                </span>
+              )}
+            </div>
+          </button>
+          <button
+            onClick={() => setDesktopActiveTab('profile')}
+            className={`px-4 py-2 font-medium text-sm ${
+              desktopActiveTab === 'profile'
+                ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Profile
+            </div>
+          </button>
+        </div>
+
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Main Content - Left Side */}
           <div className="lg:col-span-2 space-y-8">
-            {renderContent()}
+            {/* Mobile Content - Only visible on mobile */}
+            <div className="lg:hidden">
+              {renderMobileContent()}
+            </div>
+
+            {/* Desktop Content - Only visible on desktop */}
+            <div className="hidden lg:block">
+              <AnimatePresence mode="wait">
+                {desktopActiveTab === 'overview' && (
+                  <motion.div
+                    key="overview"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="space-y-8"
+                  >
+                    {/* Prequalification Results */}
+                    {prequalificationData && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="bg-[#2A7A5B] rounded-xl p-8 text-white shadow-xl"
+                      >
+                        <h2 className="text-2xl font-semibold mb-6">Your Prequalification Results</h2>
+                        <LoanRangeBar
+                          min={prequalificationData.loanRange.min}
+                          max={prequalificationData.loanRange.max}
+                          rate={prequalificationData.loanRange.rate}
+                        />
+                        <div className="grid grid-cols-3 gap-6 mt-8">
+                          <div className="text-center">
+                            <div className="text-white/80 text-sm mb-1">Monthly Payment</div>
+                            <div className="text-2xl font-bold">${prequalificationData.monthlyPayment}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-white/80 text-sm mb-1">Term Length</div>
+                            <div className="text-2xl font-bold">{prequalificationData.term} months</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-white/80 text-sm mb-1">Interest Rate</div>
+                            <div className="text-2xl font-bold">{prequalificationData.loanRange.rate}%</div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* Applications Hub */}
+                    <div className="bg-white rounded-xl shadow-lg p-6">
+                      <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-2xl font-semibold">Applications Hub</h2>
+                        {applications.length > 1 && (
+                          <button
+                            onClick={() => setShowApplicationSelector(!showApplicationSelector)}
+                            className="flex items-center gap-2 text-[#3BAA75] hover:text-[#2D8259] font-medium"
+                          >
+                            Switch Application
+                            <ChevronRight className={`h-5 w-5 transition-transform ${showApplicationSelector ? 'rotate-90' : ''}`} />
+                          </button>
+                        )}
+                      </div>
+                      
+                      {/* Application Progress */}
+                      <ApplicationTracker
+                        application={selectedApplication}
+                        stages={stages}
+                      />
+                    </div>
+
+                    {/* All Applications Section */}
+                    {applications.length > 1 && (
+                      <div className="bg-white rounded-xl shadow-lg p-6">
+                        <div className="flex items-center justify-between mb-6">
+                          <h2 className="text-2xl font-semibold">Your Applications</h2>
+                          <Link
+                            to="/get-prequalified"
+                            className="flex items-center gap-2 text-[#3BAA75] hover:text-[#2D8259] font-medium"
+                          >
+                            <Plus className="h-5 w-5" />
+                            <span>Start New Application</span>
+                          </Link>
+                        </div>
+                        
+                        <div className="space-y-4">
+                          {applications.map((app) => (
+                            <ApplicationCard
+                              key={app.id}
+                              application={app}
+                              isSelected={selectedApplication.id === app.id}
+                              onClick={() => handleApplicationSelect(app)}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Appointment Scheduler */}
+                    <div id="appointment-section">
+                      <AppointmentScheduler
+                        onSchedule={async (date, type) => {
+                          try {
+                            const { error } = await supabase
+                              .from('applications')
+                              .update({ consultation_time: date.toISOString() })
+                              .eq('id', selectedApplication.id);
+
+                            if (error) throw error;
+                            
+                            setSelectedApplication(prev => prev ? {
+                              ...prev,
+                              consultation_time: date.toISOString()
+                            } : null);
+                            
+                            toast.success('Consultation scheduled successfully');
+                          } catch (error) {
+                            console.error('Error scheduling appointment:', error);
+                            toast.error('Failed to schedule consultation');
+                          }
+                        }}
+                      />
+                    </div>
+
+                    {/* Future Payments Block (Placeholder) */}
+                    <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200">
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-semibold flex items-center gap-2">
+                          <Wallet className="h-5 w-5 text-[#3BAA75]" />
+                          Future Payments
+                        </h2>
+                        <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-1 rounded">Coming Soon</span>
+                      </div>
+                      <p className="text-gray-600 mb-4">
+                        Once your loan is finalized, you'll be able to view and manage your payments here.
+                      </p>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className="flex items-center justify-between text-gray-500">
+                          <span>Next Payment</span>
+                          <span>--/--/----</span>
+                        </div>
+                        <div className="flex items-center justify-between text-gray-500 mt-2">
+                          <span>Amount</span>
+                          <span>$---</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Add-On Services Block (Placeholder) */}
+                    <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200">
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-semibold flex items-center gap-2">
+                          <Shield className="h-5 w-5 text-[#3BAA75]" />
+                          Add-On Services
+                        </h2>
+                        <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-1 rounded">Coming Soon</span>
+                      </div>
+                      <p className="text-gray-600 mb-4">
+                        Enhance your vehicle ownership experience with additional services and protection plans.
+                      </p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-gray-50 p-4 rounded-lg text-center">
+                          <p className="font-medium text-gray-700">Extended Warranty</p>
+                          <p className="text-sm text-gray-500">Protect your investment</p>
+                        </div>
+                        <div className="bg-gray-50 p-4 rounded-lg text-center">
+                          <p className="font-medium text-gray-700">GAP Insurance</p>
+                          <p className="text-sm text-gray-500">Coverage for the unexpected</p>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {desktopActiveTab === 'documents' && (
+                  <motion.div
+                    key="documents"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="space-y-6"
+                  >
+                    {/* Document Tabs */}
+                    <div className="flex border-b border-gray-200 mb-6">
+                      <button
+                        onClick={() => setActiveTab('upload')}
+                        className={`px-4 py-2 font-medium text-sm ${
+                          activeTab === 'upload'
+                            ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        Upload Documents
+                      </button>
+                      <button
+                        onClick={() => setActiveTab('manage')}
+                        className={`px-4 py-2 font-medium text-sm ${
+                          activeTab === 'manage'
+                            ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        Manage Documents
+                      </button>
+                    </div>
+
+                    {/* Document Content */}
+                    <AnimatePresence mode="wait">
+                      {activeTab === 'upload' ? (
+                        <motion.div
+                          key="upload"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <DocumentUpload
+                            applicationId={selectedApplication.id}
+                            documents={documents}
+                            onUpload={handleDocumentUpload}
+                            isUploading={uploading}
+                            uploadError={uploadError}
+                          />
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="manage"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <DocumentManager
+                            applicationId={selectedApplication.id}
+                            documents={documents}
+                            onUpload={handleDocumentUpload}
+                            onDelete={handleDocumentDelete}
+                            isUploading={uploading}
+                            uploadError={uploadError}
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                )}
+
+                {desktopActiveTab === 'messages' && (
+                  <motion.div
+                    key="messages"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="space-y-6"
+                  >
+                    <UserMessageCenter 
+                      userId={user?.id || ''} 
+                      applicationId={selectedApplication.id} 
+                    />
+                  </motion.div>
+                )}
+
+                {desktopActiveTab === 'profile' && (
+                  <motion.div
+                    key="profile"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="space-y-6"
+                  >
+                    <UserProfileSection 
+                      application={selectedApplication}
+                      onUpdate={loadDashboardData}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
 
           {/* Right Sidebar - Desktop Only */}
@@ -980,7 +1317,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   href="#" 
                   onClick={(e) => {
                     e.preventDefault();
-                    setActiveSection('documents');
+                    setDesktopActiveTab('documents');
                   }}
                   className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                 >
@@ -997,7 +1334,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                   href="#" 
                   onClick={(e) => {
                     e.preventDefault();
-                    setActiveSection('messages');
+                    setDesktopActiveTab('messages');
                   }}
                   className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                 >
