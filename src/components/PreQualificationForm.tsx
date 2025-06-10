@@ -1,30 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { 
-  Car, 
-  Truck, 
-  Suv, 
-  Bus, 
-  DollarSign, 
-  User, 
-  Mail, 
-  Phone, 
-  Calendar, 
-  MapPin, 
-  Building, 
-  Briefcase, 
-  CreditCard, 
-  Home, 
-  Clock, 
-  AlertCircle, 
-  CheckCircle, 
-  ArrowRight, 
-  HelpCircle, 
-  MessageSquare, 
-  Wallet, 
-  Shield
-} from 'lucide-react';
+import { Car, Truck, Sun as Suv, Bus, DollarSign, User, Mail, Phone, Calendar, MapPin, Building, Briefcase, CreditCard, Home, Clock, AlertCircle, CheckCircle, ArrowRight, HelpCircle, MessageSquare, Wallet, Shield } from 'lucide-react';
 import { ProgressBar } from './ProgressBar';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
