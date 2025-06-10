@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Car, Gauge, Shield, Wrench, ChevronRight, Calculator, DollarSign, Calendar, Mail, Phone, Clock, FileText, Cpu, Star, Award, TrendingUp, Users, BadgeCheck, ThumbsUp, ThumbsDown, CheckCircle, XCircle, Clock3, Engine, CarCrash, Disc } from 'lucide-react';
+import { Car, Gauge, Shield, Wrench, ChevronRight, Calculator, DollarSign, Calendar, Mail, Phone, Clock, FileText, Cpu, Star, Award, TrendingUp, Users, BadgeCheck, ThumbsUp, ThumbsDown, CheckCircle, XCircle, Clock3, Wine as Engine, ServerCrash as CarCrash, Disc } from 'lucide-react';
 import { ScrollReveal } from '../components/ScrollReveal';
 import { TestimonialCarousel } from '../components/TestimonialCarousel';
 import { AnimatedNumber } from '../components/AnimatedNumber';
@@ -438,7 +438,7 @@ const Home = () => {
               {[
                 {
                   icon: <Calculator className="h-16 w-16 text-[#3BAA75]" />,
-                  title: <>Build Your <Link to="/calculator" className="text-[#3BAA75] hover:text-[#2D8259] transition-colors">Financing Plan</Link></>,
+                  title: <>Build Your <Link to="/calculator\" className="text-[#3BAA75] hover:text-[#2D8259] transition-colors">Financing Plan</Link></>,
                   description: "Start with our payment calculator. Tweak the numbers, explore possibilities, and discover a monthly payment that fits your budget like a glove."
                 },
                 {
