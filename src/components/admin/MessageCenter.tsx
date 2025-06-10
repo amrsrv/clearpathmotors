@@ -102,35 +102,20 @@ export const MessageCenter: React.FC = () => {
       if (messageUsers && messageUsers.length > 0) {
         const userIds = [...new Set(messageUsers.map(m => m.user_id))];
         
-        // Get the current session for authentication
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) throw new Error('No active session');
-        
-        // Use the list-users edge function to get user details
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-users`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.access_token}`
-            },
-            body: JSON.stringify({ userIds })
-          }
-        );
-        
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to fetch user details');
-        }
-        
-        const { users: userDetails } = await response.json();
+        // Get user details from applications table instead of auth API
+        const { data: userDetails, error: userError } = await supabase
+          .from('applications')
+          .select('user_id, email, first_name, last_name')
+          .in('user_id', userIds)
+          .not('user_id', 'is', null);
+          
+        if (userError) throw userError;
         
         // Create a map of user IDs to emails
         const userMap = new Map();
-        userDetails?.forEach((u: any) => {
-          if (u.id) {
-            userMap.set(u.id, u.email);
+        userDetails?.forEach((u) => {
+          if (u.user_id) {
+            userMap.set(u.user_id, u.email);
           }
         });
         
@@ -379,6 +364,12 @@ export const MessageCenter: React.FC = () => {
                     className="flex-1 rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75] resize-none"
                     placeholder="Type your message..."
                     rows={2}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
                   />
                   <button
                     onClick={handleSendMessage}
