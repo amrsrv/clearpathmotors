@@ -91,20 +91,42 @@ const QualificationResults = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#3BAA75]/5 via-white to-[#3BAA75]/10">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <ScrollReveal>
-          <div className="text-center space-y-4">
-            <PreQualifiedBadge />
-            <h1 className="text-4xl font-bold mt-6 text-gray-900">
-              Congratulations! You're Pre-qualified
-            </h1>
-            <p className="text-xl text-gray-600">
-              Based on your information, here's what you qualify for:
-            </p>
+      {/* Sticky header for mobile only */}
+      <div className="sticky top-0 z-20 w-full bg-gradient-to-br from-[#3BAA75]/5 via-white to-[#3BAA75]/10 py-4 px-4 text-center space-y-2 shadow-md lg:static lg:shadow-none lg:py-0 lg:px-0">
+        <PreQualifiedBadge />
+        <h1 className="text-2xl font-bold mt-2 text-gray-900 lg:text-4xl lg:mt-6">
+          Congratulations!
+        </h1>
+        <p className="text-sm text-gray-600 lg:text-xl">
+          You're pre-qualified for:
+        </p>
+        <div className="py-2">
+          <div className="text-2xl font-bold text-[#3BAA75]">
+            ${loanRange.min.toLocaleString()} - ${loanRange.max.toLocaleString()}
           </div>
-        </ScrollReveal>
+          <div className="text-sm text-gray-600">
+            at {loanRange.rate}% APR
+          </div>
+        </div>
+      </div>
 
-        <div className="mt-12 space-y-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 lg:py-12">
+        {/* Desktop header (hidden on mobile) */}
+        <div className="hidden lg:block">
+          <ScrollReveal>
+            <div className="text-center space-y-4">
+              <PreQualifiedBadge />
+              <h1 className="text-4xl font-bold mt-6 text-gray-900">
+                Congratulations! You're Pre-qualified
+              </h1>
+              <p className="text-xl text-gray-600">
+                Based on your information, here's what you qualify for:
+              </p>
+            </div>
+          </ScrollReveal>
+        </div>
+
+        <div className="pt-4 lg:mt-12 space-y-8">
           {/* Loan Range Card */}
           <ScrollReveal>
             <div className="bg-[#2A7A5B] rounded-xl p-8 text-white shadow-xl">
