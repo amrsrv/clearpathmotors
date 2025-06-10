@@ -40,7 +40,8 @@ import {
   Wallet,
   FileQuestion,
   HelpCircle,
-  Percent
+  Percent,
+  FileCheck
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
