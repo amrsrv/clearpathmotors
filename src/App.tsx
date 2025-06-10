@@ -28,7 +28,6 @@ import AdminUsers from './pages/admin/Users';
 import AdminSettings from './pages/admin/Settings';
 import ApplicationView from './pages/admin/ApplicationView';
 import AdminLayout from './components/admin/AdminLayout';
-import { ChatWidget } from './components/ChatWidget';
 
 declare global {
   interface Window {
@@ -165,7 +164,6 @@ const App = () => {
         </AnimatePresence>
       </main>
       {!location.pathname.startsWith('/admin') && <Footer />}
-      {!location.pathname.startsWith('/admin') && <ChatWidget />}
     </div>
   );
 };
