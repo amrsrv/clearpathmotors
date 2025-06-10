@@ -34,7 +34,10 @@ import {
   UserCheck,
   Ban,
   Unlock,
-  Key
+  Key,
+  Home,
+  Heart,
+  HelpCircle
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
@@ -86,6 +89,16 @@ const ApplicationView = () => {
   const [appointmentDate, setAppointmentDate] = useState('');
   const [appointmentTime, setAppointmentTime] = useState('');
   const [isSchedulingAppointment, setIsSchedulingAppointment] = useState(false);
+
+  // Section editing states
+  const [isEditingPersonal, setIsEditingPersonal] = useState(false);
+  const [isEditingAddress, setIsEditingAddress] = useState(false);
+  const [isEditingEmployment, setIsEditingEmployment] = useState(false);
+  const [isEditingFinancial, setIsEditingFinancial] = useState(false);
+  const [isEditingAdditional, setIsEditingAdditional] = useState(false);
+
+  // Form data for editing
+  const [editFormData, setEditFormData] = useState<Partial<Application>>({});
 
   const { uploadDocument, deleteDocument, uploading, error: uploadError } = useDocumentUpload(id || '');
 
@@ -185,6 +198,7 @@ const ApplicationView = () => {
       setNotes(appData.internal_notes || '');
       setNewStatus(appData.status);
       setNewStage(appData.current_stage);
+      setEditFormData(appData);
 
       // Load related data
       await Promise.all([
@@ -535,6 +549,83 @@ const ApplicationView = () => {
     return statusOption?.color || 'bg-gray-100 text-gray-700';
   };
 
+  const handleEditFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: checked
+      }));
+    } else if (type === 'number') {
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: value === '' ? null : Number(value)
+      }));
+    } else {
+      setEditFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+  };
+
+  const handleCurrencyInput = (value: string | undefined, name: string) => {
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: value ? Number(value.replace(/[^0-9.-]+/g, '')) : null
+    }));
+  };
+
+  const handleSaveSection = async (section: string) => {
+    if (!application) return;
+    
+    try {
+      const { error } = await supabase
+        .from('applications')
+        .update({ 
+          ...editFormData,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', application.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setApplication(prev => prev ? { ...prev, ...editFormData } : null);
+      
+      // Reset editing state
+      switch (section) {
+        case 'personal':
+          setIsEditingPersonal(false);
+          break;
+        case 'address':
+          setIsEditingAddress(false);
+          break;
+        case 'employment':
+          setIsEditingEmployment(false);
+          break;
+        case 'financial':
+          setIsEditingFinancial(false);
+          break;
+        case 'additional':
+          setIsEditingAdditional(false);
+          break;
+      }
+      
+      toast.success('Information updated successfully');
+    } catch (error: any) {
+      console.error('Error updating application:', error);
+      toast.error('Failed to update information');
+    }
+  };
+
+  const formatEnumValue = (value: string | null) => {
+    if (!value) return 'Not specified';
+    return value.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -751,63 +842,1262 @@ const ApplicationView = () => {
                 </div>
               </div>
 
-              {/* Application Details */}
-              <div className="grid lg:grid-cols-2 gap-6">
-                {/* Personal Information */}
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <h3 className="text-lg font-semibold mb-4">Personal Information</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <User className="h-5 w-5 text-gray-400" />
-                      <span>{application.first_name} {application.last_name}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Mail className="h-5 w-5 text-gray-400" />
-                      <span>{application.email}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Phone className="h-5 w-5 text-gray-400" />
-                      <span>{application.phone}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <MapPin className="h-5 w-5 text-gray-400" />
-                      <span>{application.address}, {application.city}, {application.province} {application.postal_code}</span>
-                    </div>
-                    {application.date_of_birth && (
-                      <div className="flex items-center gap-3">
-                        <Calendar className="h-5 w-5 text-gray-400" />
-                        <span>Born {format(new Date(application.date_of_birth), 'MMMM d, yyyy')}</span>
-                      </div>
-                    )}
-                  </div>
+              {/* Personal Information */}
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold">Personal Information</h3>
+                  <button
+                    onClick={() => {
+                      setIsEditingPersonal(!isEditingPersonal);
+                      setEditFormData({
+                        first_name: application.first_name,
+                        last_name: application.last_name,
+                        email: application.email,
+                        phone: application.phone,
+                        date_of_birth: application.date_of_birth,
+                        marital_status: application.marital_status,
+                        dependents: application.dependents,
+                        has_driver_license: application.has_driver_license,
+                        preferred_contact_method: application.preferred_contact_method
+                      });
+                    }}
+                    className="text-[#3BAA75] hover:text-[#2D8259] transition-colors"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
                 </div>
 
-                {/* Financial Information */}
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <h3 className="text-lg font-semibold mb-4">Financial Information</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <Briefcase className="h-5 w-5 text-gray-400" />
-                      <span>{application.employment_status?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+                {isEditingPersonal ? (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          First Name
+                        </label>
+                        <input
+                          type="text"
+                          name="first_name"
+                          value={editFormData.first_name || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Last Name
+                        </label>
+                        <input
+                          type="text"
+                          name="last_name"
+                          value={editFormData.last_name || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Email
+                        </label>
+                        <input
+                          type="email"
+                          name="email"
+                          value={editFormData.email || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Phone
+                        </label>
+                        <input
+                          type="tel"
+                          name="phone"
+                          value={editFormData.phone || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Date of Birth
+                        </label>
+                        <input
+                          type="date"
+                          name="date_of_birth"
+                          value={editFormData.date_of_birth || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Marital Status
+                        </label>
+                        <select
+                          name="marital_status"
+                          value={editFormData.marital_status || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        >
+                          <option value="">Select Status</option>
+                          <option value="single">Single</option>
+                          <option value="married">Married</option>
+                          <option value="divorced">Divorced</option>
+                          <option value="widowed">Widowed</option>
+                          <option value="separated">Separated</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Number of Dependents
+                        </label>
+                        <input
+                          type="number"
+                          name="dependents"
+                          value={editFormData.dependents || ''}
+                          onChange={handleEditFormChange}
+                          min="0"
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Preferred Contact Method
+                        </label>
+                        <select
+                          name="preferred_contact_method"
+                          value={editFormData.preferred_contact_method || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        >
+                          <option value="">Select Method</option>
+                          <option value="email">Email</option>
+                          <option value="phone">Phone</option>
+                          <option value="sms">SMS</option>
+                        </select>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <DollarSign className="h-5 w-5 text-gray-400" />
-                      <span>Annual Income: ${application.annual_income?.toLocaleString()}</span>
+                    
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id="has_driver_license"
+                        name="has_driver_license"
+                        checked={editFormData.has_driver_license || false}
+                        onChange={(e) => setEditFormData(prev => ({
+                          ...prev,
+                          has_driver_license: e.target.checked
+                        }))}
+                        className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                      />
+                      <label htmlFor="has_driver_license" className="text-sm text-gray-700">
+                        Has valid driver's license
+                      </label>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <CreditCard className="h-5 w-5 text-gray-400" />
-                      <span>Credit Score: {application.credit_score}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Car className="h-5 w-5 text-gray-400" />
-                      <span>Vehicle Type: {application.vehicle_type}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <DollarSign className="h-5 w-5 text-gray-400" />
-                      <span>Desired Payment: ${application.desired_monthly_payment?.toLocaleString()}/month</span>
+                    
+                    <div className="flex justify-end gap-2 pt-4 border-t border-gray-200">
+                      <button
+                        onClick={() => setIsEditingPersonal(false)}
+                        className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => handleSaveSection('personal')}
+                        className="px-4 py-2 text-white bg-[#3BAA75] rounded-lg hover:bg-[#2D8259] transition-colors"
+                      >
+                        Save Changes
+                      </button>
                     </div>
                   </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
+                    <div className="flex items-center gap-3">
+                      <User className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Full Name</div>
+                        <div className="font-medium">{application.first_name} {application.last_name}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <Mail className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Email</div>
+                        <div className="font-medium">{application.email}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <Phone className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Phone</div>
+                        <div className="font-medium">{application.phone}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <Calendar className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Date of Birth</div>
+                        <div className="font-medium">
+                          {application.date_of_birth ? format(new Date(application.date_of_birth), 'MMMM d, yyyy') : 'Not provided'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <User className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Marital Status</div>
+                        <div className="font-medium">
+                          {application.marital_status ? formatEnumValue(application.marital_status) : 'Not specified'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <User className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Dependents</div>
+                        <div className="font-medium">
+                          {application.dependents !== null ? application.dependents : 'Not specified'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <Mail className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Preferred Contact</div>
+                        <div className="font-medium">
+                          {application.preferred_contact_method ? formatEnumValue(application.preferred_contact_method) : 'Not specified'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Driver's License</div>
+                        <div className="font-medium">
+                          {application.has_driver_license ? 'Yes' : 'No'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Address & Housing Information */}
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold">Address & Housing Information</h3>
+                  <button
+                    onClick={() => {
+                      setIsEditingAddress(!isEditingAddress);
+                      setEditFormData({
+                        address: application.address,
+                        city: application.city,
+                        province: application.province,
+                        postal_code: application.postal_code,
+                        housing_status: application.housing_status,
+                        housing_payment: application.housing_payment,
+                        residence_duration: application.residence_duration
+                      });
+                    }}
+                    className="text-[#3BAA75] hover:text-[#2D8259] transition-colors"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
                 </div>
+
+                {isEditingAddress ? (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Street Address
+                        </label>
+                        <input
+                          type="text"
+                          name="address"
+                          value={editFormData.address || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          City
+                        </label>
+                        <input
+                          type="text"
+                          name="city"
+                          value={editFormData.city || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Province
+                        </label>
+                        <select
+                          name="province"
+                          value={editFormData.province || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        >
+                          <option value="">Select Province</option>
+                          <option value="ON">Ontario</option>
+                          <option value="BC">British Columbia</option>
+                          <option value="AB">Alberta</option>
+                          <option value="MB">Manitoba</option>
+                          <option value="NB">New Brunswick</option>
+                          <option value="NL">Newfoundland and Labrador</option>
+                          <option value="NS">Nova Scotia</option>
+                          <option value="PE">Prince Edward Island</option>
+                          <option value="QC">Quebec</option>
+                          <option value="SK">Saskatchewan</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Postal Code
+                        </label>
+                        <input
+                          type="text"
+                          name="postal_code"
+                          value={editFormData.postal_code || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Housing Status
+                        </label>
+                        <select
+                          name="housing_status"
+                          value={editFormData.housing_status || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        >
+                          <option value="">Select Status</option>
+                          <option value="own">Own</option>
+                          <option value="rent">Rent</option>
+                          <option value="live_with_parents">Live with Parents</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Monthly Housing Payment
+                        </label>
+                        <input
+                          type="number"
+                          name="housing_payment"
+                          value={editFormData.housing_payment || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Time at Current Residence
+                        </label>
+                        <input
+                          type="text"
+                          name="residence_duration"
+                          value={editFormData.residence_duration || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-end gap-2 pt-4 border-t border-gray-200">
+                      <button
+                        onClick={() => setIsEditingAddress(false)}
+                        className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => handleSaveSection('address')}
+                        className="px-4 py-2 text-white bg-[#3BAA75] rounded-lg hover:bg-[#2D8259] transition-colors"
+                      >
+                        Save Changes
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
+                    <div className="flex items-center gap-3 md:col-span-2">
+                      <MapPin className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Full Address</div>
+                        <div className="font-medium">
+                          {application.address && application.city ? 
+                            `${application.address}, ${application.city}, ${application.province} ${application.postal_code}` : 
+                            'Address not provided'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <Home className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Housing Status</div>
+                        <div className="font-medium">
+                          {application.housing_status ? formatEnumValue(application.housing_status) : 'Not specified'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <DollarSign className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Monthly Housing Payment</div>
+                        <div className="font-medium">
+                          {application.housing_payment ? 
+                            `$${application.housing_payment.toLocaleString()}` : 
+                            'Not specified'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <Clock className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Time at Residence</div>
+                        <div className="font-medium">
+                          {application.residence_duration || 'Not specified'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Employment Information */}
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold">Employment Information</h3>
+                  <button
+                    onClick={() => {
+                      setIsEditingEmployment(!isEditingEmployment);
+                      setEditFormData({
+                        employment_status: application.employment_status,
+                        employer_name: application.employer_name,
+                        occupation: application.occupation,
+                        employment_duration: application.employment_duration
+                      });
+                    }}
+                    className="text-[#3BAA75] hover:text-[#2D8259] transition-colors"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {isEditingEmployment ? (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Employment Status
+                        </label>
+                        <select
+                          name="employment_status"
+                          value={editFormData.employment_status || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        >
+                          <option value="">Select Status</option>
+                          <option value="employed">Employed</option>
+                          <option value="self_employed">Self Employed</option>
+                          <option value="unemployed">Unemployed</option>
+                        </select>
+                      </div>
+                      
+                      {editFormData.employment_status && editFormData.employment_status !== 'unemployed' && (
+                        <>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Employer Name
+                            </label>
+                            <input
+                              type="text"
+                              name="employer_name"
+                              value={editFormData.employer_name || ''}
+                              onChange={handleEditFormChange}
+                              className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Occupation
+                            </label>
+                            <input
+                              type="text"
+                              name="occupation"
+                              value={editFormData.occupation || ''}
+                              onChange={handleEditFormChange}
+                              className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Time at Current Job
+                            </label>
+                            <input
+                              type="text"
+                              name="employment_duration"
+                              value={editFormData.employment_duration || ''}
+                              onChange={handleEditFormChange}
+                              className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    
+                    <div className="flex justify-end gap-2 pt-4 border-t border-gray-200">
+                      <button
+                        onClick={() => setIsEditingEmployment(false)}
+                        className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => handleSaveSection('employment')}
+                        className="px-4 py-2 text-white bg-[#3BAA75] rounded-lg hover:bg-[#2D8259] transition-colors"
+                      >
+                        Save Changes
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
+                    <div className="flex items-center gap-3">
+                      <Briefcase className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Employment Status</div>
+                        <div className="font-medium">
+                          {application.employment_status ? formatEnumValue(application.employment_status) : 'Not specified'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {application.employment_status && application.employment_status !== 'unemployed' && (
+                      <>
+                        <div className="flex items-center gap-3">
+                          <Building className="h-5 w-5 text-gray-400" />
+                          <div>
+                            <div className="text-sm text-gray-500">Employer</div>
+                            <div className="font-medium">
+                              {application.employer_name || 'Not specified'}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                          <Briefcase className="h-5 w-5 text-gray-400" />
+                          <div>
+                            <div className="text-sm text-gray-500">Occupation</div>
+                            <div className="font-medium">
+                              {application.occupation || 'Not specified'}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                          <Clock className="h-5 w-5 text-gray-400" />
+                          <div>
+                            <div className="text-sm text-gray-500">Employment Duration</div>
+                            <div className="font-medium">
+                              {application.employment_duration || 'Not specified'}
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Financial Information */}
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold">Financial Information</h3>
+                  <button
+                    onClick={() => {
+                      setIsEditingFinancial(!isEditingFinancial);
+                      setEditFormData({
+                        annual_income: application.annual_income,
+                        monthly_income: application.monthly_income,
+                        other_income: application.other_income,
+                        credit_score: application.credit_score,
+                        vehicle_type: application.vehicle_type,
+                        desired_monthly_payment: application.desired_monthly_payment,
+                        desired_loan_amount: application.desired_loan_amount,
+                        down_payment_amount: application.down_payment_amount,
+                        loan_amount_min: application.loan_amount_min,
+                        loan_amount_max: application.loan_amount_max,
+                        interest_rate: application.interest_rate,
+                        loan_term: application.loan_term
+                      });
+                    }}
+                    className="text-[#3BAA75] hover:text-[#2D8259] transition-colors"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {isEditingFinancial ? (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Annual Income
+                        </label>
+                        <input
+                          type="number"
+                          name="annual_income"
+                          value={editFormData.annual_income || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Monthly Income
+                        </label>
+                        <input
+                          type="number"
+                          name="monthly_income"
+                          value={editFormData.monthly_income || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Other Income
+                        </label>
+                        <input
+                          type="number"
+                          name="other_income"
+                          value={editFormData.other_income || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Credit Score
+                        </label>
+                        <input
+                          type="number"
+                          name="credit_score"
+                          value={editFormData.credit_score || ''}
+                          onChange={handleEditFormChange}
+                          min="300"
+                          max="900"
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Vehicle Type
+                        </label>
+                        <input
+                          type="text"
+                          name="vehicle_type"
+                          value={editFormData.vehicle_type || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Desired Monthly Payment
+                        </label>
+                        <input
+                          type="number"
+                          name="desired_monthly_payment"
+                          value={editFormData.desired_monthly_payment || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Desired Loan Amount
+                        </label>
+                        <input
+                          type="number"
+                          name="desired_loan_amount"
+                          value={editFormData.desired_loan_amount || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Down Payment Amount
+                        </label>
+                        <input
+                          type="number"
+                          name="down_payment_amount"
+                          value={editFormData.down_payment_amount || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Minimum Loan Amount
+                        </label>
+                        <input
+                          type="number"
+                          name="loan_amount_min"
+                          value={editFormData.loan_amount_min || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Maximum Loan Amount
+                        </label>
+                        <input
+                          type="number"
+                          name="loan_amount_max"
+                          value={editFormData.loan_amount_max || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Interest Rate (%)
+                        </label>
+                        <input
+                          type="number"
+                          name="interest_rate"
+                          value={editFormData.interest_rate || ''}
+                          onChange={handleEditFormChange}
+                          step="0.01"
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Loan Term (months)
+                        </label>
+                        <select
+                          name="loan_term"
+                          value={editFormData.loan_term || ''}
+                          onChange={handleEditFormChange}
+                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        >
+                          <option value="">Select Term</option>
+                          <option value="36">36 months</option>
+                          <option value="48">48 months</option>
+                          <option value="60">60 months</option>
+                          <option value="72">72 months</option>
+                          <option value="84">84 months</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-end gap-2 pt-4 border-t border-gray-200">
+                      <button
+                        onClick={() => setIsEditingFinancial(false)}
+                        className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => handleSaveSection('financial')}
+                        className="px-4 py-2 text-white bg-[#3BAA75] rounded-lg hover:bg-[#2D8259] transition-colors"
+                      >
+                        Save Changes
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
+                    <div className="flex items-center gap-3">
+                      <DollarSign className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Annual Income</div>
+                        <div className="font-medium">
+                          {application.annual_income ? `$${application.annual_income.toLocaleString()}` : 'Not specified'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <DollarSign className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Monthly Income</div>
+                        <div className="font-medium">
+                          {application.monthly_income ? `$${application.monthly_income.toLocaleString()}` : 'Not specified'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <DollarSign className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Other Income</div>
+                        <div className="font-medium">
+                          {application.other_income ? `$${application.other_income.toLocaleString()}` : '$0'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <CreditCard className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Credit Score</div>
+                        <div className="font-medium">
+                          {application.credit_score || 'Not specified'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <Car className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Vehicle Type</div>
+                        <div className="font-medium">
+                          {application.vehicle_type || 'Not specified'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <DollarSign className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Desired Monthly Payment</div>
+                        <div className="font-medium">
+                          {application.desired_monthly_payment ? 
+                            `$${application.desired_monthly_payment.toLocaleString()}` : 
+                            'Not specified'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <DollarSign className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Desired Loan Amount</div>
+                        <div className="font-medium">
+                          {application.desired_loan_amount ? 
+                            `$${application.desired_loan_amount.toLocaleString()}` : 
+                            'Not specified'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <DollarSign className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Down Payment</div>
+                        <div className="font-medium">
+                          {application.down_payment_amount !== null ? 
+                            `$${application.down_payment_amount.toLocaleString()}` : 
+                            'Not specified'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <DollarSign className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Loan Range</div>
+                        <div className="font-medium">
+                          {application.loan_amount_min && application.loan_amount_max ? 
+                            `$${application.loan_amount_min.toLocaleString()} - $${application.loan_amount_max.toLocaleString()}` : 
+                            'Not specified'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <CreditCard className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Interest Rate</div>
+                        <div className="font-medium">
+                          {application.interest_rate ? `${application.interest_rate}%` : 'Not specified'}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <Calendar className="h-5 w-5 text-gray-400" />
+                      <div>
+                        <div className="text-sm text-gray-500">Loan Term</div>
+                        <div className="font-medium">
+                          {application.loan_term ? `${application.loan_term} months` : 'Not specified'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Additional Information */}
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold">Additional Information</h3>
+                  <button
+                    onClick={() => {
+                      setIsEditingAdditional(!isEditingAdditional);
+                      setEditFormData({
+                        collects_government_benefits: application.collects_government_benefits,
+                        disability_programs: application.disability_programs,
+                        has_debt_discharge_history: application.has_debt_discharge_history,
+                        debt_discharge_type: application.debt_discharge_type,
+                        debt_discharge_year: application.debt_discharge_year,
+                        debt_discharge_status: application.debt_discharge_status,
+                        debt_discharge_comments: application.debt_discharge_comments,
+                        consent_soft_check: application.consent_soft_check,
+                        terms_accepted: application.terms_accepted
+                      });
+                    }}
+                    className="text-[#3BAA75] hover:text-[#2D8259] transition-colors"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {isEditingAdditional ? (
+                  <div className="space-y-6">
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="checkbox"
+                          id="collects_government_benefits"
+                          name="collects_government_benefits"
+                          checked={editFormData.collects_government_benefits || false}
+                          onChange={(e) => setEditFormData(prev => ({
+                            ...prev,
+                            collects_government_benefits: e.target.checked
+                          }))}
+                          className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                        />
+                        <label htmlFor="collects_government_benefits" className="text-sm text-gray-700">
+                          Receives government benefits or disability income
+                        </label>
+                      </div>
+
+                      {editFormData.collects_government_benefits && (
+                        <div className="ml-7">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Specify which programs
+                          </label>
+                          <textarea
+                            name="disability_programs"
+                            value={typeof editFormData.disability_programs === 'object' ? 
+                              JSON.stringify(editFormData.disability_programs) : 
+                              (editFormData.disability_programs || '')}
+                            onChange={handleEditFormChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            rows={2}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="checkbox"
+                          id="has_debt_discharge_history"
+                          name="has_debt_discharge_history"
+                          checked={editFormData.has_debt_discharge_history || false}
+                          onChange={(e) => setEditFormData(prev => ({
+                            ...prev,
+                            has_debt_discharge_history: e.target.checked
+                          }))}
+                          className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                        />
+                        <label htmlFor="has_debt_discharge_history" className="text-sm text-gray-700">
+                          Has bankruptcy, consumer proposal, or debt settlement history
+                        </label>
+                      </div>
+
+                      {editFormData.has_debt_discharge_history && (
+                        <div className="ml-7 space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Type
+                              </label>
+                              <select
+                                name="debt_discharge_type"
+                                value={editFormData.debt_discharge_type || ''}
+                                onChange={handleEditFormChange}
+                                className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                              >
+                                <option value="">Select Type</option>
+                                <option value="bankruptcy">Bankruptcy</option>
+                                <option value="consumer_proposal">Consumer Proposal</option>
+                                <option value="informal_settlement">Informal Settlement</option>
+                                <option value="other">Other</option>
+                              </select>
+                            </div>
+                            
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Year
+                              </label>
+                              <input
+                                type="number"
+                                name="debt_discharge_year"
+                                value={editFormData.debt_discharge_year || ''}
+                                onChange={handleEditFormChange}
+                                min="1980"
+                                max={new Date().getFullYear()}
+                                className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Status
+                            </label>
+                            <select
+                              name="debt_discharge_status"
+                              value={editFormData.debt_discharge_status || ''}
+                              onChange={handleEditFormChange}
+                              className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            >
+                              <option value="">Select Status</option>
+                              <option value="active">Active</option>
+                              <option value="discharged">Discharged</option>
+                              <option value="not_sure">Not Sure</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Additional Comments
+                            </label>
+                            <textarea
+                              name="debt_discharge_comments"
+                              value={editFormData.debt_discharge_comments || ''}
+                              onChange={handleEditFormChange}
+                              className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                              rows={2}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="checkbox"
+                          id="consent_soft_check"
+                          name="consent_soft_check"
+                          checked={editFormData.consent_soft_check || false}
+                          onChange={(e) => setEditFormData(prev => ({
+                            ...prev,
+                            consent_soft_check: e.target.checked
+                          }))}
+                          className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                        />
+                        <label htmlFor="consent_soft_check" className="text-sm text-gray-700">
+                          Consented to soft credit check
+                        </label>
+                      </div>
+
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="checkbox"
+                          id="terms_accepted"
+                          name="terms_accepted"
+                          checked={editFormData.terms_accepted || false}
+                          onChange={(e) => setEditFormData(prev => ({
+                            ...prev,
+                            terms_accepted: e.target.checked
+                          }))}
+                          className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                        />
+                        <label htmlFor="terms_accepted" className="text-sm text-gray-700">
+                          Accepted terms and conditions
+                        </label>
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-end gap-2 pt-4 border-t border-gray-200">
+                      <button
+                        onClick={() => setIsEditingAdditional(false)}
+                        className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => handleSaveSection('additional')}
+                        className="px-4 py-2 text-white bg-[#3BAA75] rounded-lg hover:bg-[#2D8259] transition-colors"
+                      >
+                        Save Changes
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
+                      <div className="flex items-center gap-3">
+                        <Heart className="h-5 w-5 text-gray-400" />
+                        <div>
+                          <div className="text-sm text-gray-500">Government Benefits</div>
+                          <div className="font-medium">
+                            {application.collects_government_benefits ? 'Yes' : 'No'}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {application.collects_government_benefits && application.disability_programs && (
+                        <div className="flex items-center gap-3 md:col-span-2">
+                          <HelpCircle className="h-5 w-5 text-gray-400" />
+                          <div>
+                            <div className="text-sm text-gray-500">Benefit Programs</div>
+                            <div className="font-medium">
+                              {typeof application.disability_programs === 'object' ? 
+                                JSON.stringify(application.disability_programs) : 
+                                application.disability_programs}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-4 border-t border-gray-200">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
+                        <div className="flex items-center gap-3">
+                          <AlertCircle className="h-5 w-5 text-gray-400" />
+                          <div>
+                            <div className="text-sm text-gray-500">Debt Discharge History</div>
+                            <div className="font-medium">
+                              {application.has_debt_discharge_history ? 'Yes' : 'No'}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {application.has_debt_discharge_history && (
+                          <>
+                            <div className="flex items-center gap-3">
+                              <FileText className="h-5 w-5 text-gray-400" />
+                              <div>
+                                <div className="text-sm text-gray-500">Discharge Type</div>
+                                <div className="font-medium">
+                                  {application.debt_discharge_type ? 
+                                    formatEnumValue(application.debt_discharge_type) : 
+                                    'Not specified'}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-3">
+                              <Calendar className="h-5 w-5 text-gray-400" />
+                              <div>
+                                <div className="text-sm text-gray-500">Discharge Year</div>
+                                <div className="font-medium">
+                                  {application.debt_discharge_year || 'Not specified'}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-3">
+                              <Clock className="h-5 w-5 text-gray-400" />
+                              <div>
+                                <div className="text-sm text-gray-500">Discharge Status</div>
+                                <div className="font-medium">
+                                  {application.debt_discharge_status ? 
+                                    formatEnumValue(application.debt_discharge_status) : 
+                                    'Not specified'}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {application.debt_discharge_comments && (
+                              <div className="flex items-center gap-3 md:col-span-2">
+                                <FileText className="h-5 w-5 text-gray-400" />
+                                <div>
+                                  <div className="text-sm text-gray-500">Discharge Comments</div>
+                                  <div className="font-medium">
+                                    {application.debt_discharge_comments}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-gray-200">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
+                        <div className="flex items-center gap-3">
+                          <CheckCircle className="h-5 w-5 text-gray-400" />
+                          <div>
+                            <div className="text-sm text-gray-500">Soft Credit Check Consent</div>
+                            <div className="font-medium">
+                              {application.consent_soft_check ? 'Yes' : 'No'}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                          <CheckCircle className="h-5 w-5 text-gray-400" />
+                          <div>
+                            <div className="text-sm text-gray-500">Terms Accepted</div>
+                            <div className="font-medium">
+                              {application.terms_accepted ? 'Yes' : 'No'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Application Progress */}
