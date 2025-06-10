@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useEffect } from 'react';
+import React, { useLayoutEffect, useEffect, useState } from 'react';
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { useAuth } from './hooks/useAuth';
@@ -29,6 +29,7 @@ import AdminUsers from './pages/admin/Users';
 import AdminSettings from './pages/admin/Settings';
 import ApplicationView from './pages/admin/ApplicationView';
 import AdminLayout from './components/admin/AdminLayout';
+import { MobileNavBar } from './components/MobileNavBar'; // Import MobileNavBar
 
 declare global {
   interface Window {
@@ -68,6 +69,7 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, requiresAdmin }) 
 const App = () => {
   const location = useLocation();
   const { user } = useAuth();
+  const [activeDashboardSection, setActiveDashboardSection] = useState('overview'); // New state for dashboard sections
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
@@ -79,10 +81,20 @@ const App = () => {
     }
   }, [location.pathname]);
 
+  const handleMobileNav = (section: string) => {
+    setActiveDashboardSection(section);
+    // Optionally navigate to dashboard if not already there
+    if (location.pathname !== '/dashboard') {
+      // This might need more sophisticated handling if sections are truly separate routes
+      // For now, assuming sections are within the dashboard page
+      // navigate('/dashboard'); 
+    }
+  };
+
   return (
     <div className="min-h-screen bg-secondary-50 text-gray-900 font-sans">
       {!location.pathname.startsWith('/admin') && <Navbar />}
-      <main className={location.pathname.startsWith('/admin') ? '' : 'pt-16 md:pt-24'}>
+      <main className={location.pathname.startsWith('/admin') ? '' : 'pt-16 md:pt-24 pb-16 sm:pb-0'}> {/* Add pb-16 for mobile nav bar */}
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<Home />} />
@@ -107,7 +119,7 @@ const App = () => {
               path="/dashboard"
               element={
                 <PrivateRoute>
-                  <Dashboard />
+                  <Dashboard activeSection={activeDashboardSection} setActiveSection={setActiveDashboardSection} /> {/* Pass activeSection state */}
                 </PrivateRoute>
               }
             />
@@ -165,6 +177,9 @@ const App = () => {
         </AnimatePresence>
       </main>
       {!location.pathname.startsWith('/admin') && <Footer />}
+      {!location.pathname.startsWith('/admin') && user && location.pathname === '/dashboard' && (
+        <MobileNavBar onNavigate={handleMobileNav} activeSection={activeDashboardSection} />
+      )}
     </div>
   );
 };

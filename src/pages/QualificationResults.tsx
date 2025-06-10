@@ -92,12 +92,12 @@ const QualificationResults = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#3BAA75]/5 via-white to-[#3BAA75]/10">
       {/* Sticky header for mobile only */}
-      <div className="sticky top-0 z-20 w-full bg-gradient-to-br from-[#3BAA75]/5 via-white to-[#3BAA75]/10 py-4 px-4 text-center space-y-2 shadow-md lg:static lg:shadow-none lg:py-0 lg:px-0">
+      <div className="sticky top-0 z-20 w-full bg-gradient-to-br from-[#3BAA75]/5 via-white to-[#3BAA75]/10 py-4 px-4 text-center space-y-2 shadow-md lg:hidden">
         <PreQualifiedBadge />
-        <h1 className="text-2xl font-bold mt-2 text-gray-900 lg:text-4xl lg:mt-6">
+        <h1 className="text-2xl font-bold mt-2 text-gray-900">
           Congratulations!
         </h1>
-        <p className="text-sm text-gray-600 lg:text-xl">
+        <p className="text-sm text-gray-600">
           You're pre-qualified for:
         </p>
         <div className="py-2">

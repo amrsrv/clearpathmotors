@@ -30,7 +30,9 @@ import {
   BarChart3,
   Shield,
   Inbox,
-  ArrowRight
+  ArrowRight,
+  ChevronDown, // Added for collapsible sections
+  ChevronUp // Added for collapsible sections
 } from 'lucide-react';
 import type { Application, ApplicationStage, Document, Notification } from '../types/database';
 import { PreQualifiedBadge } from '../components/PreQualifiedBadge';
@@ -42,8 +44,14 @@ import { AppointmentScheduler } from '../components/AppointmentScheduler';
 import toast from 'react-hot-toast';
 import { DocumentManager } from '../components/DocumentManager';
 import { UserMessageCenter } from '../components/UserMessageCenter';
+import { ApplicationCard } from '../components/ApplicationCard'; // Import ApplicationCard
 
-const Dashboard = () => {
+interface DashboardProps {
+  activeSection: string;
+  setActiveSection: (section: string) => void;
+}
+
+const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }) => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const [applications, setApplications] = useState<Application[]>([]);
@@ -55,7 +63,6 @@ const Dashboard = () => {
   const [error, setError] = useState<string | null>(null);
   const [prequalificationData, setPrequalificationData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'upload' | 'manage'>('upload');
-  const [activeSection, setActiveSection] = useState<'documents' | 'messages' | 'activity'>('documents');
   const [showApplicationSelector, setShowApplicationSelector] = useState(false);
   
   // Summary stats
@@ -556,8 +563,76 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="sticky top-0 bg-white border-b border-gray-200 z-40">
+      {/* Mobile-only sticky header */}
+      <div className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 z-40 sm:hidden p-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <PreQualifiedBadge />
+            <h1 className="text-lg font-semibold text-gray-900">
+              Welcome, {selectedApplication.first_name || user?.email?.split('@')[0]}
+            </h1>
+          </div>
+          <button 
+            onClick={() => setShowApplicationSelector(!showApplicationSelector)}
+            className="text-sm text-gray-500 hover:text-[#3BAA75] transition-colors flex items-center"
+          >
+            App #{selectedApplication.id.slice(0, 4)}
+            <ChevronDown className={`h-4 w-4 ml-1 transition-transform ${showApplicationSelector ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
+        {showApplicationSelector && (
+          <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-b-lg shadow-lg p-2 mt-2 z-50">
+            <div className="text-sm font-medium text-gray-700 mb-2 px-2">
+              Your Applications ({applications.length})
+            </div>
+            <div className="max-h-40 overflow-y-auto">
+              {applications.map((app) => (
+                <button
+                  key={app.id}
+                  onClick={() => handleApplicationSelect(app)}
+                  className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                    selectedApplication.id === app.id 
+                      ? 'bg-[#3BAA75]/10 text-[#3BAA75]' 
+                      : 'hover:bg-gray-100'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium">
+                        {app.vehicle_type || 'Vehicle'} Application
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Created {format(new Date(app.created_at), 'MMM d, yyyy')}
+                      </div>
+                    </div>
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      app.status === 'pre_approved' 
+                        ? 'bg-green-100 text-green-800' 
+                        : app.status === 'pending_documents'
+                        ? 'bg-orange-100 text-orange-800'
+                        : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {formatStatus(app.status)}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div className="mt-2 pt-2 border-t border-gray-100">
+              <Link
+                to="/get-prequalified"
+                className="flex items-center justify-center gap-1 w-full text-[#3BAA75] hover:bg-[#3BAA75]/5 px-3 py-2 rounded-lg transition-colors text-sm font-medium"
+              >
+                <Plus className="h-4 w-4" />
+                Start New Application
+              </Link>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop Header (hidden on mobile) */}
+      <div className="hidden sm:block sticky top-0 bg-white border-b border-gray-200 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
@@ -571,7 +646,7 @@ const Dashboard = () => {
                   className="text-sm text-gray-500 hover:text-[#3BAA75] transition-colors flex items-center"
                 >
                   Application #{selectedApplication.id.slice(0, 8)}
-                  <ChevronRight className={`h-4 w-4 ml-1 transition-transform ${showApplicationSelector ? 'rotate-90' : ''}`} />
+                  <ChevronDown className={`h-4 w-4 ml-1 transition-transform ${showApplicationSelector ? 'rotate-90' : ''}`} />
                 </button>
                 
                 {/* Application Selector Dropdown */}
@@ -640,7 +715,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-20 sm:pt-8"> {/* Added pt-20 for mobile header offset */}
         {/* Summary Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
           <motion.div
@@ -702,7 +777,7 @@ const Dashboard = () => {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-[#2A7A5B] rounded-xl p-8 text-white shadow-xl"
+                className="bg-[#2A7A5B] rounded-xl p-8 text-white shadow-xl hidden sm:block" // Hidden on mobile
               >
                 <h2 className="text-2xl font-semibold mb-6">Your Prequalification Results</h2>
                 <LoanRangeBar
@@ -727,30 +802,63 @@ const Dashboard = () => {
               </motion.div>
             )}
 
-            {/* Applications Hub */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl sm:text-2xl font-semibold">Applications Hub</h2>
-                {applications.length > 1 && (
-                  <button
-                    onClick={() => setShowApplicationSelector(!showApplicationSelector)}
-                    className="flex items-center gap-2 text-[#3BAA75] hover:text-[#2D8259] font-medium"
-                  >
-                    Switch Application
-                    <ChevronRight className={`h-5 w-5 transition-transform ${showApplicationSelector ? 'rotate-90' : ''}`} />
-                  </button>
-                )}
-              </div>
-              
-              {/* Application Progress */}
-              <ApplicationTracker
-                application={selectedApplication}
-                stages={stages}
-              />
-            </div>
+            {/* Mobile-only Prequalification Summary */}
+            {prequalificationData && activeSection === 'overview' && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-[#2A7A5B] rounded-xl p-4 text-white shadow-xl sm:hidden"
+              >
+                <div className="flex justify-between items-center mb-2">
+                  <h2 className="text-lg font-semibold">Loan Amount</h2>
+                  <PreQualifiedBadge />
+                </div>
+                <div className="text-2xl font-bold mb-2">
+                  ${prequalificationData.loanRange.min.toLocaleString()} - ${prequalificationData.loanRange.max.toLocaleString()}
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center text-white/90 text-sm">
+                  <div>
+                    <div className="font-medium">${prequalificationData.monthlyPayment}</div>
+                    <div className="text-xs text-white/70">Monthly</div>
+                  </div>
+                  <div>
+                    <div className="font-medium">{prequalificationData.term}</div>
+                    <div className="text-xs text-white/70">Months</div>
+                  </div>
+                  <div>
+                    <div className="font-medium">{prequalificationData.loanRange.rate}%</div>
+                    <div className="text-xs text-white/70">APR</div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
 
-            {/* All Applications Section */}
-            {applications.length > 1 && (
+            {/* Applications Hub - Only show on overview section for mobile */}
+            {activeSection === 'overview' && (
+              <div className="bg-white rounded-xl shadow-lg p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl sm:text-2xl font-semibold">Applications Hub</h2>
+                  {applications.length > 1 && (
+                    <button
+                      onClick={() => setShowApplicationSelector(!showApplicationSelector)}
+                      className="flex items-center gap-2 text-[#3BAA75] hover:text-[#2D8259] font-medium"
+                    >
+                      Switch Application
+                      <ChevronRight className={`h-5 w-5 transition-transform ${showApplicationSelector ? 'rotate-90' : ''}`} />
+                    </button>
+                  )}
+                </div>
+                
+                {/* Application Progress */}
+                <ApplicationTracker
+                  application={selectedApplication}
+                  stages={stages}
+                />
+              </div>
+            )}
+
+            {/* All Applications Section - Only show on applications section for mobile */}
+            {(activeSection === 'applications' || (activeSection === 'overview' && applications.length > 1)) && (
               <div className="bg-white rounded-xl shadow-lg p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-xl sm:text-2xl font-semibold">Your Applications</h2>
@@ -765,329 +873,342 @@ const Dashboard = () => {
                 
                 <div className="space-y-4">
                   {applications.map((app) => (
-                    <div 
+                    <ApplicationCard
                       key={app.id}
-                      className={`border-2 rounded-lg p-4 transition-colors cursor-pointer ${
-                        selectedApplication.id === app.id 
-                          ? 'border-[#3BAA75] bg-[#3BAA75]/5' 
-                          : 'border-gray-200 hover:border-[#3BAA75]/50'
-                      }`}
+                      application={app}
+                      isSelected={selectedApplication.id === app.id}
                       onClick={() => handleApplicationSelect(app)}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Car className="h-5 w-5 text-gray-500" />
-                          <h3 className="font-medium text-gray-900">
-                            {app.vehicle_type || 'Vehicle'} Application
-                          </h3>
-                        </div>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          app.status === 'pre_approved' 
-                            ? 'bg-green-100 text-green-800' 
-                            : app.status === 'pending_documents'
-                            ? 'bg-orange-100 text-orange-800'
-                            : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {formatStatus(app.status)}
-                        </span>
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-3 mt-3">
-                        <div>
-                          <p className="text-xs text-gray-500">Created</p>
-                          <p className="text-sm font-medium">
-                            {format(new Date(app.created_at), 'MMM d, yyyy')}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500">Monthly Payment</p>
-                          <p className="text-sm font-medium">
-                            ${app.desired_monthly_payment?.toLocaleString() || 'Not specified'}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      {selectedApplication.id !== app.id && (
-                        <div className="mt-3 flex justify-end">
-                          <button className="flex items-center text-sm text-[#3BAA75] hover:text-[#2D8259] font-medium">
-                            View Details
-                            <ArrowRight className="ml-1 h-4 w-4" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                    />
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Section Tabs */}
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              <div className="flex border-b border-gray-200 overflow-x-auto">
-                <button
-                  onClick={() => setActiveSection('documents')}
-                  className={`flex-1 px-4 py-3 font-medium text-sm whitespace-nowrap ${
-                    activeSection === 'documents'
-                      ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Document Center
-                  </div>
-                </button>
-                <button
-                  onClick={() => setActiveSection('messages')}
-                  className={`flex-1 px-4 py-3 font-medium text-sm whitespace-nowrap ${
-                    activeSection === 'messages'
-                      ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <MessageSquare className="h-5 w-5" />
-                    Message Center
-                    {summaryStats.unreadMessages > 0 && (
-                      <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                        {summaryStats.unreadMessages}
-                      </span>
+            {/* Section Tabs - Only show on documents, messages, or activity sections */}
+            {(activeSection === 'documents' || activeSection === 'messages' || activeSection === 'activity') && (
+              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div className="flex border-b border-gray-200 overflow-x-auto">
+                  <button
+                    onClick={() => setActiveSection('documents')}
+                    className={`flex-1 px-4 py-3 font-medium text-sm whitespace-nowrap ${
+                      activeSection === 'documents'
+                        ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Document Center
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setActiveSection('messages')}
+                    className={`flex-1 px-4 py-3 font-medium text-sm whitespace-nowrap ${
+                      activeSection === 'messages'
+                        ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <MessageSquare className="h-5 w-5" />
+                      Message Center
+                      {summaryStats.unreadMessages > 0 && (
+                        <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                          {summaryStats.unreadMessages}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setActiveSection('activity')}
+                    className={`flex-1 px-4 py-3 font-medium text-sm whitespace-nowrap ${
+                      activeSection === 'activity'
+                        ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <Clock className="h-5 w-5" />
+                      Activity
+                    </div>
+                  </button>
+                </div>
+
+                {/* Section Content */}
+                <div className="p-6">
+                  <AnimatePresence mode="wait">
+                    {activeSection === 'documents' && (
+                      <motion.div
+                        key="documents"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        {/* Document Tabs */}
+                        <div className="flex border-b border-gray-200 mb-6 overflow-x-auto">
+                          <button
+                            onClick={() => setActiveTab('upload')}
+                            className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
+                              activeTab === 'upload'
+                                ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                                : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                          >
+                            Upload Documents
+                          </button>
+                          <button
+                            onClick={() => setActiveTab('manage')}
+                            className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
+                              activeTab === 'manage'
+                                ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                                : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                          >
+                            Manage Documents
+                          </button>
+                        </div>
+
+                        {/* Document Content */}
+                        <AnimatePresence mode="wait">
+                          {activeTab === 'upload' ? (
+                            <motion.div
+                              key="upload"
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <DocumentUpload
+                                applicationId={selectedApplication.id}
+                                documents={documents}
+                                onUpload={handleDocumentUpload}
+                                isUploading={uploading}
+                                uploadError={uploadError}
+                              />
+                            </motion.div>
+                          ) : (
+                            <motion.div
+                              key="manage"
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <DocumentManager
+                                applicationId={selectedApplication.id}
+                                documents={documents}
+                                onUpload={handleDocumentUpload}
+                                onDelete={handleDocumentDelete}
+                                isUploading={uploading}
+                                uploadError={uploadError}
+                              />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </motion.div>
                     )}
-                  </div>
-                </button>
-                <button
-                  onClick={() => setActiveSection('activity')}
-                  className={`flex-1 px-4 py-3 font-medium text-sm whitespace-nowrap ${
-                    activeSection === 'activity'
-                      ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <Clock className="h-5 w-5" />
-                    Activity
-                  </div>
-                </button>
-              </div>
 
-              {/* Section Content */}
-              <div className="p-6">
-                <AnimatePresence mode="wait">
-                  {activeSection === 'documents' && (
-                    <motion.div
-                      key="documents"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      {/* Document Tabs */}
-                      <div className="flex border-b border-gray-200 mb-6 overflow-x-auto">
-                        <button
-                          onClick={() => setActiveTab('upload')}
-                          className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
-                            activeTab === 'upload'
-                              ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                              : 'text-gray-500 hover:text-gray-700'
-                          }`}
-                        >
-                          Upload Documents
-                        </button>
-                        <button
-                          onClick={() => setActiveTab('manage')}
-                          className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
-                            activeTab === 'manage'
-                              ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                              : 'text-gray-500 hover:text-gray-700'
-                          }`}
-                        >
-                          Manage Documents
-                        </button>
-                      </div>
+                    {activeSection === 'messages' && (
+                      <motion.div
+                        key="messages"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <UserMessageCenter 
+                          userId={user?.id || ''} 
+                          applicationId={selectedApplication.id} 
+                        />
+                      </motion.div>
+                    )}
 
-                      {/* Document Content */}
-                      <AnimatePresence mode="wait">
-                        {activeTab === 'upload' ? (
-                          <motion.div
-                            key="upload"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.2 }}
-                          >
-                            <DocumentUpload
-                              applicationId={selectedApplication.id}
-                              documents={documents}
-                              onUpload={handleDocumentUpload}
-                              isUploading={uploading}
-                              uploadError={uploadError}
-                            />
-                          </motion.div>
-                        ) : (
-                          <motion.div
-                            key="manage"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.2 }}
-                          >
-                            <DocumentManager
-                              applicationId={selectedApplication.id}
-                              documents={documents}
-                              onUpload={handleDocumentUpload}
-                              onDelete={handleDocumentDelete}
-                              isUploading={uploading}
-                              uploadError={uploadError}
-                            />
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </motion.div>
-                  )}
+                    {activeSection === 'notifications' && (
+                      <motion.div
+                        key="notifications"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <NotificationCenter
+                          notifications={notifications}
+                          onMarkAsRead={handleMarkNotificationAsRead}
+                        />
+                      </motion.div>
+                    )}
 
-                  {activeSection === 'messages' && (
-                    <motion.div
-                      key="messages"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <UserMessageCenter 
-                        userId={user?.id || ''} 
-                        applicationId={selectedApplication.id} 
-                      />
-                    </motion.div>
-                  )}
-
-                  {activeSection === 'activity' && (
-                    <motion.div
-                      key="activity"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <div className="space-y-6">
-                        <h3 className="text-lg font-semibold">Recent Activity</h3>
-                        
-                        {stages.length === 0 ? (
-                          <div className="text-center py-8 text-gray-500">
-                            <Clock className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                            <p>No activity yet</p>
+                    {activeSection === 'profile' && (
+                      <motion.div
+                        key="profile"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2 }}
+                        className="bg-white rounded-xl shadow-lg p-6"
+                      >
+                        <h2 className="text-xl font-semibold mb-4">Your Profile</h2>
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-sm text-gray-500">Email</p>
+                            <p className="font-medium text-gray-900">{user?.email}</p>
                           </div>
-                        ) : (
-                          <div className="space-y-6">
-                            {stages.slice(-5).reverse().map((stage) => (
-                              <div key={stage.id} className="relative">
-                                <div className="flex gap-4">
-                                  <div className="relative z-10">
-                                    <div className="w-10 h-10 rounded-full bg-[#3BAA75]/10 flex items-center justify-center">
-                                      <Clock className="h-5 w-5 text-[#3BAA75]" />
+                          <div>
+                            <p className="text-sm text-gray-500">Name</p>
+                            <p className="font-medium text-gray-900">
+                              {selectedApplication.first_name} {selectedApplication.last_name}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500">Phone</p>
+                            <p className="font-medium text-gray-900">{selectedApplication.phone}</p>
+                          </div>
+                          <button
+                            onClick={() => supabase.auth.signOut()}
+                            className="w-full bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors mt-4"
+                          >
+                            Sign Out
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {activeSection === 'activity' && (
+                      <motion.div
+                        key="activity"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <div className="space-y-6">
+                          <h3 className="text-lg font-semibold">Recent Activity</h3>
+                          
+                          {stages.length === 0 ? (
+                            <div className="text-center py-8 text-gray-500">
+                              <Clock className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                              <p>No activity yet</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-6">
+                              {stages.slice(-5).reverse().map((stage) => (
+                                <div key={stage.id} className="relative">
+                                  <div className="flex gap-4">
+                                    <div className="relative z-10">
+                                      <div className="w-10 h-10 rounded-full bg-[#3BAA75]/10 flex items-center justify-center">
+                                        <Clock className="h-5 w-5 text-[#3BAA75]" />
+                                      </div>
                                     </div>
-                                  </div>
-                                  <div>
-                                    <div className="flex items-center">
-                                      <p className="font-medium text-gray-900">
-                                        Stage {stage.stage_number} - {stage.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                    <div>
+                                      <div className="flex items-center">
+                                        <p className="font-medium text-gray-900">
+                                          Stage {stage.stage_number} - {stage.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                        </p>
+                                      </div>
+                                      <p className="text-gray-600 mt-1">
+                                        {stage.notes || `Your application has ${stage.status === 'completed' ? 'completed' : 'entered'} stage ${stage.stage_number}.`}
+                                      </p>
+                                      <p className="text-sm text-gray-500 mt-2">
+                                        {format(new Date(stage.timestamp), 'MMM d, yyyy h:mm a')}
                                       </p>
                                     </div>
-                                    <p className="text-gray-600 mt-1">
-                                      {stage.notes || `Your application has ${stage.status === 'completed' ? 'completed' : 'entered'} stage ${stage.stage_number}.`}
-                                    </p>
-                                    <p className="text-sm text-gray-500 mt-2">
-                                      {format(new Date(stage.timestamp), 'MMM d, yyyy h:mm a')}
-                                    </p>
                                   </div>
                                 </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-
-            {/* Appointment Scheduler */}
-            <div id="appointment-section">
-              <AppointmentScheduler
-                onSchedule={async (date, type) => {
-                  try {
-                    const { error } = await supabase
-                      .from('applications')
-                      .update({ consultation_time: date.toISOString() })
-                      .eq('id', selectedApplication.id);
-
-                    if (error) throw error;
-                    
-                    setSelectedApplication(prev => prev ? {
-                      ...prev,
-                      consultation_time: date.toISOString()
-                    } : null);
-                    
-                    toast.success('Consultation scheduled successfully');
-                  } catch (error) {
-                    console.error('Error scheduling appointment:', error);
-                    toast.error('Failed to schedule consultation');
-                  }
-                }}
-              />
-            </div>
-
-            {/* Future Payments Block (Placeholder) */}
-            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold flex items-center gap-2">
-                  <Wallet className="h-5 w-5 text-[#3BAA75]" />
-                  Future Payments
-                </h2>
-                <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-1 rounded">Coming Soon</span>
-              </div>
-              <p className="text-gray-600 mb-4">
-                Once your loan is finalized, you'll be able to view and manage your payments here.
-              </p>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="flex items-center justify-between text-gray-500">
-                  <span>Next Payment</span>
-                  <span>--/--/----</span>
-                </div>
-                <div className="flex items-center justify-between text-gray-500 mt-2">
-                  <span>Amount</span>
-                  <span>$---</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Add-On Services Block (Placeholder) */}
-            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-[#3BAA75]" />
-                  Add-On Services
-                </h2>
-                <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-1 rounded">Coming Soon</span>
+            {/* Appointment Scheduler - Only show on overview section for mobile */}
+            {activeSection === 'overview' && (
+              <div id="appointment-section">
+                <AppointmentScheduler
+                  onSchedule={async (date, type) => {
+                    try {
+                      const { error } = await supabase
+                        .from('applications')
+                        .update({ consultation_time: date.toISOString() })
+                        .eq('id', selectedApplication.id);
+
+                      if (error) throw error;
+                      
+                      setSelectedApplication(prev => prev ? {
+                        ...prev,
+                        consultation_time: date.toISOString()
+                      } : null);
+                      
+                      toast.success('Consultation scheduled successfully');
+                    } catch (error) {
+                      console.error('Error scheduling appointment:', error);
+                      toast.error('Failed to schedule consultation');
+                    }
+                  }}
+                />
               </div>
-              <p className="text-gray-600 mb-4">
-                Enhance your vehicle ownership experience with additional services and protection plans.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-gray-50 p-4 rounded-lg text-center">
-                  <p className="font-medium text-gray-700">Extended Warranty</p>
-                  <p className="text-sm text-gray-500">Protect your investment</p>
+            )}
+
+            {/* Future Payments Block (Placeholder) - Only show on overview section for mobile */}
+            {activeSection === 'overview' && (
+              <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold flex items-center gap-2">
+                    <Wallet className="h-5 w-5 text-[#3BAA75]" />
+                    Future Payments
+                  </h2>
+                  <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-1 rounded">Coming Soon</span>
                 </div>
-                <div className="bg-gray-50 p-4 rounded-lg text-center">
-                  <p className="font-medium text-gray-700">GAP Insurance</p>
-                  <p className="text-sm text-gray-500">Coverage for the unexpected</p>
+                <p className="text-gray-600 mb-4">
+                  Once your loan is finalized, you'll be able to view and manage your payments here.
+                </p>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="flex items-center justify-between text-gray-500">
+                    <span>Next Payment</span>
+                    <span>--/--/----</span>
+                  </div>
+                  <div className="flex items-center justify-between text-gray-500 mt-2">
+                    <span>Amount</span>
+                    <span>$---</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* Add-On Services Block (Placeholder) - Only show on overview section for mobile */}
+            {activeSection === 'overview' && (
+              <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-[#3BAA75]" />
+                    Add-On Services
+                  </h2>
+                  <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-1 rounded">Coming Soon</span>
+                </div>
+                <p className="text-gray-600 mb-4">
+                  Enhance your vehicle ownership experience with additional services and protection plans.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="bg-gray-50 p-4 rounded-lg text-center">
+                    <p className="font-medium text-gray-700">Extended Warranty</p>
+                    <p className="text-sm text-gray-500">Protect your investment</p>
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-lg text-center">
+                    <p className="font-medium text-gray-700">GAP Insurance</p>
+                    <p className="text-sm text-gray-500">Coverage for the unexpected</p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Right Sidebar */}
-          <div className="space-y-8">
+          {/* Right Sidebar - Only visible on desktop */}
+          <div className="space-y-8 hidden lg:block">
             {/* Account Summary */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
@@ -1117,13 +1238,13 @@ const Dashboard = () => {
               </div>
             </motion.div>
 
-            {/* Notifications */}
+            {/* Notifications - Only visible on desktop */}
             <NotificationCenter
               notifications={notifications}
               onMarkAsRead={handleMarkNotificationAsRead}
             />
 
-            {/* Quick Links */}
+            {/* Quick Links - Only visible on desktop */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -1147,7 +1268,10 @@ const Dashboard = () => {
                 
                 <a 
                   href="#" 
-                  onClick={() => setActiveSection('documents')}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setActiveSection('documents');
+                  }}
                   className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                 >
                   <div className="flex items-center">
@@ -1161,7 +1285,10 @@ const Dashboard = () => {
                 
                 <a 
                   href="#" 
-                  onClick={() => setActiveSection('messages')}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setActiveSection('messages');
+                  }}
                   className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                 >
                   <div className="flex items-center">
