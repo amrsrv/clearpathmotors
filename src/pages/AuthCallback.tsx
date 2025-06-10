@@ -29,40 +29,47 @@ const AuthCallback = () => {
             }
           }
           
-          // Check if an application exists with the user's email
-          const { data: existingApplicationByEmail, error: emailError } = await supabase
+          // Check if any applications exist with the user's email but not linked to their user_id
+          const { data: applicationsWithEmail, error: emailError } = await supabase
             .from('applications')
-            .select('id, email, first_name, last_name')
+            .select('id, email, first_name, last_name, user_id')
             .eq('email', user.email)
-            .maybeSingle();
+            .is('user_id', null);
 
           if (emailError) {
-            console.error('Error checking application by email:', emailError);
+            console.error('Error checking applications by email:', emailError);
           }
 
-          // Check if user already has an application
-          const { data: existingApplication } = await supabase
-            .from('applications')
-            .select('id, email, first_name, last_name')
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-          if (existingApplicationByEmail && !existingApplication) {
-            // Update the existing application with the new user ID
+          // If applications with matching email exist but no user_id, link them
+          if (applicationsWithEmail && applicationsWithEmail.length > 0) {
+            console.log(`Found ${applicationsWithEmail.length} unlinked applications with email ${user.email}`);
+            
+            // Update all applications with the user's email to have their user_id
             const { error: updateError } = await supabase
               .from('applications')
               .update({ 
                 user_id: user.id,
                 // Only update first_name and last_name if they're empty
-                first_name: existingApplicationByEmail.first_name || firstName,
-                last_name: existingApplicationByEmail.last_name || lastName
+                first_name: sql => `COALESCE(first_name, '${firstName}')`,
+                last_name: sql => `COALESCE(last_name, '${lastName}')`
               })
-              .eq('id', existingApplicationByEmail.id);
+              .eq('email', user.email)
+              .is('user_id', null);
 
             if (updateError) {
-              console.error('Error updating application with new user ID:', updateError);
+              console.error('Error updating applications with user ID:', updateError);
+            } else {
+              console.log(`Successfully linked ${applicationsWithEmail.length} applications to user ${user.id}`);
             }
-          } else if (!existingApplication) {
+          }
+
+          // Check if user already has an application
+          const { data: existingApplications } = await supabase
+            .from('applications')
+            .select('id, email, first_name, last_name')
+            .eq('user_id', user.id);
+
+          if (!existingApplications || existingApplications.length === 0) {
             // Create initial application if none exists
             const { data: application, error: applicationError } = await supabase
               .from('applications')
