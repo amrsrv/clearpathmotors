@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -30,8 +30,7 @@ import {
   BarChart3,
   Shield,
   Inbox,
-  ArrowRight,
-  Layers
+  ArrowRight
 } from 'lucide-react';
 import type { Application, ApplicationStage, Document, Notification } from '../types/database';
 import { PreQualifiedBadge } from '../components/PreQualifiedBadge';
@@ -44,7 +43,6 @@ import toast from 'react-hot-toast';
 import { DocumentManager } from '../components/DocumentManager';
 import { UserMessageCenter } from '../components/UserMessageCenter';
 import { UserProfileSection } from '../components/UserProfileSection';
-import { ApplicationCard } from '../components/ApplicationCard';
 
 interface DashboardProps {
   activeSection?: string;
@@ -52,8 +50,8 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
-  activeSection = 'overview',
-  setActiveSection = () => {}
+  activeSection: propActiveSection, 
+  setActiveSection: propSetActiveSection 
 }) => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
@@ -66,8 +64,12 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [prequalificationData, setPrequalificationData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'upload' | 'manage'>('upload');
+  const [activeSection, setActiveSection] = useState<'overview' | 'documents' | 'messages' | 'notifications' | 'profile'>('overview');
   const [showApplicationSelector, setShowApplicationSelector] = useState(false);
-  const [desktopActiveTab, setDesktopActiveTab] = useState<'overview' | 'documents' | 'messages' | 'profile'>('overview');
+  
+  // Use prop values if provided, otherwise use local state
+  const currentActiveSection = propActiveSection || activeSection;
+  const setCurrentActiveSection = propSetActiveSection || setActiveSection;
   
   // Summary stats
   const [summaryStats, setSummaryStats] = useState({
@@ -523,13 +525,6 @@ const Dashboard: React.FC<DashboardProps> = ({
     setShowApplicationSelector(false);
   };
 
-  // Update the active section when it changes from props
-  useEffect(() => {
-    if (activeSection) {
-      setActiveSection(activeSection);
-    }
-  }, [activeSection]);
-
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -572,216 +567,14 @@ const Dashboard: React.FC<DashboardProps> = ({
     );
   }
 
-  // Mobile-specific content renderer
-  const renderMobileContent = () => {
-    switch (activeSection) {
-      case 'documents':
-        return (
-          <div className="space-y-6">
-            {/* Document Tabs */}
-            <div className="flex border-b border-gray-200 mb-6">
-              <button
-                onClick={() => setActiveTab('upload')}
-                className={`px-4 py-2 font-medium text-sm ${
-                  activeTab === 'upload'
-                    ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Upload Documents
-              </button>
-              <button
-                onClick={() => setActiveTab('manage')}
-                className={`px-4 py-2 font-medium text-sm ${
-                  activeTab === 'manage'
-                    ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Manage Documents
-              </button>
-            </div>
-
-            {/* Document Content */}
-            <AnimatePresence mode="wait">
-              {activeTab === 'upload' ? (
-                <motion.div
-                  key="upload"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <DocumentUpload
-                    applicationId={selectedApplication.id}
-                    documents={documents}
-                    onUpload={handleDocumentUpload}
-                    isUploading={uploading}
-                    uploadError={uploadError}
-                  />
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="manage"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <DocumentManager
-                    applicationId={selectedApplication.id}
-                    documents={documents}
-                    onUpload={handleDocumentUpload}
-                    onDelete={handleDocumentDelete}
-                    isUploading={uploading}
-                    uploadError={uploadError}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        );
-      case 'messages':
-        return (
-          <UserMessageCenter 
-            userId={user?.id || ''} 
-            applicationId={selectedApplication.id} 
-          />
-        );
-      case 'notifications':
-        return (
-          <NotificationCenter
-            notifications={notifications}
-            onMarkAsRead={handleMarkNotificationAsRead}
-          />
-        );
-      case 'profile':
-        return (
-          <UserProfileSection 
-            application={selectedApplication}
-            onUpdate={loadDashboardData}
-          />
-        );
-      default:
-        return (
-          <div className="space-y-8">
-            {/* Prequalification Results */}
-            {prequalificationData && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-[#2A7A5B] rounded-xl p-4 sm:p-8 text-white shadow-xl"
-              >
-                <h2 className="text-xl sm:text-2xl font-semibold mb-4 sm:mb-6">Your Prequalification Results</h2>
-                <LoanRangeBar
-                  min={prequalificationData.loanRange.min}
-                  max={prequalificationData.loanRange.max}
-                  rate={prequalificationData.loanRange.rate}
-                />
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mt-6 sm:mt-8">
-                  <div className="text-center">
-                    <div className="text-white/80 text-sm mb-1">Monthly Payment</div>
-                    <div className="text-xl sm:text-2xl font-bold">${prequalificationData.monthlyPayment}</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-white/80 text-sm mb-1">Term Length</div>
-                    <div className="text-xl sm:text-2xl font-bold">{prequalificationData.term} months</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-white/80 text-sm mb-1">Interest Rate</div>
-                    <div className="text-xl sm:text-2xl font-bold">{prequalificationData.loanRange.rate}%</div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* Applications Hub */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-semibold">Applications Hub</h2>
-                {applications.length > 1 && (
-                  <button
-                    onClick={() => setShowApplicationSelector(!showApplicationSelector)}
-                    className="flex items-center gap-2 text-[#3BAA75] hover:text-[#2D8259] font-medium"
-                  >
-                    Switch Application
-                    <ChevronRight className={`h-5 w-5 transition-transform ${showApplicationSelector ? 'rotate-90' : ''}`} />
-                  </button>
-                )}
-              </div>
-              
-              {/* Application Progress */}
-              <ApplicationTracker
-                application={selectedApplication}
-                stages={stages}
-              />
-            </div>
-
-            {/* All Applications Section */}
-            {applications.length > 1 && (
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-semibold">Your Applications</h2>
-                  <Link
-                    to="/get-prequalified"
-                    className="flex items-center gap-2 text-[#3BAA75] hover:text-[#2D8259] font-medium"
-                  >
-                    <Plus className="h-5 w-5" />
-                    <span className="hidden sm:inline">Start New Application</span>
-                  </Link>
-                </div>
-                
-                <div className="space-y-4">
-                  {applications.map((app) => (
-                    <ApplicationCard
-                      key={app.id}
-                      application={app}
-                      isSelected={selectedApplication.id === app.id}
-                      onClick={() => handleApplicationSelect(app)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Appointment Scheduler */}
-            <div id="appointment-section">
-              <AppointmentScheduler
-                onSchedule={async (date, type) => {
-                  try {
-                    const { error } = await supabase
-                      .from('applications')
-                      .update({ consultation_time: date.toISOString() })
-                      .eq('id', selectedApplication.id);
-
-                    if (error) throw error;
-                    
-                    setSelectedApplication(prev => prev ? {
-                      ...prev,
-                      consultation_time: date.toISOString()
-                    } : null);
-                    
-                    toast.success('Consultation scheduled successfully');
-                  } catch (error) {
-                    console.error('Error scheduling appointment:', error);
-                    toast.error('Failed to schedule consultation');
-                  }
-                }}
-              />
-            </div>
-          </div>
-        );
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="sticky top-16 bg-white border-b border-gray-200 z-30">
+      <div className="sticky top-0 bg-white border-b border-gray-200 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">
+              <h1 className="text-2xl font-semibold text-gray-900">
                 Welcome Back, {selectedApplication.first_name || user?.email?.split('@')[0]}
               </h1>
               <div className="flex items-center gap-2 mt-1">
@@ -860,9 +653,9 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-        {/* Summary Stats - Desktop Only */}
-        <div className="hidden sm:grid grid-cols-3 gap-4 mb-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Summary Stats */}
+        <div className="grid grid-cols-3 gap-4 mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -914,348 +707,502 @@ const Dashboard: React.FC<DashboardProps> = ({
           </motion.div>
         </div>
 
-        {/* Desktop Tabs - Only visible on desktop */}
-        <div className="hidden lg:flex border-b border-gray-200 mb-6">
-          <button
-            onClick={() => setDesktopActiveTab('overview')}
-            className={`px-4 py-2 font-medium text-sm ${
-              desktopActiveTab === 'overview'
-                ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Layers className="h-5 w-5" />
-              Overview
-            </div>
-          </button>
-          <button
-            onClick={() => setDesktopActiveTab('documents')}
-            className={`px-4 py-2 font-medium text-sm ${
-              desktopActiveTab === 'documents'
-                ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Documents
-            </div>
-          </button>
-          <button
-            onClick={() => setDesktopActiveTab('messages')}
-            className={`px-4 py-2 font-medium text-sm ${
-              desktopActiveTab === 'messages'
-                ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5" />
-              Messages
-              {summaryStats.unreadMessages > 0 && (
-                <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  {summaryStats.unreadMessages}
-                </span>
-              )}
-            </div>
-          </button>
-          <button
-            onClick={() => setDesktopActiveTab('profile')}
-            className={`px-4 py-2 font-medium text-sm ${
-              desktopActiveTab === 'profile'
-                ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Profile
-            </div>
-          </button>
-        </div>
-
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Main Content - Left Side */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Mobile Content - Only visible on mobile */}
-            <div className="lg:hidden">
-              {renderMobileContent()}
+            {/* Prequalification Results */}
+            {prequalificationData && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-[#2A7A5B] rounded-xl p-8 text-white shadow-xl"
+              >
+                <h2 className="text-2xl font-semibold mb-6">Your Prequalification Results</h2>
+                <LoanRangeBar
+                  min={prequalificationData.loanRange.min}
+                  max={prequalificationData.loanRange.max}
+                  rate={prequalificationData.loanRange.rate}
+                />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-8">
+                  <div className="text-center">
+                    <div className="text-white/80 text-sm mb-1">Monthly Payment</div>
+                    <div className="text-2xl font-bold">${prequalificationData.monthlyPayment}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-white/80 text-sm mb-1">Term Length</div>
+                    <div className="text-2xl font-bold">{prequalificationData.term} months</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-white/80 text-sm mb-1">Interest Rate</div>
+                    <div className="text-2xl font-bold">{prequalificationData.loanRange.rate}%</div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Applications Hub */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-semibold">Applications Hub</h2>
+                {applications.length > 1 && (
+                  <button
+                    onClick={() => setShowApplicationSelector(!showApplicationSelector)}
+                    className="flex items-center gap-2 text-[#3BAA75] hover:text-[#2D8259] font-medium"
+                  >
+                    Switch Application
+                    <ChevronRight className={`h-5 w-5 transition-transform ${showApplicationSelector ? 'rotate-90' : ''}`} />
+                  </button>
+                )}
+              </div>
+              
+              {/* Application Progress */}
+              <ApplicationTracker
+                application={selectedApplication}
+                stages={stages}
+              />
             </div>
 
-            {/* Desktop Content - Only visible on desktop */}
-            <div className="hidden lg:block">
-              <AnimatePresence mode="wait">
-                {desktopActiveTab === 'overview' && (
-                  <motion.div
-                    key="overview"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="space-y-8"
+            {/* All Applications Section */}
+            {applications.length > 1 && (
+              <div className="bg-white rounded-xl shadow-lg p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-semibold">Your Applications</h2>
+                  <Link
+                    to="/get-prequalified"
+                    className="flex items-center gap-2 text-[#3BAA75] hover:text-[#2D8259] font-medium"
                   >
-                    {/* Prequalification Results */}
-                    {prequalificationData && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="bg-[#2A7A5B] rounded-xl p-8 text-white shadow-xl"
-                      >
-                        <h2 className="text-2xl font-semibold mb-6">Your Prequalification Results</h2>
-                        <LoanRangeBar
-                          min={prequalificationData.loanRange.min}
-                          max={prequalificationData.loanRange.max}
-                          rate={prequalificationData.loanRange.rate}
-                        />
-                        <div className="grid grid-cols-3 gap-6 mt-8">
-                          <div className="text-center">
-                            <div className="text-white/80 text-sm mb-1">Monthly Payment</div>
-                            <div className="text-2xl font-bold">${prequalificationData.monthlyPayment}</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-white/80 text-sm mb-1">Term Length</div>
-                            <div className="text-2xl font-bold">{prequalificationData.term} months</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-white/80 text-sm mb-1">Interest Rate</div>
-                            <div className="text-2xl font-bold">{prequalificationData.loanRange.rate}%</div>
-                          </div>
+                    <Plus className="h-5 w-5" />
+                    <span>Start New Application</span>
+                  </Link>
+                </div>
+                
+                <div className="space-y-4">
+                  {applications.map((app) => (
+                    <div 
+                      key={app.id}
+                      className={`border-2 rounded-lg p-4 transition-colors cursor-pointer ${
+                        selectedApplication.id === app.id 
+                          ? 'border-[#3BAA75] bg-[#3BAA75]/5' 
+                          : 'border-gray-200 hover:border-[#3BAA75]/50'
+                      }`}
+                      onClick={() => handleApplicationSelect(app)}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Car className="h-5 w-5 text-gray-500" />
+                          <h3 className="font-medium text-gray-900">
+                            {app.vehicle_type || 'Vehicle'} Application
+                          </h3>
                         </div>
-                      </motion.div>
-                    )}
-
-                    {/* Applications Hub */}
-                    <div className="bg-white rounded-xl shadow-lg p-6">
-                      <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-2xl font-semibold">Applications Hub</h2>
-                        {applications.length > 1 && (
-                          <button
-                            onClick={() => setShowApplicationSelector(!showApplicationSelector)}
-                            className="flex items-center gap-2 text-[#3BAA75] hover:text-[#2D8259] font-medium"
-                          >
-                            Switch Application
-                            <ChevronRight className={`h-5 w-5 transition-transform ${showApplicationSelector ? 'rotate-90' : ''}`} />
-                          </button>
-                        )}
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          app.status === 'pre_approved' 
+                            ? 'bg-green-100 text-green-800' 
+                            : app.status === 'pending_documents'
+                            ? 'bg-orange-100 text-orange-800'
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {formatStatus(app.status)}
+                        </span>
                       </div>
                       
-                      {/* Application Progress */}
-                      <ApplicationTracker
-                        application={selectedApplication}
-                        stages={stages}
-                      />
+                      <div className="grid grid-cols-2 gap-3 mt-3">
+                        <div>
+                          <p className="text-xs text-gray-500">Created</p>
+                          <p className="text-sm font-medium">
+                            {format(new Date(app.created_at), 'MMM d, yyyy')}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Monthly Payment</p>
+                          <p className="text-sm font-medium">
+                            ${app.desired_monthly_payment?.toLocaleString() || 'Not specified'}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {selectedApplication.id !== app.id && (
+                        <div className="mt-3 flex justify-end">
+                          <button className="flex items-center text-sm text-[#3BAA75] hover:text-[#2D8259] font-medium">
+                            View Details
+                            <ArrowRight className="ml-1 h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
                     </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-                    {/* All Applications Section */}
-                    {applications.length > 1 && (
-                      <div className="bg-white rounded-xl shadow-lg p-6">
-                        <div className="flex items-center justify-between mb-6">
-                          <h2 className="text-2xl font-semibold">Your Applications</h2>
-                          <Link
-                            to="/get-prequalified"
-                            className="flex items-center gap-2 text-[#3BAA75] hover:text-[#2D8259] font-medium"
-                          >
-                            <Plus className="h-5 w-5" />
-                            <span>Start New Application</span>
-                          </Link>
+            {/* Section Tabs */}
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+              <div className="flex border-b border-gray-200">
+                <button
+                  onClick={() => setCurrentActiveSection('overview')}
+                  className={`flex-1 px-4 py-3 font-medium text-sm ${
+                    currentActiveSection === 'overview'
+                      ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <User className="h-5 w-5" />
+                    Overview
+                  </div>
+                </button>
+                <button
+                  onClick={() => setCurrentActiveSection('documents')}
+                  className={`flex-1 px-4 py-3 font-medium text-sm ${
+                    currentActiveSection === 'documents'
+                      ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    Document Center
+                  </div>
+                </button>
+                <button
+                  onClick={() => setCurrentActiveSection('messages')}
+                  className={`flex-1 px-4 py-3 font-medium text-sm ${
+                    currentActiveSection === 'messages'
+                      ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <MessageSquare className="h-5 w-5" />
+                    Message Center
+                    {summaryStats.unreadMessages > 0 && (
+                      <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                        {summaryStats.unreadMessages}
+                      </span>
+                    )}
+                  </div>
+                </button>
+                <button
+                  onClick={() => setCurrentActiveSection('notifications')}
+                  className={`flex-1 px-4 py-3 font-medium text-sm ${
+                    currentActiveSection === 'notifications'
+                      ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <Bell className="h-5 w-5" />
+                    Notifications
+                  </div>
+                </button>
+                <button
+                  onClick={() => setCurrentActiveSection('profile')}
+                  className={`flex-1 px-4 py-3 font-medium text-sm ${
+                    currentActiveSection === 'profile'
+                      ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <User className="h-5 w-5" />
+                    Profile
+                  </div>
+                </button>
+              </div>
+
+              {/* Section Content */}
+              <div className="p-6">
+                <AnimatePresence mode="wait">
+                  {currentActiveSection === 'overview' && (
+                    <motion.div
+                      key="overview"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <div className="space-y-6">
+                        <h3 className="text-lg font-semibold">Application Overview</h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="bg-gray-50 p-6 rounded-lg">
+                            <h4 className="font-medium text-gray-900 mb-4">Personal Information</h4>
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-3">
+                                <User className="h-5 w-5 text-gray-400" />
+                                <span>{selectedApplication.first_name} {selectedApplication.last_name}</span>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <Mail className="h-5 w-5 text-gray-400" />
+                                <span>{selectedApplication.email}</span>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <Phone className="h-5 w-5 text-gray-400" />
+                                <span>{selectedApplication.phone}</span>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <MapPin className="h-5 w-5 text-gray-400" />
+                                <span>{selectedApplication.address}, {selectedApplication.city}, {selectedApplication.province} {selectedApplication.postal_code}</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="bg-gray-50 p-6 rounded-lg">
+                            <h4 className="font-medium text-gray-900 mb-4">Financial Information</h4>
+                            <div className="space-y-3">
+                              <div className="flex items-center gap-3">
+                                <Briefcase className="h-5 w-5 text-gray-400" />
+                                <span>{selectedApplication.employment_status?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <DollarSign className="h-5 w-5 text-gray-400" />
+                                <span>Annual Income: ${selectedApplication.annual_income?.toLocaleString()}</span>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <CreditCard className="h-5 w-5 text-gray-400" />
+                                <span>Credit Score: {selectedApplication.credit_score}</span>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <Car className="h-5 w-5 text-gray-400" />
+                                <span>Vehicle Type: {selectedApplication.vehicle_type}</span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                         
-                        <div className="space-y-4">
-                          {applications.map((app) => (
-                            <ApplicationCard
-                              key={app.id}
-                              application={app}
-                              isSelected={selectedApplication.id === app.id}
-                              onClick={() => handleApplicationSelect(app)}
+                        <div className="bg-gray-50 p-6 rounded-lg">
+                          <h4 className="font-medium text-gray-900 mb-4">Application Status</h4>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className={`p-2 rounded-full ${
+                                selectedApplication.status === 'pre_approved' ? 'bg-green-100' :
+                                selectedApplication.status === 'pending_documents' ? 'bg-orange-100' :
+                                'bg-blue-100'
+                              }`}>
+                                {selectedApplication.status === 'pre_approved' ? (
+                                  <CheckCircle className="h-5 w-5 text-green-600" />
+                                ) : selectedApplication.status === 'pending_documents' ? (
+                                  <AlertCircle className="h-5 w-5 text-orange-600" />
+                                ) : (
+                                  <Clock className="h-5 w-5 text-blue-600" />
+                                )}
+                              </div>
+                              <div>
+                                <div className="font-medium text-gray-900">
+                                  {formatStatus(selectedApplication.status)}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  Last updated: {format(new Date(selectedApplication.updated_at), 'MMM d, yyyy')}
+                                </div>
+                              </div>
+                            </div>
+                            <div>
+                              <span className="text-sm bg-gray-200 text-gray-700 px-3 py-1 rounded-full">
+                                Stage {selectedApplication.current_stage}/7
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {currentActiveSection === 'documents' && (
+                    <motion.div
+                      key="documents"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {/* Document Tabs */}
+                      <div className="flex border-b border-gray-200 mb-6">
+                        <button
+                          onClick={() => setActiveTab('upload')}
+                          className={`px-4 py-2 font-medium text-sm ${
+                            activeTab === 'upload'
+                              ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                              : 'text-gray-500 hover:text-gray-700'
+                          }`}
+                        >
+                          Upload Documents
+                        </button>
+                        <button
+                          onClick={() => setActiveTab('manage')}
+                          className={`px-4 py-2 font-medium text-sm ${
+                            activeTab === 'manage'
+                              ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                              : 'text-gray-500 hover:text-gray-700'
+                          }`}
+                        >
+                          Manage Documents
+                        </button>
+                      </div>
+
+                      {/* Document Content */}
+                      <AnimatePresence mode="wait">
+                        {activeTab === 'upload' ? (
+                          <motion.div
+                            key="upload"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <DocumentUpload
+                              applicationId={selectedApplication.id}
+                              documents={documents}
+                              onUpload={handleDocumentUpload}
+                              isUploading={uploading}
+                              uploadError={uploadError}
                             />
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            key="manage"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <DocumentManager
+                              applicationId={selectedApplication.id}
+                              documents={documents}
+                              onUpload={handleDocumentUpload}
+                              onDelete={handleDocumentDelete}
+                              isUploading={uploading}
+                              uploadError={uploadError}
+                            />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  )}
 
-                    {/* Appointment Scheduler */}
-                    <div id="appointment-section">
-                      <AppointmentScheduler
-                        onSchedule={async (date, type) => {
-                          try {
-                            const { error } = await supabase
-                              .from('applications')
-                              .update({ consultation_time: date.toISOString() })
-                              .eq('id', selectedApplication.id);
-
-                            if (error) throw error;
-                            
-                            setSelectedApplication(prev => prev ? {
-                              ...prev,
-                              consultation_time: date.toISOString()
-                            } : null);
-                            
-                            toast.success('Consultation scheduled successfully');
-                          } catch (error) {
-                            console.error('Error scheduling appointment:', error);
-                            toast.error('Failed to schedule consultation');
-                          }
-                        }}
+                  {currentActiveSection === 'messages' && (
+                    <motion.div
+                      key="messages"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <UserMessageCenter 
+                        userId={user?.id || ''} 
+                        applicationId={selectedApplication.id} 
                       />
-                    </div>
+                    </motion.div>
+                  )}
 
-                    {/* Future Payments Block (Placeholder) */}
-                    <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200">
-                      <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xl font-semibold flex items-center gap-2">
-                          <Wallet className="h-5 w-5 text-[#3BAA75]" />
-                          Future Payments
-                        </h2>
-                        <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-1 rounded">Coming Soon</span>
-                      </div>
-                      <p className="text-gray-600 mb-4">
-                        Once your loan is finalized, you'll be able to view and manage your payments here.
-                      </p>
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <div className="flex items-center justify-between text-gray-500">
-                          <span>Next Payment</span>
-                          <span>--/--/----</span>
-                        </div>
-                        <div className="flex items-center justify-between text-gray-500 mt-2">
-                          <span>Amount</span>
-                          <span>$---</span>
-                        </div>
-                      </div>
-                    </div>
+                  {currentActiveSection === 'notifications' && (
+                    <motion.div
+                      key="notifications"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <NotificationCenter
+                        notifications={notifications}
+                        onMarkAsRead={handleMarkNotificationAsRead}
+                      />
+                    </motion.div>
+                  )}
 
-                    {/* Add-On Services Block (Placeholder) */}
-                    <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200">
-                      <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xl font-semibold flex items-center gap-2">
-                          <Shield className="h-5 w-5 text-[#3BAA75]" />
-                          Add-On Services
-                        </h2>
-                        <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-1 rounded">Coming Soon</span>
-                      </div>
-                      <p className="text-gray-600 mb-4">
-                        Enhance your vehicle ownership experience with additional services and protection plans.
-                      </p>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-gray-50 p-4 rounded-lg text-center">
-                          <p className="font-medium text-gray-700">Extended Warranty</p>
-                          <p className="text-sm text-gray-500">Protect your investment</p>
-                        </div>
-                        <div className="bg-gray-50 p-4 rounded-lg text-center">
-                          <p className="font-medium text-gray-700">GAP Insurance</p>
-                          <p className="text-sm text-gray-500">Coverage for the unexpected</p>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
+                  {currentActiveSection === 'profile' && (
+                    <motion.div
+                      key="profile"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <UserProfileSection 
+                        application={selectedApplication}
+                        onUpdate={loadDashboardData}
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
 
-                {desktopActiveTab === 'documents' && (
-                  <motion.div
-                    key="documents"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="space-y-6"
-                  >
-                    {/* Document Tabs */}
-                    <div className="flex border-b border-gray-200 mb-6">
-                      <button
-                        onClick={() => setActiveTab('upload')}
-                        className={`px-4 py-2 font-medium text-sm ${
-                          activeTab === 'upload'
-                            ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                            : 'text-gray-500 hover:text-gray-700'
-                        }`}
-                      >
-                        Upload Documents
-                      </button>
-                      <button
-                        onClick={() => setActiveTab('manage')}
-                        className={`px-4 py-2 font-medium text-sm ${
-                          activeTab === 'manage'
-                            ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                            : 'text-gray-500 hover:text-gray-700'
-                        }`}
-                      >
-                        Manage Documents
-                      </button>
-                    </div>
+            {/* Appointment Scheduler */}
+            <div id="appointment-section">
+              <AppointmentScheduler
+                onSchedule={async (date, type) => {
+                  try {
+                    const { error } = await supabase
+                      .from('applications')
+                      .update({ consultation_time: date.toISOString() })
+                      .eq('id', selectedApplication.id);
 
-                    {/* Document Content */}
-                    <AnimatePresence mode="wait">
-                      {activeTab === 'upload' ? (
-                        <motion.div
-                          key="upload"
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <DocumentUpload
-                            applicationId={selectedApplication.id}
-                            documents={documents}
-                            onUpload={handleDocumentUpload}
-                            isUploading={uploading}
-                            uploadError={uploadError}
-                          />
-                        </motion.div>
-                      ) : (
-                        <motion.div
-                          key="manage"
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <DocumentManager
-                            applicationId={selectedApplication.id}
-                            documents={documents}
-                            onUpload={handleDocumentUpload}
-                            onDelete={handleDocumentDelete}
-                            isUploading={uploading}
-                            uploadError={uploadError}
-                          />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </motion.div>
-                )}
+                    if (error) throw error;
+                    
+                    setSelectedApplication(prev => prev ? {
+                      ...prev,
+                      consultation_time: date.toISOString()
+                    } : null);
+                    
+                    toast.success('Consultation scheduled successfully');
+                  } catch (error) {
+                    console.error('Error scheduling appointment:', error);
+                    toast.error('Failed to schedule consultation');
+                  }
+                }}
+              />
+            </div>
 
-                {desktopActiveTab === 'messages' && (
-                  <motion.div
-                    key="messages"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="space-y-6"
-                  >
-                    <UserMessageCenter 
-                      userId={user?.id || ''} 
-                      applicationId={selectedApplication.id} 
-                    />
-                  </motion.div>
-                )}
+            {/* Future Payments Block (Placeholder) */}
+            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <Wallet className="h-5 w-5 text-[#3BAA75]" />
+                  Future Payments
+                </h2>
+                <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-1 rounded">Coming Soon</span>
+              </div>
+              <p className="text-gray-600 mb-4">
+                Once your loan is finalized, you'll be able to view and manage your payments here.
+              </p>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="flex items-center justify-between text-gray-500">
+                  <span>Next Payment</span>
+                  <span>--/--/----</span>
+                </div>
+                <div className="flex items-center justify-between text-gray-500 mt-2">
+                  <span>Amount</span>
+                  <span>$---</span>
+                </div>
+              </div>
+            </div>
 
-                {desktopActiveTab === 'profile' && (
-                  <motion.div
-                    key="profile"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="space-y-6"
-                  >
-                    <UserProfileSection 
-                      application={selectedApplication}
-                      onUpdate={loadDashboardData}
-                    />
-                  </motion.div>
-                )}
-              </AnimatePresence>
+            {/* Add-On Services Block (Placeholder) */}
+            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-[#3BAA75]" />
+                  Add-On Services
+                </h2>
+                <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-1 rounded">Coming Soon</span>
+              </div>
+              <p className="text-gray-600 mb-4">
+                Enhance your vehicle ownership experience with additional services and protection plans.
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-50 p-4 rounded-lg text-center">
+                  <p className="font-medium text-gray-700">Extended Warranty</p>
+                  <p className="text-sm text-gray-500">Protect your investment</p>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg text-center">
+                  <p className="font-medium text-gray-700">GAP Insurance</p>
+                  <p className="text-sm text-gray-500">Coverage for the unexpected</p>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Right Sidebar - Desktop Only */}
-          <div className="hidden lg:block space-y-8">
+          {/* Right Sidebar */}
+          <div className="space-y-8">
             {/* Account Summary */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
@@ -1285,12 +1232,6 @@ const Dashboard: React.FC<DashboardProps> = ({
               </div>
             </motion.div>
 
-            {/* Notifications */}
-            <NotificationCenter
-              notifications={notifications}
-              onMarkAsRead={handleMarkNotificationAsRead}
-            />
-
             {/* Quick Links */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
@@ -1313,13 +1254,9 @@ const Dashboard: React.FC<DashboardProps> = ({
                   <ChevronRight className="h-5 w-5 text-gray-400" />
                 </a>
                 
-                <a 
-                  href="#" 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setDesktopActiveTab('documents');
-                  }}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                <button 
+                  onClick={() => setCurrentActiveSection('documents')}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors w-full text-left"
                 >
                   <div className="flex items-center">
                     <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
@@ -1328,15 +1265,11 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <span className="font-medium">Upload Documents</span>
                   </div>
                   <ChevronRight className="h-5 w-5 text-gray-400" />
-                </a>
+                </button>
                 
-                <a 
-                  href="#" 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setDesktopActiveTab('messages');
-                  }}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                <button
+                  onClick={() => setCurrentActiveSection('messages')}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors w-full text-left"
                 >
                   <div className="flex items-center">
                     <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
@@ -1345,7 +1278,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <span className="font-medium">Message Support</span>
                   </div>
                   <ChevronRight className="h-5 w-5 text-gray-400" />
-                </a>
+                </button>
                 
                 <Link
                   to="/calculator"
