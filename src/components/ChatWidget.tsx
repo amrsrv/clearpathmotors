@@ -575,12 +575,6 @@ export const ChatWidget = () => {
                         placeholder="Type your message..."
                         className="flex-1 border rounded-full px-4 py-2 focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent text-sm"
                         disabled={!user || isLoading}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleSubmit(e);
-                          }
-                        }}
                       />
                       
                       <button

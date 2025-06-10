@@ -4,7 +4,6 @@ import type { User } from '@supabase/supabase-js';
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -12,17 +11,10 @@ export const useAuth = () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) throw error;
-        
-        const currentUser = session?.user ?? null;
-        setUser(currentUser);
-        
-        if (currentUser) {
-          await checkAdminStatus(currentUser.id);
-        }
+        setUser(session?.user ?? null);
       } catch (error) {
         console.error('Error getting session:', error);
         setUser(null);
-        setIsAdmin(false);
       } finally {
         setLoading(false);
       }
@@ -30,16 +22,8 @@ export const useAuth = () => {
 
     getInitialSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      
-      if (currentUser) {
-        await checkAdminStatus(currentUser.id);
-      } else {
-        setIsAdmin(false);
-      }
-      
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
       setLoading(false);
     });
 
@@ -47,28 +31,6 @@ export const useAuth = () => {
       subscription.unsubscribe();
     };
   }, []);
-
-  const checkAdminStatus = async (userId: string) => {
-    try {
-      // Get admin status from user_profiles table
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('is_admin')
-        .eq('user_id', userId)
-        .single();
-      
-      if (error) {
-        console.error('Error checking admin status:', error);
-        setIsAdmin(false);
-        return;
-      }
-      
-      setIsAdmin(data?.is_admin || false);
-    } catch (error) {
-      console.error('Error checking admin status:', error);
-      setIsAdmin(false);
-    }
-  };
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -91,11 +53,6 @@ export const useAuth = () => {
         }
         
         throw new Error(errorMessage);
-      }
-
-      // Check admin status after successful sign in
-      if (data.user) {
-        await checkAdminStatus(data.user.id);
       }
 
       return { data, error: null };
@@ -139,7 +96,6 @@ export const useAuth = () => {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       setUser(null);
-      setIsAdmin(false);
     } catch (error: any) {
       console.error('Sign out error:', error);
       throw new Error('Error signing out. Please try again.');
@@ -189,7 +145,6 @@ export const useAuth = () => {
 
   return {
     user,
-    isAdmin,
     loading,
     signIn,
     signUp,

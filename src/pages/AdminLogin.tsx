@@ -7,7 +7,7 @@ import { supabase } from '../lib/supabaseClient';
 
 const AdminLogin = () => {
   const navigate = useNavigate();
-  const { user, isAdmin, signIn } = useAuth();
+  const { user, signIn } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -19,6 +19,7 @@ const AdminLogin = () => {
   useEffect(() => {
     const checkAdminStatus = async () => {
       if (user) {
+        const isAdmin = user.app_metadata?.is_admin === true;
         if (isAdmin) {
           navigate('/admin');
         } else {
@@ -28,7 +29,7 @@ const AdminLogin = () => {
       }
     };
     checkAdminStatus();
-  }, [user, isAdmin, navigate]);
+  }, [user, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
@@ -52,17 +53,14 @@ const AdminLogin = () => {
       }
 
       // Check if user has admin privileges
-      const { data: profile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('is_admin')
-        .eq('user_id', user?.id)
-        .single();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
       
-      if (profileError) {
+      if (userError) {
         throw new Error('Error verifying admin status');
       }
 
-      if (!profile?.is_admin) {
+      const isAdmin = user?.app_metadata?.is_admin === true;
+      if (!isAdmin) {
         await supabase.auth.signOut();
         throw new Error('Unauthorized access');
       }
@@ -83,7 +81,7 @@ const AdminLogin = () => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <Link to="/">
           <img
-            src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//clearpathlogo.png"
+            src="https://iili.io/3svxrYu.md.png"
             alt="Clearpath Motors Logo"
             className="mx-auto h-16"
           />

@@ -42,7 +42,7 @@ interface PrivateRouteProps {
 }
 
 const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, requiresAdmin }) => {
-  const { user, isAdmin, loading } = useAuth();
+  const { user, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -58,7 +58,7 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, requiresAdmin }) 
   }
 
   // Check for admin role if required
-  if (requiresAdmin && !isAdmin) {
+  if (requiresAdmin && !user.app_metadata?.is_admin) {
     return <Navigate to="/dashboard\" replace />;
   }
 
