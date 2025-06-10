@@ -9,9 +9,14 @@ import toast from 'react-hot-toast';
 interface NotificationCenterProps {
   notifications: Notification[];
   onMarkAsRead: (id: string) => Promise<void>;
+  onNavigate?: (section: string) => void;
 }
 
-export const NotificationCenter: React.FC<NotificationCenterProps> = ({ notifications, onMarkAsRead }) => {
+export const NotificationCenter: React.FC<NotificationCenterProps> = ({ 
+  notifications, 
+  onMarkAsRead,
+  onNavigate
+}) => {
   const unreadCount = notifications.filter(n => !n.read).length;
   const [showFilters, setShowFilters] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'unread' | 'read'>('all');
@@ -228,14 +233,10 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ notifica
                 </div>
                 
                 {/* Quick action buttons */}
-                {notification.title.includes('Document') && (
+                {notification.title.includes('Document') && onNavigate && (
                   <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end">
                     <button
-                      onClick={() => {
-                        // Navigate to documents section
-                        // This would be handled by the parent component
-                        toast.success('Navigating to documents section');
-                      }}
+                      onClick={() => onNavigate('documents')}
                       className="text-xs bg-[#3BAA75]/10 text-[#3BAA75] px-3 py-1.5 rounded-lg hover:bg-[#3BAA75]/20 transition-colors"
                     >
                       View Documents
@@ -243,14 +244,10 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ notifica
                   </div>
                 )}
                 
-                {notification.title.includes('Message') && (
+                {notification.title.includes('Message') && onNavigate && (
                   <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end">
                     <button
-                      onClick={() => {
-                        // Navigate to messages section
-                        // This would be handled by the parent component
-                        toast.success('Navigating to messages section');
-                      }}
+                      onClick={() => onNavigate('messages')}
                       className="text-xs bg-[#3BAA75]/10 text-[#3BAA75] px-3 py-1.5 rounded-lg hover:bg-[#3BAA75]/20 transition-colors"
                     >
                       Reply
@@ -258,14 +255,10 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ notifica
                   </div>
                 )}
                 
-                {notification.title.includes('Application') && (
+                {notification.title.includes('Application') && onNavigate && (
                   <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end">
                     <button
-                      onClick={() => {
-                        // Navigate to application section
-                        // This would be handled by the parent component
-                        toast.success('Navigating to application section');
-                      }}
+                      onClick={() => onNavigate('overview')}
                       className="text-xs bg-[#3BAA75]/10 text-[#3BAA75] px-3 py-1.5 rounded-lg hover:bg-[#3BAA75]/20 transition-colors"
                     >
                       View Application
