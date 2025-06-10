@@ -4,11 +4,10 @@ import { motion } from 'framer-motion';
 interface ProgressBarProps {
   currentStep: number;
   totalSteps: number;
-  labels?: string[];
   onStepClick?: (step: number) => void;
 }
 
-export const ProgressBar = ({ currentStep, totalSteps, labels, onStepClick }: ProgressBarProps) => {
+export const ProgressBar = ({ currentStep, totalSteps, onStepClick }: ProgressBarProps) => {
   const progress = (currentStep / totalSteps) * 100;
 
   return (
@@ -30,21 +29,13 @@ export const ProgressBar = ({ currentStep, totalSteps, labels, onStepClick }: Pr
                   }}
                   className={`
                     w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center
-                    text-xs sm:text-sm font-semibold transition-colors duration-300
+                    transition-colors duration-300
                     ${currentStep >= index + 1 ? 'text-white' : 'text-gray-500'}
                     ${index + 1 < currentStep ? 'cursor-pointer hover:bg-[#2D8259]' : 'cursor-default'}
                   `}
                   aria-current={currentStep === index + 1 ? 'step' : undefined}
-                  aria-label={labels?.[index] || `Step ${index + 1}`}
-                >
-                  {index + 1}
-                </motion.button>
-                
-                {labels && (
-                  <span className="absolute -bottom-5 text-xs text-gray-600 whitespace-nowrap transform -translate-x-1/2 left-1/2">
-                    {labels[index]}
-                  </span>
-                )}
+                  aria-label={`Step ${index + 1}`}
+                />
               </div>
 
               {index < totalSteps - 1 && (

@@ -22,7 +22,7 @@ const CreateAccount = () => {
   useEffect(() => {
     // Redirect if no application data
     if (!applicationId || !tempUserId || !formData) {
-      navigate('/get-approved');
+      navigate('/get-prequalified');
     }
   }, [applicationId, tempUserId, formData, navigate]);
 
@@ -125,10 +125,10 @@ const CreateAccount = () => {
           />
         </Link>
         <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-          Create your account
+          Create your account to see your instant prequalification results
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Set up your account to view your personalized results
+          Set your password to continue
         </p>
       </div>
 
@@ -146,7 +146,7 @@ const CreateAccount = () => {
                   {error}
                   {emailExists && (
                     <span className="ml-1">
-                      <Link to="/login\" className="underline font-medium">
+                      <Link to="/login" className="underline font-medium">
                         Click here to sign in
                       </Link>
                     </span>
