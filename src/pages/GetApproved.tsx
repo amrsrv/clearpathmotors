@@ -1,12 +1,39 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Info, DollarSign, Building, User, Mail, Phone, MapPin, CreditCard, Briefcase, Calculator, Calendar, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
+import { 
+  Info, 
+  DollarSign, 
+  Building, 
+  User, 
+  Mail, 
+  Phone, 
+  MapPin, 
+  CreditCard, 
+  Briefcase, 
+  Calculator, 
+  Calendar, 
+  ArrowRight, 
+  AlertCircle, 
+  CheckCircle, 
+  Home, 
+  Clock, 
+  FileText, 
+  HelpCircle, 
+  Users, 
+  Heart, 
+  Accessibility, 
+  BellRing, 
+  Shield, 
+  ChevronDown, 
+  ChevronUp 
+} from 'lucide-react';
 import { Tooltip } from 'react-tooltip';
 import CurrencyInput from 'react-currency-input-field';
 import { ProgressBar } from '../components/ProgressBar';
 import { vehicles } from './Vehicles';
 import { supabase } from '../lib/supabaseClient';
+import { ProcessingAnimation } from '../components/ProcessingAnimation';
 
 const creditScoreRates = {
   excellent: { rate: 4.99, score: 800 },
@@ -33,27 +60,68 @@ const GetApproved = () => {
   const [selectedVehicle, setSelectedVehicle] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [formData, setFormData] = useState({
+    // Personal Information
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
     dateOfBirth: '',
+    maritalStatus: '',
+    dependents: '',
+    
+    // Address Information
     address: '',
     city: '',
     province: '',
     postalCode: '',
+    housingStatus: '',
+    housingPayment: '',
+    residenceDuration: '',
+    
+    // Employment Information
     employmentStatus: '',
+    employerName: '',
+    occupation: '',
+    employmentDuration: '',
     annualIncome: '',
     monthlyIncome: '',
+    otherIncome: '',
+    
+    // Financial Information
     creditScore: '',
-    desiredMonthlyPayment: ''
+    desiredMonthlyPayment: '',
+    desiredLoanAmount: '',
+    downPaymentAmount: '',
+    hasDriverLicense: false,
+    collectsGovernmentBenefits: false,
+    disabilityPrograms: '',
+    
+    // Debt History
+    hasDebtDischargeHistory: false,
+    debtDischargeType: '',
+    debtDischargeYear: '',
+    debtDischargeStatus: '',
+    debtDischargeComments: '',
+    
+    // Preferences
+    preferredContactMethod: 'email',
+    consentSoftCheck: false,
+    termsAccepted: false
+  });
+
+  // Expanded sections for collapsible content
+  const [expandedSections, setExpandedSections] = useState({
+    governmentBenefits: false,
+    debtHistory: false
   });
 
   useEffect(() => {
     if (formData.annualIncome) {
-      const monthly = Math.round(Number(formData.annualIncome.replace(/[^0-9.-]+/g, '')) / 12);
+      const annual = Number(formData.annualIncome.replace(/[^0-9.-]+/g, ''));
+      const monthly = Math.round(annual / 12);
       setFormData(prev => ({
         ...prev,
         monthlyIncome: monthly.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
@@ -81,6 +149,7 @@ const GetApproved = () => {
       if (!validateForm()) return;
 
       setIsLoading(true);
+      setIsProcessing(true);
       
       const monthlyPayment = Number(formData.desiredMonthlyPayment.replace(/[^0-9.-]+/g, ''));
       const creditScoreInfo = creditScoreRates[formData.creditScore as keyof typeof creditScoreRates];
@@ -92,60 +161,114 @@ const GetApproved = () => {
       // Generate a temp user ID for anonymous users
       const tempUserId = crypto.randomUUID();
 
+      // Prepare data for Supabase
+      const applicationData = {
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        date_of_birth: formData.dateOfBirth,
+        marital_status: formData.maritalStatus || null,
+        dependents: formData.dependents ? parseInt(formData.dependents) : null,
+        
+        address: formData.address,
+        city: formData.city,
+        province: formData.province,
+        postal_code: formData.postalCode,
+        housing_status: formData.housingStatus || null,
+        housing_payment: formData.housingPayment ? Number(formData.housingPayment.replace(/[^0-9.-]+/g, '')) : null,
+        residence_duration: formData.residenceDuration || null,
+        
+        employment_status: formData.employmentStatus,
+        employer_name: formData.employerName || null,
+        occupation: formData.occupation || null,
+        employment_duration: formData.employmentDuration || null,
+        annual_income: Number(formData.annualIncome.replace(/[^0-9.-]+/g, '')),
+        monthly_income: Number(formData.monthlyIncome.replace(/[^0-9.-]+/g, '')),
+        other_income: formData.otherIncome ? Number(formData.otherIncome.replace(/[^0-9.-]+/g, '')) : 0,
+        
+        credit_score: numericalCreditScore,
+        vehicle_type: selectedVehicle,
+        desired_monthly_payment: monthlyPayment,
+        desired_loan_amount: formData.desiredLoanAmount ? Number(formData.desiredLoanAmount.replace(/[^0-9.-]+/g, '')) : null,
+        down_payment_amount: formData.downPaymentAmount ? Number(formData.downPaymentAmount.replace(/[^0-9.-]+/g, '')) : 0,
+        loan_amount_min: loanRange.min,
+        loan_amount_max: loanRange.max,
+        interest_rate: loanRange.rate,
+        loan_term: 60,
+        
+        has_driver_license: formData.hasDriverLicense,
+        collects_government_benefits: formData.collectsGovernmentBenefits,
+        disability_programs: formData.disabilityPrograms ? JSON.parse(`{"details": "${formData.disabilityPrograms}"}`) : null,
+        
+        has_debt_discharge_history: formData.hasDebtDischargeHistory,
+        debt_discharge_type: formData.debtDischargeType || null,
+        debt_discharge_year: formData.debtDischargeYear ? parseInt(formData.debtDischargeYear) : null,
+        debt_discharge_status: formData.debtDischargeStatus || null,
+        debt_discharge_comments: formData.debtDischargeComments || null,
+        
+        preferred_contact_method: formData.preferredContactMethod,
+        consent_soft_check: formData.consentSoftCheck,
+        terms_accepted: formData.termsAccepted,
+        
+        status: 'submitted',
+        current_stage: 1,
+        temp_user_id: tempUserId
+      };
+
       // Save application with temp user ID and numerical credit score
       const { data: application, error: applicationError } = await supabase
         .from('applications')
-        .insert({
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          email: formData.email,
-          phone: formData.phone,
-          address: formData.address,
-          city: formData.city,
-          province: formData.province,
-          postal_code: formData.postalCode,
-          employment_status: formData.employmentStatus,
-          annual_income: Number(formData.annualIncome.replace(/[^0-9.-]+/g, '')),
-          monthly_income: Number(formData.monthlyIncome.replace(/[^0-9.-]+/g, '')),
-          credit_score: numericalCreditScore,
-          vehicle_type: selectedVehicle,
-          desired_monthly_payment: monthlyPayment,
-          loan_amount_min: loanRange.min,
-          loan_amount_max: loanRange.max,
-          interest_rate: loanRange.rate,
-          loan_term: 60,
-          status: 'submitted',
-          current_stage: 1,
-          temp_user_id: tempUserId
-        })
+        .insert(applicationData)
         .select()
         .single();
 
       if (applicationError) throw applicationError;
 
-      // Redirect to create account page
-      navigate('/create-account', {
-        state: {
-          formData,
-          applicationId: application.id,
-          tempUserId
-        }
-      });
+      // Create initial application stage
+      await supabase
+        .from('application_stages')
+        .insert({
+          application_id: application.id,
+          stage_number: 1,
+          status: 'completed',
+          notes: 'Application submitted successfully'
+        });
+
+      // Simulate processing time
+      setTimeout(() => {
+        setIsProcessing(false);
+        
+        // Redirect to qualification results page
+        navigate('/qualification-results', {
+          state: {
+            loanRange,
+            vehicleType: selectedVehicle,
+            monthlyBudget: monthlyPayment,
+            originalFormData: formData,
+            applicationId: application.id,
+            tempUserId,
+            fromApproval: true
+          }
+        });
+      }, 3500);
 
     } catch (error: any) {
       console.error('Error processing application:', error);
       setError('An error occurred while processing your application. Please try again.');
-    } finally {
+      setIsProcessing(false);
       setIsLoading(false);
     }
   };
 
   const validateForm = () => {
+    // Step 1: Vehicle Selection
     if (currentStep === 1 && !selectedVehicle) {
       setError('Please select a vehicle type');
       return false;
     }
 
+    // Step 2: Personal Information
     if (currentStep === 2) {
       if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone || !formData.dateOfBirth) {
         setError('Please fill in all required fields');
@@ -167,23 +290,110 @@ const GetApproved = () => {
         setError('You must be at least 18 years old to apply');
         return false;
       }
+      
+      if (!formData.maritalStatus) {
+        setError('Please select your marital status');
+        return false;
+      }
     }
 
+    // Step 3: Address Information
+    if (currentStep === 3) {
+      if (!formData.address || !formData.city || !formData.province || !formData.postalCode) {
+        setError('Please fill in all required address fields');
+        return false;
+      }
+      
+      if (!formData.housingStatus) {
+        setError('Please select your housing status');
+        return false;
+      }
+      
+      if ((formData.housingStatus === 'own' || formData.housingStatus === 'rent') && !formData.housingPayment) {
+        setError('Please enter your monthly housing payment');
+        return false;
+      }
+      
+      if (!formData.residenceDuration) {
+        setError('Please select how long you have lived at your current address');
+        return false;
+      }
+    }
+
+    // Step 4: Employment Information
     if (currentStep === 4) {
       if (!formData.employmentStatus) {
         setError('Please select your employment status');
         return false;
       }
+      
+      if (formData.employmentStatus !== 'unemployed') {
+        if (!formData.employerName) {
+          setError('Please enter your employer name');
+          return false;
+        }
+        
+        if (!formData.occupation) {
+          setError('Please enter your occupation');
+          return false;
+        }
+        
+        if (!formData.employmentDuration) {
+          setError('Please select your employment duration');
+          return false;
+        }
+      }
+      
       if (!formData.annualIncome) {
         setError('Please enter your annual income');
         return false;
       }
+    }
+
+    // Step 5: Financial Information
+    if (currentStep === 5) {
       if (!formData.creditScore) {
         setError('Please select your credit score range');
         return false;
       }
+      
       if (!formData.desiredMonthlyPayment) {
         setError('Please enter your desired monthly payment');
+        return false;
+      }
+      
+      if (formData.hasDebtDischargeHistory) {
+        if (!formData.debtDischargeType) {
+          setError('Please select your debt discharge type');
+          return false;
+        }
+        
+        if (!formData.debtDischargeYear) {
+          setError('Please enter the year of your debt discharge');
+          return false;
+        }
+        
+        if (!formData.debtDischargeStatus) {
+          setError('Please select your debt discharge status');
+          return false;
+        }
+      }
+    }
+
+    // Step 6: Preferences & Consent
+    if (currentStep === 6) {
+      if (!formData.preferredContactMethod) {
+        setError('Please select your preferred contact method');
+        return false;
+      }
+      
+      if (!formData.consentSoftCheck) {
+        setError('You must consent to a soft credit check to proceed');
+        return false;
+      }
+      
+      if (!formData.termsAccepted) {
+        setError('You must accept the terms and conditions to proceed');
         return false;
       }
     }
@@ -192,12 +402,22 @@ const GetApproved = () => {
     return true;
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target as HTMLInputElement;
+    
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData(prev => ({
+        ...prev,
+        [name]: checked
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+    
     setError('');
   };
 
@@ -211,17 +431,37 @@ const GetApproved = () => {
   const nextStep = () => {
     if (validateForm()) {
       setCurrentStep(prev => prev + 1);
+      window.scrollTo(0, 0);
     }
   };
 
-  const handleSignUp = () => {
-    navigate('/signup', {
-      state: {
-        formData,
-        fromGetApproved: true
-      }
-    });
+  const prevStep = () => {
+    setCurrentStep(prev => prev - 1);
+    window.scrollTo(0, 0);
   };
+
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
+  const formatPostalCode = (postalCode: string): string => {
+    // Remove all non-alphanumeric characters and convert to uppercase
+    const cleaned = postalCode.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    
+    // Insert space after the third character if length is 6
+    if (cleaned.length === 6) {
+      return `${cleaned.slice(0, 3)} ${cleaned.slice(3)}`;
+    }
+    
+    return cleaned;
+  };
+
+  if (isProcessing) {
+    return <ProcessingAnimation onComplete={() => setIsProcessing(false)} />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white py-12">
@@ -241,8 +481,15 @@ const GetApproved = () => {
         
         <ProgressBar 
           currentStep={currentStep} 
-          totalSteps={4} 
-          labels={['Vehicle', 'Personal Info', 'Address', 'Financial']}
+          totalSteps={6} 
+          labels={['Vehicle', 'Personal Info', 'Address', 'Employment', 'Financial', 'Consent']}
+          onStepClick={(step) => {
+            // Only allow going back to previous steps
+            if (step < currentStep) {
+              setCurrentStep(step);
+              window.scrollTo(0, 0);
+            }
+          }}
         />
         
         <div className="w-full flex">
@@ -277,6 +524,7 @@ const GetApproved = () => {
                     exit={{ opacity: 0, x: -20 }}
                     className="space-y-6"
                   >
+                    {/* Step 1: Vehicle Selection */}
                     {currentStep === 1 && (
                       <div className="space-y-6">
                         <h2 className="text-2xl font-semibold text-gray-900 text-center">
@@ -313,6 +561,7 @@ const GetApproved = () => {
                       </div>
                     )}
 
+                    {/* Step 2: Personal Information */}
                     {currentStep === 2 && (
                       <div className="space-y-8">
                         <div className="text-center">
@@ -425,20 +674,70 @@ const GetApproved = () => {
                               You must be at least 18 years old to apply
                             </p>
                           </div>
+
+                          <div className="space-y-2 md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700">
+                              Marital Status
+                            </label>
+                            <div className="grid grid-cols-3 gap-3">
+                              {['single', 'married', 'divorced', 'widowed', 'separated', 'other'].map((status) => (
+                                <div 
+                                  key={status}
+                                  className={`
+                                    border rounded-lg p-3 text-center cursor-pointer transition-colors
+                                    ${formData.maritalStatus === status 
+                                      ? 'border-[#3BAA75] bg-[#3BAA75]/5 text-[#3BAA75]' 
+                                      : 'border-gray-200 hover:border-[#3BAA75]/50 text-gray-700'
+                                    }
+                                  `}
+                                  onClick={() => setFormData({...formData, maritalStatus: status})}
+                                >
+                                  <span className="capitalize">{status}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="space-y-2 md:col-span-2">
+                            <div className="flex items-center justify-between">
+                              <label className="block text-sm font-medium text-gray-700">
+                                Number of Dependents
+                              </label>
+                              <span className="text-lg font-medium text-[#3BAA75]">
+                                {formData.dependents || '0'}
+                              </span>
+                            </div>
+                            <input
+                              type="range"
+                              name="dependents"
+                              min="0"
+                              max="10"
+                              value={formData.dependents || '0'}
+                              onChange={handleInputChange}
+                              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#3BAA75]"
+                            />
+                            <div className="flex justify-between text-xs text-gray-500">
+                              <span>0</span>
+                              <span>5</span>
+                              <span>10+</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     )}
 
+                    {/* Step 3: Address Information */}
                     {currentStep === 3 && (
                       <div className="space-y-6">
-                        <h2 className="text-2xl font-semibold text-gray-900">
+                        <h2 className="text-2xl font-semibold text-gray-900 text-center mb-6">
                           Address Information
                         </h2>
+                        
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
                             Street Address
                           </label>
-                          <div className="mt-1 relative">
+                          <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                               <MapPin className="h-5 w-5 text-gray-400" />
                             </div>
@@ -455,10 +754,10 @@ const GetApproved = () => {
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                           <div>
-                            <label className="block text-sm font-medium text-gray-700">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
                               City
                             </label>
-                            <div className="mt-1 relative">
+                            <div className="relative">
                               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <Building className="h-5 w-5 text-gray-400" />
                               </div>
@@ -474,10 +773,10 @@ const GetApproved = () => {
                           </div>
                           
                           <div>
-                            <label className="block text-sm font-medium text-gray-700">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
                               Province
                             </label>
-                            <div className="mt-1 relative">
+                            <div className="relative">
                               <select
                                 name="province"
                                 value={formData.province}
@@ -501,10 +800,10 @@ const GetApproved = () => {
                           </div>
                           
                           <div>
-                            <label className="block text-sm font-medium text-gray-700">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
                               Postal Code
                             </label>
-                            <div className="mt-1 relative">
+                            <div className="relative">
                               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <MapPin className="h-5 w-5 text-gray-400" />
                               </div>
@@ -520,44 +819,195 @@ const GetApproved = () => {
                             </div>
                           </div>
                         </div>
-                      </div>
-                    )}
 
-                    {currentStep === 4 && (
-                      <div className="space-y-8">
-                        <h2 className="text-2xl font-semibold text-gray-900">
-                          Financial Information
-                        </h2>
-                        
-                        <div>
+                        <div className="space-y-2">
                           <label className="block text-sm font-medium text-gray-700">
-                            Employment Status
+                            Housing Status
                           </label>
-                          <div className="mt-1 relative">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {['own', 'rent', 'live_with_parents', 'other'].map((status) => (
+                              <div 
+                                key={status}
+                                className={`
+                                  border rounded-lg p-3 text-center cursor-pointer transition-colors
+                                  ${formData.housingStatus === status 
+                                    ? 'border-[#3BAA75] bg-[#3BAA75]/5 text-[#3BAA75]' 
+                                    : 'border-gray-200 hover:border-[#3BAA75]/50 text-gray-700'
+                                  }
+                                `}
+                                onClick={() => setFormData({...formData, housingStatus: status})}
+                              >
+                                <Home className="h-5 w-5 mx-auto mb-1" />
+                                <span className="capitalize">{status.replace(/_/g, ' ')}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {(formData.housingStatus === 'own' || formData.housingStatus === 'rent') && (
+                          <div className="space-y-2">
+                            <label className="block text-sm font-medium text-gray-700">
+                              Monthly Housing Payment
+                            </label>
+                            <div className="relative">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <DollarSign className="h-5 w-5 text-gray-400" />
+                              </div>
+                              <CurrencyInput
+                                name="housingPayment"
+                                value={formData.housingPayment}
+                                onValueChange={(value) => handleCurrencyInput(value, 'housingPayment')}
+                                prefix="$"
+                                groupSeparator=","
+                                decimalSeparator="."
+                                className={inputClasses}
+                                placeholder="1,500"
+                                required
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            How long have you lived at this address?
+                          </label>
+                          <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                              <Briefcase className="h-5 w-5 text-gray-400" />
+                              <Clock className="h-5 w-5 text-gray-400" />
                             </div>
                             <select
-                              name="employmentStatus"
-                              value={formData.employmentStatus}
+                              name="residenceDuration"
+                              value={formData.residenceDuration}
                               onChange={handleInputChange}
                               className={selectClasses}
                               required
                             >
-                              <option value="">Select Status</option>
-                              <option value="employed">Employed</option>
-                              <option value="self_employed">Self Employed</option>
-                              <option value="unemployed">Unemployed</option>
+                              <option value="">Select Duration</option>
+                              <option value="Less than 1 year">Less than 1 year</option>
+                              <option value="1-2 years">1-2 years</option>
+                              <option value="2-3 years">2-3 years</option>
+                              <option value="3-5 years">3-5 years</option>
+                              <option value="5+ years">5+ years</option>
                             </select>
                           </div>
                         </div>
+                      </div>
+                    )}
+
+                    {/* Step 4: Employment Information */}
+                    {currentStep === 4 && (
+                      <div className="space-y-8">
+                        <h2 className="text-2xl font-semibold text-gray-900 text-center mb-6">
+                          Employment Information
+                        </h2>
+                        
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Employment Status
+                          </label>
+                          <div className="grid grid-cols-3 gap-3">
+                            {[
+                              { value: 'employed', label: 'Employed' },
+                              { value: 'self_employed', label: 'Self Employed' },
+                              { value: 'unemployed', label: 'Unemployed' }
+                            ].map((status) => (
+                              <div 
+                                key={status.value}
+                                className={`
+                                  border rounded-lg p-3 text-center cursor-pointer transition-colors
+                                  ${formData.employmentStatus === status.value 
+                                    ? 'border-[#3BAA75] bg-[#3BAA75]/5 text-[#3BAA75]' 
+                                    : 'border-gray-200 hover:border-[#3BAA75]/50 text-gray-700'
+                                  }
+                                `}
+                                onClick={() => setFormData({...formData, employmentStatus: status.value})}
+                              >
+                                <Briefcase className="h-5 w-5 mx-auto mb-1" />
+                                <span>{status.label}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {formData.employmentStatus && formData.employmentStatus !== 'unemployed' && (
+                          <>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div className="space-y-2">
+                                <label className="block text-sm font-medium text-gray-700">
+                                  Employer Name
+                                </label>
+                                <div className="relative">
+                                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <Building className="h-5 w-5 text-gray-400" />
+                                  </div>
+                                  <input
+                                    type="text"
+                                    name="employerName"
+                                    value={formData.employerName}
+                                    onChange={handleInputChange}
+                                    className={inputClasses}
+                                    placeholder="Company Name"
+                                    required
+                                  />
+                                </div>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <label className="block text-sm font-medium text-gray-700">
+                                  Occupation / Job Title
+                                </label>
+                                <div className="relative">
+                                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <Briefcase className="h-5 w-5 text-gray-400" />
+                                  </div>
+                                  <input
+                                    type="text"
+                                    name="occupation"
+                                    value={formData.occupation}
+                                    onChange={handleInputChange}
+                                    className={inputClasses}
+                                    placeholder="Software Developer"
+                                    required
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="block text-sm font-medium text-gray-700">
+                                How long have you been with this employer?
+                              </label>
+                              <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                  <Clock className="h-5 w-5 text-gray-400" />
+                                </div>
+                                <select
+                                  name="employmentDuration"
+                                  value={formData.employmentDuration}
+                                  onChange={handleInputChange}
+                                  className={selectClasses}
+                                  required
+                                >
+                                  <option value="">Select Duration</option>
+                                  <option value="Less than 3 months">Less than 3 months</option>
+                                  <option value="3-6 months">3-6 months</option>
+                                  <option value="6-12 months">6-12 months</option>
+                                  <option value="1-2 years">1-2 years</option>
+                                  <option value="2-5 years">2-5 years</option>
+                                  <option value="5+ years">5+ years</option>
+                                </select>
+                              </div>
+                            </div>
+                          </>
+                        )}
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div>
+                          <div className="space-y-2">
                             <label className="block text-sm font-medium text-gray-700">
                               Annual Income
                             </label>
-                            <div className="mt-1 relative">
+                            <div className="relative">
                               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <DollarSign className="h-5 w-5 text-gray-400" />
                               </div>
@@ -569,16 +1019,17 @@ const GetApproved = () => {
                                 groupSeparator=","
                                 decimalSeparator="."
                                 className={inputClasses}
+                                placeholder="45,000"
                                 required
                               />
                             </div>
                           </div>
                           
-                          <div>
+                          <div className="space-y-2">
                             <label className="block text-sm font-medium text-gray-700">
                               Monthly Income
                             </label>
-                            <div className="mt-1 relative">
+                            <div className="relative">
                               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <DollarSign className="h-5 w-5 text-gray-400" />
                               </div>
@@ -593,8 +1044,46 @@ const GetApproved = () => {
                           </div>
                         </div>
 
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="block text-sm font-medium text-gray-700">
+                              Other Monthly Income (Optional)
+                            </label>
+                            <Info
+                              className="h-4 w-4 text-gray-400 cursor-help"
+                              data-tooltip-id="other-income-tooltip"
+                              data-tooltip-content="Include income from sources like child support, alimony, rental properties, etc."
+                            />
+                            <Tooltip id="other-income-tooltip" />
+                          </div>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                              <DollarSign className="h-5 w-5 text-gray-400" />
+                            </div>
+                            <CurrencyInput
+                              name="otherIncome"
+                              value={formData.otherIncome}
+                              onValueChange={(value) => handleCurrencyInput(value, 'otherIncome')}
+                              prefix="$"
+                              groupSeparator=","
+                              decimalSeparator="."
+                              className={inputClasses}
+                              placeholder="0"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Step 5: Financial Information */}
+                    {currentStep === 5 && (
+                      <div className="space-y-8">
+                        <h2 className="text-2xl font-semibold text-gray-900 text-center mb-6">
+                          Financial Information
+                        </h2>
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div>
+                          <div className="space-y-2">
                             <div className="flex items-center gap-2">
                               <label className="block text-sm font-medium text-gray-700">
                                 Credit Score Range
@@ -606,7 +1095,7 @@ const GetApproved = () => {
                               />
                               <Tooltip id="credit-score-tooltip" />
                             </div>
-                            <div className="mt-1 relative">
+                            <div className="relative">
                               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <CreditCard className="h-5 w-5 text-gray-400" />
                               </div>
@@ -627,7 +1116,7 @@ const GetApproved = () => {
                             </div>
                           </div>
                           
-                          <div>
+                          <div className="space-y-2">
                             <div className="flex items-center gap-2">
                               <label className="block text-sm font-medium text-gray-700">
                                 Desired Monthly Payment
@@ -639,7 +1128,7 @@ const GetApproved = () => {
                               />
                               <Tooltip id="payment-tooltip" />
                             </div>
-                            <div className="mt-1 relative">
+                            <div className="relative">
                               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <Calculator className="h-5 w-5 text-gray-400" />
                               </div>
@@ -651,8 +1140,361 @@ const GetApproved = () => {
                                 groupSeparator=","
                                 decimalSeparator="."
                                 className={inputClasses}
+                                placeholder="500"
                                 required
                               />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <label className="block text-sm font-medium text-gray-700">
+                                Desired Loan Amount (Optional)
+                              </label>
+                              <Info
+                                className="h-4 w-4 text-gray-400 cursor-help"
+                                data-tooltip-id="loan-amount-tooltip"
+                                data-tooltip-content="If you have a specific loan amount in mind, enter it here. Otherwise, we'll calculate based on your monthly payment."
+                              />
+                              <Tooltip id="loan-amount-tooltip" />
+                            </div>
+                            <div className="relative">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <DollarSign className="h-5 w-5 text-gray-400" />
+                              </div>
+                              <CurrencyInput
+                                name="desiredLoanAmount"
+                                value={formData.desiredLoanAmount}
+                                onValueChange={(value) => handleCurrencyInput(value, 'desiredLoanAmount')}
+                                prefix="$"
+                                groupSeparator=","
+                                decimalSeparator="."
+                                className={inputClasses}
+                                placeholder="25,000"
+                              />
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <label className="block text-sm font-medium text-gray-700">
+                                Down Payment Amount (Optional)
+                              </label>
+                              <Info
+                                className="h-4 w-4 text-gray-400 cursor-help"
+                                data-tooltip-id="down-payment-tooltip"
+                                data-tooltip-content="A larger down payment can help secure better rates and lower monthly payments."
+                              />
+                              <Tooltip id="down-payment-tooltip" />
+                            </div>
+                            <div className="relative">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <DollarSign className="h-5 w-5 text-gray-400" />
+                              </div>
+                              <CurrencyInput
+                                name="downPaymentAmount"
+                                value={formData.downPaymentAmount}
+                                onValueChange={(value) => handleCurrencyInput(value, 'downPaymentAmount')}
+                                prefix="$"
+                                groupSeparator=","
+                                decimalSeparator="."
+                                className={inputClasses}
+                                placeholder="2,000"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div className="flex items-center">
+                            <input
+                              id="hasDriverLicense"
+                              name="hasDriverLicense"
+                              type="checkbox"
+                              checked={formData.hasDriverLicense}
+                              onChange={handleInputChange}
+                              className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                            />
+                            <label htmlFor="hasDriverLicense" className="ml-2 block text-sm text-gray-700">
+                              I have a valid driver's license
+                            </label>
+                          </div>
+
+                          <div className="flex items-center">
+                            <input
+                              id="collectsGovernmentBenefits"
+                              name="collectsGovernmentBenefits"
+                              type="checkbox"
+                              checked={formData.collectsGovernmentBenefits}
+                              onChange={handleInputChange}
+                              className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                            />
+                            <label htmlFor="collectsGovernmentBenefits" className="ml-2 block text-sm text-gray-700">
+                              I collect government benefits
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => toggleSection('governmentBenefits')}
+                              className="ml-2 text-[#3BAA75]"
+                            >
+                              {expandedSections.governmentBenefits ? (
+                                <ChevronUp className="h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
+
+                          <AnimatePresence>
+                            {formData.collectsGovernmentBenefits && expandedSections.governmentBenefits && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="pl-6 pt-2">
+                                  <div className="space-y-2">
+                                    <label className="block text-sm font-medium text-gray-700">
+                                      Please specify which programs (Optional)
+                                    </label>
+                                    <div className="relative">
+                                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <Accessibility className="h-5 w-5 text-gray-400" />
+                                      </div>
+                                      <textarea
+                                        name="disabilityPrograms"
+                                        value={formData.disabilityPrograms}
+                                        onChange={handleInputChange}
+                                        className={`${inputClasses} h-20 py-2`}
+                                        placeholder="E.g., ODSP, CPP Disability, etc."
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+
+                          <div className="flex items-center">
+                            <input
+                              id="hasDebtDischargeHistory"
+                              name="hasDebtDischargeHistory"
+                              type="checkbox"
+                              checked={formData.hasDebtDischargeHistory}
+                              onChange={handleInputChange}
+                              className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                            />
+                            <label htmlFor="hasDebtDischargeHistory" className="ml-2 block text-sm text-gray-700">
+                              I have a history of bankruptcy, consumer proposal, or debt settlement
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => toggleSection('debtHistory')}
+                              className="ml-2 text-[#3BAA75]"
+                            >
+                              {expandedSections.debtHistory ? (
+                                <ChevronUp className="h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
+
+                          <AnimatePresence>
+                            {formData.hasDebtDischargeHistory && expandedSections.debtHistory && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="pl-6 pt-2 space-y-4">
+                                  <div className="space-y-2">
+                                    <label className="block text-sm font-medium text-gray-700">
+                                      Type
+                                    </label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                      {['bankruptcy', 'consumer_proposal', 'informal_settlement', 'other'].map((type) => (
+                                        <div 
+                                          key={type}
+                                          className={`
+                                            border rounded-lg p-3 text-center cursor-pointer transition-colors
+                                            ${formData.debtDischargeType === type 
+                                              ? 'border-[#3BAA75] bg-[#3BAA75]/5 text-[#3BAA75]' 
+                                              : 'border-gray-200 hover:border-[#3BAA75]/50 text-gray-700'
+                                            }
+                                          `}
+                                          onClick={() => setFormData({...formData, debtDischargeType: type})}
+                                        >
+                                          <span className="capitalize">{type.replace(/_/g, ' ')}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <label className="block text-sm font-medium text-gray-700">
+                                      Year
+                                    </label>
+                                    <div className="relative">
+                                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <Calendar className="h-5 w-5 text-gray-400" />
+                                      </div>
+                                      <input
+                                        type="number"
+                                        name="debtDischargeYear"
+                                        value={formData.debtDischargeYear}
+                                        onChange={handleInputChange}
+                                        min="1980"
+                                        max={new Date().getFullYear()}
+                                        className={inputClasses}
+                                        placeholder={new Date().getFullYear().toString()}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <label className="block text-sm font-medium text-gray-700">
+                                      Status
+                                    </label>
+                                    <div className="grid grid-cols-3 gap-3">
+                                      {['active', 'discharged', 'not_sure'].map((status) => (
+                                        <div 
+                                          key={status}
+                                          className={`
+                                            border rounded-lg p-3 text-center cursor-pointer transition-colors
+                                            ${formData.debtDischargeStatus === status 
+                                              ? 'border-[#3BAA75] bg-[#3BAA75]/5 text-[#3BAA75]' 
+                                              : 'border-gray-200 hover:border-[#3BAA75]/50 text-gray-700'
+                                            }
+                                          `}
+                                          onClick={() => setFormData({...formData, debtDischargeStatus: status})}
+                                        >
+                                          <span className="capitalize">{status.replace(/_/g, ' ')}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <label className="block text-sm font-medium text-gray-700">
+                                      Additional Comments (Optional)
+                                    </label>
+                                    <div className="relative">
+                                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <FileText className="h-5 w-5 text-gray-400" />
+                                      </div>
+                                      <textarea
+                                        name="debtDischargeComments"
+                                        value={formData.debtDischargeComments}
+                                        onChange={handleInputChange}
+                                        className={`${inputClasses} h-20 py-2`}
+                                        placeholder="Any additional details about your situation..."
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Step 6: Preferences & Consent */}
+                    {currentStep === 6 && (
+                      <div className="space-y-8">
+                        <h2 className="text-2xl font-semibold text-gray-900 text-center mb-6">
+                          Preferences & Consent
+                        </h2>
+
+                        <div className="space-y-4">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Preferred Contact Method
+                          </label>
+                          <div className="grid grid-cols-3 gap-3">
+                            {[
+                              { value: 'email', icon: <Mail className="h-5 w-5 mx-auto mb-1" />, label: 'Email' },
+                              { value: 'phone', icon: <Phone className="h-5 w-5 mx-auto mb-1" />, label: 'Phone' },
+                              { value: 'sms', icon: <MessageSquare className="h-5 w-5 mx-auto mb-1" />, label: 'SMS' }
+                            ].map((method) => (
+                              <div 
+                                key={method.value}
+                                className={`
+                                  border rounded-lg p-3 text-center cursor-pointer transition-colors
+                                  ${formData.preferredContactMethod === method.value 
+                                    ? 'border-[#3BAA75] bg-[#3BAA75]/5 text-[#3BAA75]' 
+                                    : 'border-gray-200 hover:border-[#3BAA75]/50 text-gray-700'
+                                  }
+                                `}
+                                onClick={() => setFormData({...formData, preferredContactMethod: method.value})}
+                              >
+                                {method.icon}
+                                <span>{method.label}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-4 bg-gray-50 p-6 rounded-lg">
+                          <div className="flex items-start">
+                            <div className="flex items-center h-5">
+                              <input
+                                id="consentSoftCheck"
+                                name="consentSoftCheck"
+                                type="checkbox"
+                                checked={formData.consentSoftCheck}
+                                onChange={handleInputChange}
+                                className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                                required
+                              />
+                            </div>
+                            <div className="ml-3 text-sm">
+                              <label htmlFor="consentSoftCheck" className="font-medium text-gray-700">
+                                Credit Check Consent
+                              </label>
+                              <p className="text-gray-500">
+                                I consent to Clearpath Motors performing a soft credit check, which will not affect my credit score.
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-start">
+                            <div className="flex items-center h-5">
+                              <input
+                                id="termsAccepted"
+                                name="termsAccepted"
+                                type="checkbox"
+                                checked={formData.termsAccepted}
+                                onChange={handleInputChange}
+                                className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                                required
+                              />
+                            </div>
+                            <div className="ml-3 text-sm">
+                              <label htmlFor="termsAccepted" className="font-medium text-gray-700">
+                                Terms & Conditions
+                              </label>
+                              <p className="text-gray-500">
+                                I agree to the <Link to="/terms" className="text-[#3BAA75] hover:underline" target="_blank">Terms of Service</Link> and <Link to="/privacy" className="text-[#3BAA75] hover:underline" target="_blank">Privacy Policy</Link>.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-[#3BAA75]/5 p-6 rounded-lg border border-[#3BAA75]/20">
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 mt-1">
+                              <Shield className="h-6 w-6 text-[#3BAA75]" />
+                            </div>
+                            <div>
+                              <h3 className="text-lg font-medium text-gray-900">Your Information is Secure</h3>
+                              <p className="mt-1 text-sm text-gray-600">
+                                We use bank-level encryption to protect your personal information. Your data is never sold to third parties and is only used to process your application.
+                              </p>
                             </div>
                           </div>
                         </div>
@@ -665,14 +1507,14 @@ const GetApproved = () => {
                   {currentStep > 1 && (
                     <button
                       type="button"
-                      onClick={() => setCurrentStep(prev => prev - 1)}
+                      onClick={prevStep}
                       className="px-6 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                     >
                       Back
                     </button>
                   )}
                   
-                  {currentStep < 4 ? (
+                  {currentStep < 6 ? (
                     <motion.button
                       type="button"
                       onClick={nextStep}
@@ -684,7 +1526,7 @@ const GetApproved = () => {
                     >
                       <span className="relative z-10 flex items-center font-medium">
                         Continue
-                        <ArrowRight className={`ml-2 h-5 w-5 transition-transform duration-300  ${isHovered ? 'translate-x-1' : ''}`} />
+                        <ArrowRight className={`ml-2 h-5 w-5 transition-transform duration-300 ${isHovered ? 'translate-x-1' : ''}`} />
                       </span>
                       {isHovered && (
                         <motion.div
@@ -793,15 +1635,13 @@ const GetApproved = () => {
             </div>
             
             <div className="text-center md:text-left">
-              <motion.button
-                onClick={handleSignUp}
-                whileHover={{ scale: 1.01 }}
-                whileTap={{ scale: 0.99 }}
+              <Link
+                to="/signup"
                 className="inline-flex items-center justify-center px-8 py-4 bg-[#3BAA75] text-white rounded-lg text-lg font-semibold hover:bg-[#2D8259] transition-colors shadow-lg hover:shadow-xl"
               >
                 Create Account
                 <ArrowRight className="ml-2 h-5 w-5" />
-              </motion.button>
+              </Link>
               <p className="mt-4 text-sm text-gray-600">
                 Already have an account?{' '}
                 <Link to="/login" className="text-[#3BAA75] hover:text-[#2D8259] font-medium">

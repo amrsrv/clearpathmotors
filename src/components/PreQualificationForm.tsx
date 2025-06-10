@@ -1,120 +1,136 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  User, Mail, Phone, Calendar, MapPin, Building, Briefcase, DollarSign, 
-  Home, Car, CreditCard, FileText, CheckCircle, AlertCircle, ChevronRight,
-  ChevronLeft, Info, Heart, Shield, HelpCircle, ArrowRight
+  Info, 
+  DollarSign, 
+  Building, 
+  User, 
+  Mail, 
+  Phone, 
+  MapPin, 
+  CreditCard, 
+  Briefcase, 
+  Calculator, 
+  Calendar, 
+  ArrowRight, 
+  AlertCircle, 
+  CheckCircle, 
+  Home, 
+  Clock, 
+  FileText, 
+  HelpCircle, 
+  Users, 
+  Heart, 
+  Accessibility, 
+  BellRing, 
+  Shield, 
+  ChevronDown, 
+  ChevronUp,
+  Car
 } from 'lucide-react';
+import { Tooltip } from 'react-tooltip';
+import CurrencyInput from 'react-currency-input-field';
 import { ProgressBar } from './ProgressBar';
+import { vehicles } from '../pages/Vehicles';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
-import CurrencyInput from 'react-currency-input-field';
-import { Tooltip } from 'react-tooltip';
-import toast from 'react-hot-toast';
+import { ProcessingAnimation } from './ProcessingAnimation';
 
-// Define government benefit programs
-const GOVERNMENT_PROGRAMS = [
-  { id: 'ccb', name: 'Canada Child Benefit (CCB)' },
-  { id: 'oas', name: 'Old Age Security (OAS)' },
-  { id: 'gis', name: 'Guaranteed Income Supplement (GIS)' },
-  { id: 'ei', name: 'Employment Insurance (EI)' },
-  { id: 'cpp', name: 'Canada Pension Plan (CPP)' },
-  { id: 'cwb', name: 'Canada Workers Benefit (CWB)' },
-  { id: 'gst', name: 'GST/HST Credit' },
-  { id: 'odsp', name: 'Ontario Disability Support Program (ODSP)' },
-  { id: 'ow', name: 'Ontario Works' },
-  { id: 'vad', name: 'Veterans Affairs Disability Pension' },
-  { id: 'other', name: 'Other Disability or Government Program' }
-];
+const creditScoreRates = {
+  excellent: { rate: 4.99, score: 800 },
+  good: { rate: 6.99, score: 720 },
+  fair: { rate: 8.99, score: 650 },
+  poor: { rate: 11.99, score: 580 },
+  unknown: { rate: 8.99, score: 650 }
+};
 
-// Define form steps
-const FORM_STEPS = [
-  'Personal Information',
-  'Employment & Income',
-  'Housing Information',
-  'Financing Details',
-  'Government Benefits',
-  'Financial Challenges',
-  'Contact Preferences',
-  'Review & Submit'
-];
+const creditScoreMapping = {
+  excellent: 800, // 750+
+  good: 720,     // 700-749
+  fair: 650,     // 650-699
+  poor: 580,     // Below 650
+  unknown: 650   // Default score for unknown
+};
 
-// Input classes for consistent styling
 const inputClasses = "appearance-none block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-[#3BAA75] transition-all duration-200 sm:text-sm bg-white/50 backdrop-blur-sm";
 const selectClasses = "appearance-none block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-[#3BAA75] transition-all duration-200 sm:text-sm bg-white/50 backdrop-blur-sm";
 
 interface PreQualificationFormProps {
-  onComplete?: (applicationId: string) => void;
+  onComplete: (applicationId: string) => void;
 }
 
 export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete }) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
-  const [currentStep, setCurrentStep] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [isHovered, setIsHovered] = useState(false);
   
-  // Form data state
+  const [currentStep, setCurrentStep] = useState(1);
+  const [selectedVehicle, setSelectedVehicle] = useState(searchParams.get('vehicle') || '');
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const [formData, setFormData] = useState({
     // Personal Information
     firstName: '',
     lastName: '',
-    dateOfBirth: '',
-    email: '',
+    email: user?.email || '',
     phone: '',
+    dateOfBirth: '',
+    maritalStatus: '',
+    dependents: '',
+    
+    // Address Information
     address: '',
     city: '',
     province: '',
     postalCode: '',
-    maritalStatus: '',
-    dependents: '',
-    
-    // Employment & Income
-    employmentStatus: '',
-    employerName: '',
-    occupation: '',
-    employmentDuration: '',
-    monthlyIncome: '',
-    otherIncome: '',
-    
-    // Housing Information
     housingStatus: '',
     housingPayment: '',
     residenceDuration: '',
     
-    // Desired Financing Details
-    desiredLoanAmount: '',
-    vehicleType: '',
+    // Employment Information
+    employmentStatus: '',
+    employerName: '',
+    occupation: '',
+    employmentDuration: '',
+    annualIncome: '',
+    monthlyIncome: '',
+    otherIncome: '',
+    
+    // Financial Information
+    creditScore: '',
+    desiredMonthlyPayment: searchParams.get('budget') || '',
+    desiredLoanAmount: searchParams.get('amount') || '',
     downPaymentAmount: '',
     hasDriverLicense: false,
-    
-    // Government & Disability Benefits
     collectsGovernmentBenefits: false,
-    selectedPrograms: [] as string[],
-    programAmounts: {} as Record<string, string>,
-    otherProgramName: '',
+    disabilityPrograms: '',
     
-    // Debt Discharge / Financial Challenges
+    // Debt History
     hasDebtDischargeHistory: false,
     debtDischargeType: '',
     debtDischargeYear: '',
     debtDischargeStatus: '',
     debtDischargeComments: '',
     
-    // Contact Preferences
+    // Preferences
     preferredContactMethod: 'email',
-    
-    // Consent & Agreements
     consentSoftCheck: false,
     termsAccepted: false
   });
-  
-  // Prefill form with user data if available
+
+  // Expanded sections for collapsible content
+  const [expandedSections, setExpandedSections] = useState({
+    governmentBenefits: false,
+    debtHistory: false
+  });
+
+  // Load existing application data if user is logged in
   useEffect(() => {
-    if (user) {
-      const fetchUserData = async () => {
+    const loadExistingApplication = async () => {
+      if (user) {
         try {
           const { data, error } = await supabase
             .from('applications')
@@ -125,39 +141,390 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           if (error) throw error;
           
           if (data) {
-            // Prefill form with existing data
-            setFormData(prev => ({
-              ...prev,
+            // Pre-fill form with existing data
+            setFormData({
               firstName: data.first_name || '',
               lastName: data.last_name || '',
               email: data.email || user.email || '',
               phone: data.phone || '',
+              dateOfBirth: data.date_of_birth ? new Date(data.date_of_birth).toISOString().split('T')[0] : '',
+              maritalStatus: data.marital_status || '',
+              dependents: data.dependents?.toString() || '',
+              
               address: data.address || '',
               city: data.city || '',
               province: data.province || '',
               postalCode: data.postal_code || '',
+              housingStatus: data.housing_status || '',
+              housingPayment: data.housing_payment?.toString() || '',
+              residenceDuration: data.residence_duration || '',
+              
               employmentStatus: data.employment_status || '',
-              monthlyIncome: data.monthly_income ? data.monthly_income.toString() : '',
-              vehicleType: data.vehicle_type || ''
-            }));
-          } else if (user.email) {
-            // Just set the email if we have it
-            setFormData(prev => ({
-              ...prev,
-              email: user.email || ''
-            }));
+              employerName: data.employer_name || '',
+              occupation: data.occupation || '',
+              employmentDuration: data.employment_duration || '',
+              annualIncome: data.annual_income?.toString() || '',
+              monthlyIncome: data.monthly_income?.toString() || '',
+              otherIncome: data.other_income?.toString() || '',
+              
+              creditScore: data.credit_score ? 
+                (data.credit_score >= 750 ? 'excellent' : 
+                 data.credit_score >= 700 ? 'good' : 
+                 data.credit_score >= 650 ? 'fair' : 'poor') : '',
+              desiredMonthlyPayment: data.desired_monthly_payment?.toString() || searchParams.get('budget') || '',
+              desiredLoanAmount: data.desired_loan_amount?.toString() || searchParams.get('amount') || '',
+              downPaymentAmount: data.down_payment_amount?.toString() || '',
+              hasDriverLicense: data.has_driver_license || false,
+              collectsGovernmentBenefits: data.collects_government_benefits || false,
+              disabilityPrograms: data.disability_programs?.details || '',
+              
+              hasDebtDischargeHistory: data.has_debt_discharge_history || false,
+              debtDischargeType: data.debt_discharge_type || '',
+              debtDischargeYear: data.debt_discharge_year?.toString() || '',
+              debtDischargeStatus: data.debt_discharge_status || '',
+              debtDischargeComments: data.debt_discharge_comments || '',
+              
+              preferredContactMethod: data.preferred_contact_method || 'email',
+              consentSoftCheck: data.consent_soft_check || false,
+              termsAccepted: data.terms_accepted || false
+            });
+            
+            if (data.vehicle_type) {
+              setSelectedVehicle(data.vehicle_type);
+            }
           }
         } catch (error) {
-          console.error('Error fetching user data:', error);
+          console.error('Error loading existing application:', error);
         }
-      };
-      
-      fetchUserData();
+      }
+    };
+    
+    loadExistingApplication();
+  }, [user, searchParams]);
+
+  useEffect(() => {
+    if (formData.annualIncome) {
+      const annual = Number(formData.annualIncome.replace(/[^0-9.-]+/g, ''));
+      const monthly = Math.round(annual / 12);
+      setFormData(prev => ({
+        ...prev,
+        monthlyIncome: monthly.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+      }));
     }
-  }, [user]);
-  
+  }, [formData.annualIncome]);
+
+  const calculateLoanRange = (monthlyPayment: number, rate: number, term: number = 60) => {
+    const monthlyRate = rate / 1200;
+    const denominator = monthlyRate * Math.pow(1 + monthlyRate, term);
+    const numerator = Math.pow(1 + monthlyRate, term) - 1;
+    const maxLoanAmount = (monthlyPayment * numerator) / denominator;
+    
+    return {
+      min: Math.floor(maxLoanAmount * 0.9),
+      max: Math.floor(maxLoanAmount * 1.1),
+      rate
+    };
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      if (!validateForm()) return;
+
+      setIsLoading(true);
+      setIsProcessing(true);
+      
+      const monthlyPayment = Number(formData.desiredMonthlyPayment.replace(/[^0-9.-]+/g, ''));
+      const creditScoreInfo = creditScoreRates[formData.creditScore as keyof typeof creditScoreRates];
+      const loanRange = calculateLoanRange(monthlyPayment, creditScoreInfo.rate);
+
+      // Map the credit score string to its numerical value
+      const numericalCreditScore = creditScoreMapping[formData.creditScore as keyof typeof creditScoreMapping];
+
+      // Prepare data for Supabase
+      const applicationData: any = {
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        date_of_birth: formData.dateOfBirth,
+        marital_status: formData.maritalStatus || null,
+        dependents: formData.dependents ? parseInt(formData.dependents) : null,
+        
+        address: formData.address,
+        city: formData.city,
+        province: formData.province,
+        postal_code: formData.postalCode,
+        housing_status: formData.housingStatus || null,
+        housing_payment: formData.housingPayment ? Number(formData.housingPayment.replace(/[^0-9.-]+/g, '')) : null,
+        residence_duration: formData.residenceDuration || null,
+        
+        employment_status: formData.employmentStatus,
+        employer_name: formData.employerName || null,
+        occupation: formData.occupation || null,
+        employment_duration: formData.employmentDuration || null,
+        annual_income: Number(formData.annualIncome.replace(/[^0-9.-]+/g, '')),
+        monthly_income: Number(formData.monthlyIncome.replace(/[^0-9.-]+/g, '')),
+        other_income: formData.otherIncome ? Number(formData.otherIncome.replace(/[^0-9.-]+/g, '')) : 0,
+        
+        credit_score: numericalCreditScore,
+        vehicle_type: selectedVehicle,
+        desired_monthly_payment: monthlyPayment,
+        desired_loan_amount: formData.desiredLoanAmount ? Number(formData.desiredLoanAmount.replace(/[^0-9.-]+/g, '')) : null,
+        down_payment_amount: formData.downPaymentAmount ? Number(formData.downPaymentAmount.replace(/[^0-9.-]+/g, '')) : 0,
+        loan_amount_min: loanRange.min,
+        loan_amount_max: loanRange.max,
+        interest_rate: loanRange.rate,
+        loan_term: 60,
+        
+        has_driver_license: formData.hasDriverLicense,
+        collects_government_benefits: formData.collectsGovernmentBenefits,
+        disability_programs: formData.disabilityPrograms ? JSON.parse(`{"details": "${formData.disabilityPrograms}"}`) : null,
+        
+        has_debt_discharge_history: formData.hasDebtDischargeHistory,
+        debt_discharge_type: formData.debtDischargeType || null,
+        debt_discharge_year: formData.debtDischargeYear ? parseInt(formData.debtDischargeYear) : null,
+        debt_discharge_status: formData.debtDischargeStatus || null,
+        debt_discharge_comments: formData.debtDischargeComments || null,
+        
+        preferred_contact_method: formData.preferredContactMethod,
+        consent_soft_check: formData.consentSoftCheck,
+        terms_accepted: formData.termsAccepted,
+        
+        status: 'submitted',
+        current_stage: 1
+      };
+
+      // If user is logged in, add user_id
+      if (user) {
+        applicationData.user_id = user.id;
+      } else {
+        // For anonymous users, add temp_user_id
+        applicationData.temp_user_id = crypto.randomUUID();
+      }
+
+      // Check if user already has an application
+      let existingApplication;
+      if (user) {
+        const { data, error } = await supabase
+          .from('applications')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+          
+        if (error) throw error;
+        existingApplication = data;
+      }
+
+      let application;
+      if (existingApplication) {
+        // Update existing application
+        const { data, error } = await supabase
+          .from('applications')
+          .update(applicationData)
+          .eq('id', existingApplication.id)
+          .select()
+          .single();
+          
+        if (error) throw error;
+        application = data;
+      } else {
+        // Create new application
+        const { data, error } = await supabase
+          .from('applications')
+          .insert(applicationData)
+          .select()
+          .single();
+          
+        if (error) throw error;
+        application = data;
+        
+        // Create initial application stage
+        await supabase
+          .from('application_stages')
+          .insert({
+            application_id: application.id,
+            stage_number: 1,
+            status: 'completed',
+            notes: 'Application submitted successfully'
+          });
+      }
+
+      // Simulate processing time
+      setTimeout(() => {
+        setIsProcessing(false);
+        
+        if (user) {
+          // For logged-in users, go to dashboard
+          onComplete(application.id);
+        } else {
+          // For anonymous users, go to qualification results
+          navigate('/qualification-results', {
+            state: {
+              loanRange,
+              vehicleType: selectedVehicle,
+              monthlyBudget: monthlyPayment,
+              originalFormData: formData,
+              applicationId: application.id,
+              tempUserId: applicationData.temp_user_id,
+              fromApproval: true
+            }
+          });
+        }
+      }, 3500);
+
+    } catch (error: any) {
+      console.error('Error processing application:', error);
+      setError('An error occurred while processing your application. Please try again.');
+      setIsProcessing(false);
+      setIsLoading(false);
+    }
+  };
+
+  const validateForm = () => {
+    // Step 1: Vehicle Selection
+    if (currentStep === 1 && !selectedVehicle) {
+      setError('Please select a vehicle type');
+      return false;
+    }
+
+    // Step 2: Personal Information
+    if (currentStep === 2) {
+      if (!formData.firstName || !formData.lastName || !formData.email || !formData.phone || !formData.dateOfBirth) {
+        setError('Please fill in all required fields');
+        return false;
+      }
+      if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(formData.email)) {
+        setError('Please enter a valid email address');
+        return false;
+      }
+      if (!/^\+?1?\d{10,}$/.test(formData.phone.replace(/\D/g, ''))) {
+        setError('Please enter a valid phone number');
+        return false;
+      }
+      
+      const birthDate = new Date(formData.dateOfBirth);
+      const today = new Date();
+      const age = today.getFullYear() - birthDate.getFullYear();
+      if (age < 18) {
+        setError('You must be at least 18 years old to apply');
+        return false;
+      }
+      
+      if (!formData.maritalStatus) {
+        setError('Please select your marital status');
+        return false;
+      }
+    }
+
+    // Step 3: Address Information
+    if (currentStep === 3) {
+      if (!formData.address || !formData.city || !formData.province || !formData.postalCode) {
+        setError('Please fill in all required address fields');
+        return false;
+      }
+      
+      if (!formData.housingStatus) {
+        setError('Please select your housing status');
+        return false;
+      }
+      
+      if ((formData.housingStatus === 'own' || formData.housingStatus === 'rent') && !formData.housingPayment) {
+        setError('Please enter your monthly housing payment');
+        return false;
+      }
+      
+      if (!formData.residenceDuration) {
+        setError('Please select how long you have lived at your current address');
+        return false;
+      }
+    }
+
+    // Step 4: Employment Information
+    if (currentStep === 4) {
+      if (!formData.employmentStatus) {
+        setError('Please select your employment status');
+        return false;
+      }
+      
+      if (formData.employmentStatus !== 'unemployed') {
+        if (!formData.employerName) {
+          setError('Please enter your employer name');
+          return false;
+        }
+        
+        if (!formData.occupation) {
+          setError('Please enter your occupation');
+          return false;
+        }
+        
+        if (!formData.employmentDuration) {
+          setError('Please select your employment duration');
+          return false;
+        }
+      }
+      
+      if (!formData.annualIncome) {
+        setError('Please enter your annual income');
+        return false;
+      }
+    }
+
+    // Step 5: Financial Information
+    if (currentStep === 5) {
+      if (!formData.creditScore) {
+        setError('Please select your credit score range');
+        return false;
+      }
+      
+      if (!formData.desiredMonthlyPayment) {
+        setError('Please enter your desired monthly payment');
+        return false;
+      }
+      
+      if (formData.hasDebtDischargeHistory) {
+        if (!formData.debtDischargeType) {
+          setError('Please select your debt discharge type');
+          return false;
+        }
+        
+        if (!formData.debtDischargeYear) {
+          setError('Please enter the year of your debt discharge');
+          return false;
+        }
+        
+        if (!formData.debtDischargeStatus) {
+          setError('Please select your debt discharge status');
+          return false;
+        }
+      }
+    }
+
+    // Step 6: Preferences & Consent
+    if (currentStep === 6) {
+      if (!formData.preferredContactMethod) {
+        setError('Please select your preferred contact method');
+        return false;
+      }
+      
+      if (!formData.consentSoftCheck) {
+        setError('You must consent to a soft credit check to proceed');
+        return false;
+      }
+      
+      if (!formData.termsAccepted) {
+        setError('You must accept the terms and conditions to proceed');
+        return false;
+      }
+    }
+
+    setError('');
+    return true;
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
+    const { name, value, type } = e.target as HTMLInputElement;
     
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
@@ -174,377 +541,54 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
     
     setError('');
   };
-  
+
   const handleCurrencyInput = (value: string | undefined, name: string) => {
     setFormData(prev => ({
       ...prev,
       [name]: value || ''
     }));
-    setError('');
   };
-  
-  const handleProgramSelection = (programId: string, checked: boolean) => {
-    setFormData(prev => {
-      const updatedPrograms = checked
-        ? [...prev.selectedPrograms, programId]
-        : prev.selectedPrograms.filter(id => id !== programId);
-        
-      return {
-        ...prev,
-        selectedPrograms: updatedPrograms
-      };
-    });
+
+  const nextStep = () => {
+    if (validateForm()) {
+      setCurrentStep(prev => prev + 1);
+      window.scrollTo(0, 0);
+    }
   };
-  
-  const handleProgramAmount = (programId: string, value: string | undefined) => {
-    setFormData(prev => ({
+
+  const prevStep = () => {
+    setCurrentStep(prev => prev - 1);
+    window.scrollTo(0, 0);
+  };
+
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections(prev => ({
       ...prev,
-      programAmounts: {
-        ...prev.programAmounts,
-        [programId]: value || ''
-      }
+      [section]: !prev[section]
     }));
   };
-  
-  const validateStep = () => {
-    switch (currentStep) {
-      case 1: // Personal Information
-        if (!formData.firstName || !formData.lastName || !formData.dateOfBirth || 
-            !formData.email || !formData.phone || !formData.address || 
-            !formData.city || !formData.province || !formData.postalCode) {
-          setError('Please fill in all required fields');
-          return false;
-        }
-        
-        // Validate email format
-        if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(formData.email)) {
-          setError('Please enter a valid email address');
-          return false;
-        }
-        
-        // Validate phone format (simple validation)
-        if (!/^\+?1?\d{10,}$/.test(formData.phone.replace(/\D/g, ''))) {
-          setError('Please enter a valid phone number');
-          return false;
-        }
-        
-        // Validate date of birth (must be at least 18 years old)
-        const birthDate = new Date(formData.dateOfBirth);
-        const today = new Date();
-        const age = today.getFullYear() - birthDate.getFullYear();
-        const monthDiff = today.getMonth() - birthDate.getMonth();
-        
-        if (age < 18 || (age === 18 && monthDiff < 0)) {
-          setError('You must be at least 18 years old to apply');
-          return false;
-        }
-        
-        // Validate postal code format (Canadian)
-        if (!/^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/.test(formData.postalCode)) {
-          setError('Please enter a valid Canadian postal code (e.g., A1A 1A1)');
-          return false;
-        }
-        break;
-        
-      case 2: // Employment & Income
-        if (!formData.employmentStatus || !formData.occupation || 
-            !formData.employmentDuration || !formData.monthlyIncome) {
-          setError('Please fill in all required fields');
-          return false;
-        }
-        
-        // Validate employer name for employed people
-        if (formData.employmentStatus === 'employed' && !formData.employerName) {
-          setError('Please provide your employer name');
-          return false;
-        }
-        
-        // Validate income is a number
-        if (isNaN(Number(formData.monthlyIncome.replace(/[^0-9.-]+/g, '')))) {
-          setError('Please enter a valid monthly income amount');
-          return false;
-        }
-        break;
-        
-      case 3: // Housing Information
-        if (!formData.housingStatus || !formData.housingPayment || !formData.residenceDuration) {
-          setError('Please fill in all required fields');
-          return false;
-        }
-        
-        // Validate housing payment is a number
-        if (isNaN(Number(formData.housingPayment.replace(/[^0-9.-]+/g, '')))) {
-          setError('Please enter a valid housing payment amount');
-          return false;
-        }
-        break;
-        
-      case 4: // Desired Financing Details
-        if (!formData.desiredLoanAmount || !formData.vehicleType) {
-          setError('Please fill in all required fields');
-          return false;
-        }
-        
-        // Validate loan amount is a number
-        if (isNaN(Number(formData.desiredLoanAmount.replace(/[^0-9.-]+/g, '')))) {
-          setError('Please enter a valid loan amount');
-          return false;
-        }
-        
-        // Validate down payment is a number if provided
-        if (formData.downPaymentAmount && isNaN(Number(formData.downPaymentAmount.replace(/[^0-9.-]+/g, '')))) {
-          setError('Please enter a valid down payment amount');
-          return false;
-        }
-        break;
-        
-      case 5: // Government Benefits
-        if (formData.collectsGovernmentBenefits) {
-          if (formData.selectedPrograms.length === 0) {
-            setError('Please select at least one government program');
-            return false;
-          }
-          
-          // Validate all selected programs have amounts
-          for (const programId of formData.selectedPrograms) {
-            if (!formData.programAmounts[programId]) {
-              setError('Please enter monthly amounts for all selected programs');
-              return false;
-            }
-          }
-          
-          // Validate "Other" program has a name if selected
-          if (formData.selectedPrograms.includes('other') && !formData.otherProgramName) {
-            setError('Please specify the name of the other program');
-            return false;
-          }
-        }
-        break;
-        
-      case 6: // Financial Challenges
-        if (formData.hasDebtDischargeHistory) {
-          if (!formData.debtDischargeType || !formData.debtDischargeYear || !formData.debtDischargeStatus) {
-            setError('Please fill in all required fields about your debt discharge history');
-            return false;
-          }
-          
-          // Validate year is a number between 1900 and current year
-          const year = Number(formData.debtDischargeYear);
-          if (isNaN(year) || year < 1900 || year > new Date().getFullYear()) {
-            setError('Please enter a valid year for your debt discharge');
-            return false;
-          }
-        }
-        break;
-        
-      case 7: // Contact Preferences
-        if (!formData.preferredContactMethod) {
-          setError('Please select your preferred contact method');
-          return false;
-        }
-        break;
-        
-      case 8: // Review & Submit
-        if (!formData.consentSoftCheck || !formData.termsAccepted) {
-          setError('You must agree to the terms and consent to a soft credit check to proceed');
-          return false;
-        }
-        break;
-    }
-    
-    setError('');
-    return true;
-  };
-  
-  const nextStep = () => {
-    if (validateStep()) {
-      // Skip government benefits step if not collecting benefits
-      if (currentStep === 4 && !formData.collectsGovernmentBenefits) {
-        setCurrentStep(6);
-      }
-      // Skip financial challenges step if no debt history
-      else if (currentStep === 5 && !formData.hasDebtDischargeHistory) {
-        setCurrentStep(7);
-      }
-      else {
-        setCurrentStep(prev => prev + 1);
-      }
-    }
-  };
-  
-  const prevStep = () => {
-    // Handle skipped steps when going back
-    if (currentStep === 6 && !formData.collectsGovernmentBenefits) {
-      setCurrentStep(4);
-    }
-    else if (currentStep === 7 && !formData.hasDebtDischargeHistory && formData.collectsGovernmentBenefits) {
-      setCurrentStep(5);
-    }
-    else if (currentStep === 7 && !formData.hasDebtDischargeHistory && !formData.collectsGovernmentBenefits) {
-      setCurrentStep(4);
-    }
-    else {
-      setCurrentStep(prev => prev - 1);
-    }
-  };
-  
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateStep()) return;
-    
-    setIsLoading(true);
-    setError('');
-    
-    try {
-      // Format the data for database storage
-      const formattedData = {
-        // Personal Information
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        date_of_birth: formData.dateOfBirth,
-        email: formData.email,
-        phone: formData.phone,
-        address: formData.address,
-        city: formData.city,
-        province: formData.province,
-        postal_code: formData.postalCode,
-        marital_status: formData.maritalStatus,
-        dependents: formData.dependents ? parseInt(formData.dependents) : null,
-        
-        // Employment & Income
-        employment_status: formData.employmentStatus,
-        employer_name: formData.employerName,
-        occupation: formData.occupation,
-        employment_duration: formData.employmentDuration,
-        monthly_income: parseFloat(formData.monthlyIncome.replace(/[^0-9.-]+/g, '')),
-        annual_income: parseFloat(formData.monthlyIncome.replace(/[^0-9.-]+/g, '')) * 12,
-        other_income: formData.otherIncome ? parseFloat(formData.otherIncome.replace(/[^0-9.-]+/g, '')) : 0,
-        
-        // Housing Information
-        housing_status: formData.housingStatus,
-        housing_payment: parseFloat(formData.housingPayment.replace(/[^0-9.-]+/g, '')),
-        residence_duration: formData.residenceDuration,
-        
-        // Desired Financing Details
-        desired_loan_amount: parseFloat(formData.desiredLoanAmount.replace(/[^0-9.-]+/g, '')),
-        vehicle_type: formData.vehicleType,
-        down_payment_amount: formData.downPaymentAmount ? parseFloat(formData.downPaymentAmount.replace(/[^0-9.-]+/g, '')) : 0,
-        has_driver_license: formData.hasDriverLicense,
-        
-        // Government & Disability Benefits
-        collects_government_benefits: formData.collectsGovernmentBenefits,
-        disability_programs: formData.collectsGovernmentBenefits ? 
-          formData.selectedPrograms.map(programId => {
-            const program = GOVERNMENT_PROGRAMS.find(p => p.id === programId);
-            return {
-              id: programId,
-              name: program?.name || '',
-              name_other: programId === 'other' ? formData.otherProgramName : null,
-              amount: parseFloat(formData.programAmounts[programId]?.replace(/[^0-9.-]+/g, '') || '0')
-            };
-          }) : null,
-        
-        // Debt Discharge / Financial Challenges
-        has_debt_discharge_history: formData.hasDebtDischargeHistory,
-        debt_discharge_type: formData.hasDebtDischargeHistory ? formData.debtDischargeType : null,
-        debt_discharge_year: formData.hasDebtDischargeHistory && formData.debtDischargeYear ? 
-          parseInt(formData.debtDischargeYear) : null,
-        debt_discharge_status: formData.hasDebtDischargeHistory ? formData.debtDischargeStatus : null,
-        debt_discharge_comments: formData.hasDebtDischargeHistory ? formData.debtDischargeComments : null,
-        
-        // Contact Preferences
-        preferred_contact_method: formData.preferredContactMethod,
-        
-        // Consent & Agreements
-        consent_soft_check: formData.consentSoftCheck,
-        terms_accepted: formData.termsAccepted,
-        
-        // Status and stage
-        status: 'pending_documents',
-        current_stage: 3, // Set to "Pending Documents" stage
-        
-        // User ID if authenticated
-        user_id: user?.id || null,
-        
-        // Generate a temp user ID if not authenticated
-        temp_user_id: !user?.id ? crypto.randomUUID() : null
-      };
-      
-      // Insert application into database
-      const { data, error } = await supabase
-        .from('applications')
-        .insert(formattedData)
-        .select()
-        .single();
-        
-      if (error) throw error;
-      
-      // Create initial application stage
-      await supabase
-        .from('application_stages')
-        .insert({
-          application_id: data.id,
-          stage_number: 3, // Pending Documents stage
-          status: 'active',
-          notes: 'Application submitted successfully. Please upload required documents.'
-        });
-        
-      // Create welcome notification for authenticated users
-      if (user?.id) {
-        await supabase
-          .from('notifications')
-          .insert({
-            user_id: user.id,
-            title: 'Application Submitted Successfully',
-            message: 'Your application has been received. Please upload the required documents to proceed with your application.',
-            read: false
-          });
-      }
-      
-      // Call onComplete callback if provided
-      if (onComplete) {
-        onComplete(data.id);
-      }
-      
-      // Show success message
-      toast.success('Application submitted successfully!');
-      
-      // Redirect to appropriate page
-      if (user) {
-        navigate('/dashboard');
-      } else {
-        navigate('/create-account', {
-          state: {
-            formData,
-            applicationId: data.id,
-            tempUserId: formattedData.temp_user_id
-          }
-        });
-      }
-    } catch (error: any) {
-      console.error('Error submitting application:', error);
-      setError(error.message || 'An error occurred while submitting your application. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  // Calculate total steps based on conditional sections
-  const totalSteps = 8;
-  
+
+  if (isProcessing) {
+    return <ProcessingAnimation onComplete={() => setIsProcessing(false)} />;
+  }
+
   return (
-    <div className="w-full max-w-4xl mx-auto">
-      <div className="mb-8">
+    <div className="w-full bg-white rounded-2xl shadow-xl overflow-hidden">
+      <div className="p-8">
         <ProgressBar 
           currentStep={currentStep} 
-          totalSteps={totalSteps}
-          labels={FORM_STEPS}
+          totalSteps={6} 
+          labels={['Vehicle', 'Personal Info', 'Address', 'Employment', 'Financial', 'Consent']}
+          onStepClick={(step) => {
+            // Only allow going back to previous steps
+            if (step < currentStep) {
+              setCurrentStep(step);
+              window.scrollTo(0, 0);
+            }
+          }}
         />
-      </div>
-      
-      <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-gray-100">
-        <form onSubmit={handleSubmit} className="space-y-8">
+        
+        <form onSubmit={handleSubmit} className="mt-8 space-y-8">
           <AnimatePresence mode="wait">
             {error && (
               <motion.div
@@ -565,20 +609,57 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
               exit={{ opacity: 0, x: -20 }}
               className="space-y-6"
             >
-              {/* Step 1: Personal Information */}
+              {/* Step 1: Vehicle Selection */}
               {currentStep === 1 && (
                 <div className="space-y-6">
+                  <h2 className="text-2xl font-semibold text-gray-900 text-center">
+                    Select Your Vehicle Type
+                  </h2>
+                  <div className="grid grid-cols-2 gap-6">
+                    {vehicles.map((vehicle) => (
+                      <button
+                        key={vehicle.type}
+                        type="button"
+                        onClick={() => setSelectedVehicle(vehicle.type)}
+                        className={`
+                          relative overflow-hidden rounded-xl border-2 p-4 transition-all
+                          ${selectedVehicle === vehicle.type
+                            ? 'border-[#3BAA75] bg-[#3BAA75]/5'
+                            : 'border-gray-200 hover:border-[#3BAA75]/50'
+                          }
+                        `}
+                      >
+                        <div className="aspect-square mb-4 rounded-lg overflow-hidden">
+                          <img
+                            src={vehicle.image}
+                            alt={vehicle.type}
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                        <div className="text-center">
+                          <h3 className="font-medium text-gray-900">{vehicle.type}</h3>
+                          <p className="text-sm text-gray-500">{vehicle.description}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Personal Information */}
+              {currentStep === 2 && (
+                <div className="space-y-8">
                   <div className="text-center">
                     <h2 className="text-2xl font-semibold text-gray-900 mb-2">
                       Personal Information
                     </h2>
-                    <p className="text-gray-600">Tell us about yourself</p>
+                    <p className="text-gray-600">Tell us a bit about yourself</p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="block text-sm font-medium text-gray-700">
-                        First Name*
+                        First Name
                       </label>
                       <div className="relative group">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -598,7 +679,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     
                     <div className="space-y-2">
                       <label className="block text-sm font-medium text-gray-700">
-                        Last Name*
+                        Last Name
                       </label>
                       <div className="relative group">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -618,7 +699,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
 
                     <div className="space-y-2">
                       <label className="block text-sm font-medium text-gray-700">
-                        Email*
+                        Email
                       </label>
                       <div className="relative group">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -632,13 +713,14 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                           className={inputClasses}
                           placeholder="john@example.com"
                           required
+                          readOnly={!!user}
                         />
                       </div>
                     </div>
                     
                     <div className="space-y-2">
                       <label className="block text-sm font-medium text-gray-700">
-                        Phone Number*
+                        Phone Number
                       </label>
                       <div className="relative group">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -656,9 +738,9 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       </div>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-2 md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700">
-                        Date of Birth*
+                        Date of Birth
                       </label>
                       <div className="relative group">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -674,63 +756,96 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                           required
                         />
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-sm text-gray-500 mt-1">
                         You must be at least 18 years old to apply
                       </p>
                     </div>
-                    
-                    <div className="space-y-2">
+
+                    <div className="space-y-2 md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700">
                         Marital Status
                       </label>
-                      <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Heart className="h-5 w-5 text-gray-400 group-focus-within:text-[#3BAA75] transition-colors" />
-                        </div>
-                        <select
-                          name="maritalStatus"
-                          value={formData.maritalStatus}
-                          onChange={handleInputChange}
-                          className={selectClasses}
-                        >
-                          <option value="">Select Status</option>
-                          <option value="single">Single</option>
-                          <option value="married">Married</option>
-                          <option value="divorced">Divorced</option>
-                          <option value="widowed">Widowed</option>
-                          <option value="separated">Separated</option>
-                          <option value="other">Other</option>
-                        </select>
+                      <div className="grid grid-cols-3 gap-3">
+                        {['single', 'married', 'divorced', 'widowed', 'separated', 'other'].map((status) => (
+                          <div 
+                            key={status}
+                            className={`
+                              border rounded-lg p-3 text-center cursor-pointer transition-colors
+                              ${formData.maritalStatus === status 
+                                ? 'border-[#3BAA75] bg-[#3BAA75]/5 text-[#3BAA75]' 
+                                : 'border-gray-200 hover:border-[#3BAA75]/50 text-gray-700'
+                              }
+                            `}
+                            onClick={() => setFormData({...formData, maritalStatus: status})}
+                          >
+                            <span className="capitalize">{status}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Address*
-                      </label>
-                      <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <MapPin className="h-5 w-5 text-gray-400 group-focus-within:text-[#3BAA75] transition-colors" />
-                        </div>
-                        <input
-                          type="text"
-                          name="address"
-                          value={formData.address}
-                          onChange={handleInputChange}
-                          className={inputClasses}
-                          placeholder="123 Main St"
-                          required
-                        />
+                    <div className="space-y-2 md:col-span-2">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Number of Dependents
+                        </label>
+                        <span className="text-lg font-medium text-[#3BAA75]">
+                          {formData.dependents || '0'}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        name="dependents"
+                        min="0"
+                        max="10"
+                        value={formData.dependents || '0'}
+                        onChange={handleInputChange}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#3BAA75]"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>0</span>
+                        <span>5</span>
+                        <span>10+</span>
                       </div>
                     </div>
+                  </div>
+                </div>
+              )}
 
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        City*
+              {/* Step 3: Address Information */}
+              {currentStep === 3 && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-semibold text-gray-900 text-center mb-6">
+                    Address Information
+                  </h2>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Street Address
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <MapPin className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <input
+                        type="text"
+                        name="address"
+                        value={formData.address}
+                        onChange={handleInputChange}
+                        className={inputClasses}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        City
                       </label>
-                      <div className="relative group">
+                      <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Building className="h-5 w-5 text-gray-400 group-focus-within:text-[#3BAA75] transition-colors" />
+                          <Building className="h-5 w-5 text-gray-400" />
                         </div>
                         <input
                           type="text"
@@ -738,17 +853,16 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                           value={formData.city}
                           onChange={handleInputChange}
                           className={inputClasses}
-                          placeholder="Toronto"
                           required
                         />
                       </div>
                     </div>
-
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Province*
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Province
                       </label>
-                      <div className="relative group">
+                      <div className="relative">
                         <select
                           name="province"
                           value={formData.province}
@@ -757,30 +871,27 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                           required
                         >
                           <option value="">Select Province</option>
-                          <option value="AB">Alberta</option>
+                          <option value="ON">Ontario</option>
                           <option value="BC">British Columbia</option>
+                          <option value="AB">Alberta</option>
                           <option value="MB">Manitoba</option>
                           <option value="NB">New Brunswick</option>
                           <option value="NL">Newfoundland and Labrador</option>
                           <option value="NS">Nova Scotia</option>
-                          <option value="ON">Ontario</option>
                           <option value="PE">Prince Edward Island</option>
                           <option value="QC">Quebec</option>
                           <option value="SK">Saskatchewan</option>
-                          <option value="NT">Northwest Territories</option>
-                          <option value="NU">Nunavut</option>
-                          <option value="YT">Yukon</option>
                         </select>
                       </div>
                     </div>
-
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Postal Code*
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Postal Code
                       </label>
-                      <div className="relative group">
+                      <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <MapPin className="h-5 w-5 text-gray-400 group-focus-within:text-[#3BAA75] transition-colors" />
+                          <MapPin className="h-5 w-5 text-gray-400" />
                         </div>
                         <input
                           type="text"
@@ -788,237 +899,45 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                           value={formData.postalCode}
                           onChange={handleInputChange}
                           className={inputClasses}
+                          required
                           placeholder="A1A 1A1"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Number of Dependents
-                      </label>
-                      <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <User className="h-5 w-5 text-gray-400 group-focus-within:text-[#3BAA75] transition-colors" />
-                        </div>
-                        <input
-                          type="number"
-                          name="dependents"
-                          value={formData.dependents}
-                          onChange={handleInputChange}
-                          min="0"
-                          max="20"
-                          className={inputClasses}
-                          placeholder="0"
                         />
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
 
-              {/* Step 2: Employment & Income */}
-              {currentStep === 2 && (
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                      Employment & Income
-                    </h2>
-                    <p className="text-gray-600">Tell us about your work and income</p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Employment Status*
-                      </label>
-                      <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Briefcase className="h-5 w-5 text-gray-400 group-focus-within:text-[#3BAA75] transition-colors" />
-                        </div>
-                        <select
-                          name="employmentStatus"
-                          value={formData.employmentStatus}
-                          onChange={handleInputChange}
-                          className={selectClasses}
-                          required
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Housing Status
+                    </label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {['own', 'rent', 'live_with_parents', 'other'].map((status) => (
+                        <div 
+                          key={status}
+                          className={`
+                            border rounded-lg p-3 text-center cursor-pointer transition-colors
+                            ${formData.housingStatus === status 
+                              ? 'border-[#3BAA75] bg-[#3BAA75]/5 text-[#3BAA75]' 
+                              : 'border-gray-200 hover:border-[#3BAA75]/50 text-gray-700'
+                            }
+                          `}
+                          onClick={() => setFormData({...formData, housingStatus: status})}
                         >
-                          <option value="">Select Status</option>
-                          <option value="employed">Employed</option>
-                          <option value="self_employed">Self Employed</option>
-                          <option value="unemployed">Unemployed</option>
-                          <option value="retired">Retired</option>
-                          <option value="student">Student</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {(formData.employmentStatus === 'employed' || formData.employmentStatus === 'self_employed') && (
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-700">
-                          {formData.employmentStatus === 'employed' ? 'Employer Name*' : 'Business Name'}
-                        </label>
-                        <div className="relative group">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Building className="h-5 w-5 text-gray-400 group-focus-within:text-[#3BAA75] transition-colors" />
-                          </div>
-                          <input
-                            type="text"
-                            name="employerName"
-                            value={formData.employerName}
-                            onChange={handleInputChange}
-                            className={inputClasses}
-                            placeholder={formData.employmentStatus === 'employed' ? 'ABC Company' : 'Your Business Name'}
-                            required={formData.employmentStatus === 'employed'}
-                          />
+                          <Home className="h-5 w-5 mx-auto mb-1" />
+                          <span className="capitalize">{status.replace(/_/g, ' ')}</span>
                         </div>
-                      </div>
-                    )}
-
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Occupation / Job Title*
-                      </label>
-                      <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Briefcase className="h-5 w-5 text-gray-400 group-focus-within:text-[#3BAA75] transition-colors" />
-                        </div>
-                        <input
-                          type="text"
-                          name="occupation"
-                          value={formData.occupation}
-                          onChange={handleInputChange}
-                          className={inputClasses}
-                          placeholder="Software Developer"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        {formData.employmentStatus === 'employed' || formData.employmentStatus === 'self_employed' 
-                          ? 'Employment Duration*' 
-                          : 'Duration in Current Status*'}
-                      </label>
-                      <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Calendar className="h-5 w-5 text-gray-400 group-focus-within:text-[#3BAA75] transition-colors" />
-                        </div>
-                        <select
-                          name="employmentDuration"
-                          value={formData.employmentDuration}
-                          onChange={handleInputChange}
-                          className={selectClasses}
-                          required
-                        >
-                          <option value="">Select Duration</option>
-                          <option value="less_than_6_months">Less than 6 months</option>
-                          <option value="6_months_to_1_year">6 months to 1 year</option>
-                          <option value="1_to_2_years">1 to 2 years</option>
-                          <option value="2_to_5_years">2 to 5 years</option>
-                          <option value="more_than_5_years">More than 5 years</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Monthly Income*
-                      </label>
-                      <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <DollarSign className="h-5 w-5 text-gray-400 group-focus-within:text-[#3BAA75] transition-colors" />
-                        </div>
-                        <CurrencyInput
-                          name="monthlyIncome"
-                          value={formData.monthlyIncome}
-                          onValueChange={(value) => handleCurrencyInput(value, 'monthlyIncome')}
-                          prefix="$"
-                          groupSeparator=","
-                          decimalSeparator="."
-                          className={inputClasses}
-                          placeholder="5,000"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <label className="block text-sm font-medium text-gray-700">
-                          Other Monthly Income
-                        </label>
-                        <Info
-                          className="h-4 w-4 text-gray-400 cursor-help"
-                          data-tooltip-id="other-income-tooltip"
-                          data-tooltip-content="Include any additional income such as part-time work, investments, rental income, etc."
-                        />
-                        <Tooltip id="other-income-tooltip" />
-                      </div>
-                      <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <DollarSign className="h-5 w-5 text-gray-400 group-focus-within:text-[#3BAA75] transition-colors" />
-                        </div>
-                        <CurrencyInput
-                          name="otherIncome"
-                          value={formData.otherIncome}
-                          onValueChange={(value) => handleCurrencyInput(value, 'otherIncome')}
-                          prefix="$"
-                          groupSeparator=","
-                          decimalSeparator="."
-                          className={inputClasses}
-                          placeholder="0"
-                        />
-                      </div>
+                      ))}
                     </div>
                   </div>
-                </div>
-              )}
 
-              {/* Step 3: Housing Information */}
-              {currentStep === 3 && (
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                      Housing Information
-                    </h2>
-                    <p className="text-gray-600">Tell us about your living situation</p>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {(formData.housingStatus === 'own' || formData.housingStatus === 'rent') && (
                     <div className="space-y-2">
                       <label className="block text-sm font-medium text-gray-700">
-                        Housing Status*
+                        Monthly Housing Payment
                       </label>
-                      <div className="relative group">
+                      <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Home className="h-5 w-5 text-gray-400 group-focus-within:text-[#3BAA75] transition-colors" />
-                        </div>
-                        <select
-                          name="housingStatus"
-                          value={formData.housingStatus}
-                          onChange={handleInputChange}
-                          className={selectClasses}
-                          required
-                        >
-                          <option value="">Select Status</option>
-                          <option value="own">Own</option>
-                          <option value="rent">Rent</option>
-                          <option value="live_with_parents">Live with Parents</option>
-                          <option value="other">Other</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Monthly Housing Payment*
-                      </label>
-                      <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <DollarSign className="h-5 w-5 text-gray-400 group-focus-within:text-[#3BAA75] transition-colors" />
+                          <DollarSign className="h-5 w-5 text-gray-400" />
                         </div>
                         <CurrencyInput
                           name="housingPayment"
@@ -1033,53 +952,303 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                         />
                       </div>
                     </div>
+                  )}
 
-                    <div className="space-y-2 md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        How Long at Current Address*
-                      </label>
-                      <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Calendar className="h-5 w-5 text-gray-400 group-focus-within:text-[#3BAA75] transition-colors" />
-                        </div>
-                        <select
-                          name="residenceDuration"
-                          value={formData.residenceDuration}
-                          onChange={handleInputChange}
-                          className={selectClasses}
-                          required
-                        >
-                          <option value="">Select Duration</option>
-                          <option value="less_than_6_months">Less than 6 months</option>
-                          <option value="6_months_to_1_year">6 months to 1 year</option>
-                          <option value="1_to_2_years">1 to 2 years</option>
-                          <option value="2_to_5_years">2 to 5 years</option>
-                          <option value="more_than_5_years">More than 5 years</option>
-                        </select>
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      How long have you lived at this address?
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Clock className="h-5 w-5 text-gray-400" />
                       </div>
+                      <select
+                        name="residenceDuration"
+                        value={formData.residenceDuration}
+                        onChange={handleInputChange}
+                        className={selectClasses}
+                        required
+                      >
+                        <option value="">Select Duration</option>
+                        <option value="Less than 1 year">Less than 1 year</option>
+                        <option value="1-2 years">1-2 years</option>
+                        <option value="2-3 years">2-3 years</option>
+                        <option value="3-5 years">3-5 years</option>
+                        <option value="5+ years">5+ years</option>
+                      </select>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Step 4: Desired Financing Details */}
+              {/* Step 4: Employment Information */}
               {currentStep === 4 && (
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                      Financing Details
-                    </h2>
-                    <p className="text-gray-600">Tell us about the vehicle you want to finance</p>
+                <div className="space-y-8">
+                  <h2 className="text-2xl font-semibold text-gray-900 text-center mb-6">
+                    Employment Information
+                  </h2>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Employment Status
+                    </label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { value: 'employed', label: 'Employed' },
+                        { value: 'self_employed', label: 'Self Employed' },
+                        { value: 'unemployed', label: 'Unemployed' }
+                      ].map((status) => (
+                        <div 
+                          key={status.value}
+                          className={`
+                            border rounded-lg p-3 text-center cursor-pointer transition-colors
+                            ${formData.employmentStatus === status.value 
+                              ? 'border-[#3BAA75] bg-[#3BAA75]/5 text-[#3BAA75]' 
+                              : 'border-gray-200 hover:border-[#3BAA75]/50 text-gray-700'
+                            }
+                          `}
+                          onClick={() => setFormData({...formData, employmentStatus: status.value})}
+                        >
+                          <Briefcase className="h-5 w-5 mx-auto mb-1" />
+                          <span>{status.label}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
+
+                  {formData.employmentStatus && formData.employmentStatus !== 'unemployed' && (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Employer Name
+                          </label>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                              <Building className="h-5 w-5 text-gray-400" />
+                            </div>
+                            <input
+                              type="text"
+                              name="employerName"
+                              value={formData.employerName}
+                              onChange={handleInputChange}
+                              className={inputClasses}
+                              placeholder="Company Name"
+                              required
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Occupation / Job Title
+                          </label>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                              <Briefcase className="h-5 w-5 text-gray-400" />
+                            </div>
+                            <input
+                              type="text"
+                              name="occupation"
+                              value={formData.occupation}
+                              onChange={handleInputChange}
+                              className={inputClasses}
+                              placeholder="Software Developer"
+                              required
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          How long have you been with this employer?
+                        </label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <Clock className="h-5 w-5 text-gray-400" />
+                          </div>
+                          <select
+                            name="employmentDuration"
+                            value={formData.employmentDuration}
+                            onChange={handleInputChange}
+                            className={selectClasses}
+                            required
+                          >
+                            <option value="">Select Duration</option>
+                            <option value="Less than 3 months">Less than 3 months</option>
+                            <option value="3-6 months">3-6 months</option>
+                            <option value="6-12 months">6-12 months</option>
+                            <option value="1-2 years">1-2 years</option>
+                            <option value="2-5 years">2-5 years</option>
+                            <option value="5+ years">5+ years</option>
+                          </select>
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="block text-sm font-medium text-gray-700">
-                        Desired Loan Amount*
+                        Annual Income
                       </label>
-                      <div className="relative group">
+                      <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <DollarSign className="h-5 w-5 text-gray-400 group-focus-within:text-[#3BAA75] transition-colors" />
+                          <DollarSign className="h-5 w-5 text-gray-400" />
+                        </div>
+                        <CurrencyInput
+                          name="annualIncome"
+                          value={formData.annualIncome}
+                          onValueChange={(value) => handleCurrencyInput(value, 'annualIncome')}
+                          prefix="$"
+                          groupSeparator=","
+                          decimalSeparator="."
+                          className={inputClasses}
+                          placeholder="45,000"
+                          required
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Monthly Income
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <DollarSign className="h-5 w-5 text-gray-400" />
+                        </div>
+                        <input
+                          type="text"
+                          name="monthlyIncome"
+                          value={formData.monthlyIncome}
+                          readOnly
+                          className={`${inputClasses} bg-gray-50 text-gray-500`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Other Monthly Income (Optional)
+                      </label>
+                      <Info
+                        className="h-4 w-4 text-gray-400 cursor-help"
+                        data-tooltip-id="other-income-tooltip"
+                        data-tooltip-content="Include income from sources like child support, alimony, rental properties, etc."
+                      />
+                      <Tooltip id="other-income-tooltip" />
+                    </div>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <DollarSign className="h-5 w-5 text-gray-400" />
+                      </div>
+                      <CurrencyInput
+                        name="otherIncome"
+                        value={formData.otherIncome}
+                        onValueChange={(value) => handleCurrencyInput(value, 'otherIncome')}
+                        prefix="$"
+                        groupSeparator=","
+                        decimalSeparator="."
+                        className={inputClasses}
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 5: Financial Information */}
+              {currentStep === 5 && (
+                <div className="space-y-8">
+                  <h2 className="text-2xl font-semibold text-gray-900 text-center mb-6">
+                    Financial Information
+                  </h2>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Credit Score Range
+                        </label>
+                        <Info
+                          className="h-4 w-4 text-gray-400 cursor-help"
+                          data-tooltip-id="credit-score-tooltip"
+                          data-tooltip-content="Your credit score helps determine your interest rate. Don't worry if it's not perfect - we work with all credit situations!"
+                        />
+                        <Tooltip id="credit-score-tooltip" />
+                      </div>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <CreditCard className="h-5 w-5 text-gray-400" />
+                        </div>
+                        <select
+                          name="creditScore"
+                          value={formData.creditScore}
+                          onChange={handleInputChange}
+                          className={selectClasses}
+                          required
+                        >
+                          <option value="">Select Range</option>
+                          <option value="excellent">Excellent (750+)</option>
+                          <option value="good">Good (700-749)</option>
+                          <option value="fair">Fair (650-699)</option>
+                          <option value="poor">Below 650</option>
+                          <option value="unknown">I don't know</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Desired Monthly Payment
+                        </label>
+                        <Info
+                          className="h-4 w-4 text-gray-400 cursor-help"
+                          data-tooltip-id="payment-tooltip"
+                          data-tooltip-content="This helps us find a loan amount that fits your budget. We'll work to get you the best rate possible."
+                        />
+                        <Tooltip id="payment-tooltip" />
+                      </div>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <Calculator className="h-5 w-5 text-gray-400" />
+                        </div>
+                        <CurrencyInput
+                          name="desiredMonthlyPayment"
+                          value={formData.desiredMonthlyPayment}
+                          onValueChange={(value) => handleCurrencyInput(value, 'desiredMonthlyPayment')}
+                          prefix="$"
+                          groupSeparator=","
+                          decimalSeparator="."
+                          className={inputClasses}
+                          placeholder="500"
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Desired Loan Amount (Optional)
+                        </label>
+                        <Info
+                          className="h-4 w-4 text-gray-400 cursor-help"
+                          data-tooltip-id="loan-amount-tooltip"
+                          data-tooltip-content="If you have a specific loan amount in mind, enter it here. Otherwise, we'll calculate based on your monthly payment."
+                        />
+                        <Tooltip id="loan-amount-tooltip" />
+                      </div>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <DollarSign className="h-5 w-5 text-gray-400" />
                         </div>
                         <CurrencyInput
                           name="desiredLoanAmount"
@@ -1090,44 +1259,25 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                           decimalSeparator="."
                           className={inputClasses}
                           placeholder="25,000"
-                          required
                         />
                       </div>
                     </div>
-
+                    
                     <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Vehicle Type*
-                      </label>
-                      <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Car className="h-5 w-5 text-gray-400 group-focus-within:text-[#3BAA75] transition-colors" />
-                        </div>
-                        <select
-                          name="vehicleType"
-                          value={formData.vehicleType}
-                          onChange={handleInputChange}
-                          className={selectClasses}
-                          required
-                        >
-                          <option value="">Select Vehicle Type</option>
-                          <option value="Car">Car</option>
-                          <option value="SUV">SUV</option>
-                          <option value="Truck">Truck</option>
-                          <option value="Van">Van</option>
-                          <option value="Motorcycle">Motorcycle</option>
-                          <option value="Other">Other</option>
-                        </select>
+                      <div className="flex items-center gap-2">
+                        <label className="block text-sm font-medium text-gray-700">
+                          Down Payment Amount (Optional)
+                        </label>
+                        <Info
+                          className="h-4 w-4 text-gray-400 cursor-help"
+                          data-tooltip-id="down-payment-tooltip"
+                          data-tooltip-content="A larger down payment can help secure better rates and lower monthly payments."
+                        />
+                        <Tooltip id="down-payment-tooltip" />
                       </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Down Payment Amount
-                      </label>
-                      <div className="relative group">
+                      <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <DollarSign className="h-5 w-5 text-gray-400 group-focus-within:text-[#3BAA75] transition-colors" />
+                          <DollarSign className="h-5 w-5 text-gray-400" />
                         </div>
                         <CurrencyInput
                           name="downPaymentAmount"
@@ -1137,581 +1287,300 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                           groupSeparator=","
                           decimalSeparator="."
                           className={inputClasses}
-                          placeholder="0"
+                          placeholder="2,000"
                         />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center h-full pt-8">
-                        <input
-                          type="checkbox"
-                          id="hasDriverLicense"
-                          name="hasDriverLicense"
-                          checked={formData.hasDriverLicense}
-                          onChange={(e) => setFormData(prev => ({ ...prev, hasDriverLicense: e.target.checked }))}
-                          className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
-                        />
-                        <label htmlFor="hasDriverLicense" className="ml-2 block text-sm text-gray-700">
-                          I have a valid driver's license
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-gray-200 pt-6">
-                    <div className="space-y-2">
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          id="collectsGovernmentBenefits"
-                          name="collectsGovernmentBenefits"
-                          checked={formData.collectsGovernmentBenefits}
-                          onChange={(e) => setFormData(prev => ({ ...prev, collectsGovernmentBenefits: e.target.checked }))}
-                          className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
-                        />
-                        <label htmlFor="collectsGovernmentBenefits" className="ml-2 block text-sm text-gray-700">
-                          I collect government or disability benefits
-                        </label>
-                      </div>
-                      <p className="text-xs text-gray-500 ml-6">
-                        If checked, we'll ask for details in the next step
-                      </p>
-                    </div>
-
-                    <div className="mt-4 space-y-2">
-                      <div className="flex items-center">
-                        <input
-                          type="checkbox"
-                          id="hasDebtDischargeHistory"
-                          name="hasDebtDischargeHistory"
-                          checked={formData.hasDebtDischargeHistory}
-                          onChange={(e) => setFormData(prev => ({ ...prev, hasDebtDischargeHistory: e.target.checked }))}
-                          className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
-                        />
-                        <label htmlFor="hasDebtDischargeHistory" className="ml-2 block text-sm text-gray-700">
-                          I have a history of bankruptcy, consumer proposal, or debt settlement
-                        </label>
-                      </div>
-                      <p className="text-xs text-gray-500 ml-6">
-                        If checked, we'll ask for details in a later step
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 5: Government & Disability Benefits */}
-              {currentStep === 5 && formData.collectsGovernmentBenefits && (
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                      Government & Disability Benefits
-                    </h2>
-                    <p className="text-gray-600">Tell us about the benefits you receive</p>
-                  </div>
-
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <div className="flex items-start gap-3">
-                      <Info className="h-5 w-5 text-blue-500 mt-0.5" />
-                      <div>
-                        <p className="text-sm text-blue-700">
-                          Select all government or disability benefits you receive and enter the monthly amount for each.
-                        </p>
-                        <p className="text-xs text-blue-600 mt-1">
-                          This information helps us better understand your financial situation and may improve your approval odds.
-                        </p>
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-4">
-                    {GOVERNMENT_PROGRAMS.map((program) => (
-                      <div key={program.id} className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 border border-gray-200 rounded-lg">
-                        <div className="flex items-center flex-1">
-                          <input
-                            type="checkbox"
-                            id={`program-${program.id}`}
-                            checked={formData.selectedPrograms.includes(program.id)}
-                            onChange={(e) => handleProgramSelection(program.id, e.target.checked)}
-                            className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
-                          />
-                          <label htmlFor={`program-${program.id}`} className="ml-2 block text-sm text-gray-700">
-                            {program.name}
-                          </label>
-                        </div>
-                        
-                        {formData.selectedPrograms.includes(program.id) && (
-                          <div className="sm:w-1/3">
-                            <div className="relative">
-                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <DollarSign className="h-5 w-5 text-gray-400" />
-                              </div>
-                              <CurrencyInput
-                                id={`amount-${program.id}`}
-                                value={formData.programAmounts[program.id] || ''}
-                                onValueChange={(value) => handleProgramAmount(program.id, value)}
-                                prefix="$"
-                                groupSeparator=","
-                                decimalSeparator="."
-                                className={inputClasses}
-                                placeholder="Monthly Amount"
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    
-                    {formData.selectedPrograms.includes('other') && (
-                      <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Please specify the other program:
-                        </label>
-                        <input
-                          type="text"
-                          name="otherProgramName"
-                          value={formData.otherProgramName}
-                          onChange={handleInputChange}
-                          className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                          placeholder="Program Name"
-                          required={formData.selectedPrograms.includes('other')}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Step 6: Debt Discharge / Financial Challenges */}
-              {currentStep === 6 && formData.hasDebtDischargeHistory && (
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                      Financial Challenges
-                    </h2>
-                    <p className="text-gray-600">Tell us about your debt discharge history</p>
-                  </div>
-
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <div className="flex items-start gap-3">
-                      <Info className="h-5 w-5 text-blue-500 mt-0.5" />
-                      <div>
-                        <p className="text-sm text-blue-700">
-                          Your honesty helps us find the right financing solution for your situation.
-                        </p>
-                        <p className="text-xs text-blue-600 mt-1">
-                          Many of our lenders work with clients who have had financial challenges in the past.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Type of Debt Discharge*
-                      </label>
-                      <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Shield className="h-5 w-5 text-gray-400 group-focus-within:text-[#3BAA75] transition-colors" />
-                        </div>
-                        <select
-                          name="debtDischargeType"
-                          value={formData.debtDischargeType}
-                          onChange={handleInputChange}
-                          className={selectClasses}
-                          required={formData.hasDebtDischargeHistory}
-                        >
-                          <option value="">Select Type</option>
-                          <option value="bankruptcy">Bankruptcy</option>
-                          <option value="consumer_proposal">Consumer Proposal</option>
-                          <option value="informal_settlement">Informal Settlement</option>
-                          <option value="other">Other</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Year of Debt Discharge*
-                      </label>
-                      <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Calendar className="h-5 w-5 text-gray-400 group-focus-within:text-[#3BAA75] transition-colors" />
-                        </div>
-                        <input
-                          type="number"
-                          name="debtDischargeYear"
-                          value={formData.debtDischargeYear}
-                          onChange={handleInputChange}
-                          min="1900"
-                          max={new Date().getFullYear()}
-                          className={inputClasses}
-                          placeholder={new Date().getFullYear().toString()}
-                          required={formData.hasDebtDischargeHistory}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Current Status*
-                      </label>
-                      <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <FileText className="h-5 w-5 text-gray-400 group-focus-within:text-[#3BAA75] transition-colors" />
-                        </div>
-                        <select
-                          name="debtDischargeStatus"
-                          value={formData.debtDischargeStatus}
-                          onChange={handleInputChange}
-                          className={selectClasses}
-                          required={formData.hasDebtDischargeHistory}
-                        >
-                          <option value="">Select Status</option>
-                          <option value="active">Active / In Progress</option>
-                          <option value="discharged">Discharged / Completed</option>
-                          <option value="not_sure">Not Sure</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 md:col-span-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Additional Comments
-                      </label>
-                      <textarea
-                        name="debtDischargeComments"
-                        value={formData.debtDischargeComments}
+                    <div className="flex items-center">
+                      <input
+                        id="hasDriverLicense"
+                        name="hasDriverLicense"
+                        type="checkbox"
+                        checked={formData.hasDriverLicense}
                         onChange={handleInputChange}
-                        rows={3}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                        placeholder="Any additional details you'd like to share..."
+                        className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
                       />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 7: Contact Preferences */}
-              {currentStep === 7 && (
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                      Contact Preferences
-                    </h2>
-                    <p className="text-gray-600">How would you like us to contact you?</p>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-6">
-                    <div className="space-y-4">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Preferred Contact Method*
+                      <label htmlFor="hasDriverLicense" className="ml-2 block text-sm text-gray-700">
+                        I have a valid driver's license
                       </label>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {[
-                          { id: 'email', label: 'Email', icon: <Mail className="h-5 w-5" /> },
-                          { id: 'phone', label: 'Phone Call', icon: <Phone className="h-5 w-5" /> },
-                          { id: 'sms', label: 'Text Message (SMS)', icon: <MessageSquare className="h-5 w-5" /> }
-                        ].map((method) => (
-                          <div
-                            key={method.id}
-                            className={`
-                              border-2 rounded-lg p-4 cursor-pointer transition-colors
-                              ${formData.preferredContactMethod === method.id
-                                ? 'border-[#3BAA75] bg-[#3BAA75]/5'
-                                : 'border-gray-200 hover:border-[#3BAA75]/50 hover:bg-gray-50'
-                              }
-                            `}
-                            onClick={() => setFormData(prev => ({ ...prev, preferredContactMethod: method.id }))}
-                          >
-                            <div className="flex items-center">
-                              <input
-                                type="radio"
-                                id={`contact-${method.id}`}
-                                name="preferredContactMethod"
-                                value={method.id}
-                                checked={formData.preferredContactMethod === method.id}
-                                onChange={handleInputChange}
-                                className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300"
-                              />
-                              <label htmlFor={`contact-${method.id}`} className="ml-3 flex items-center cursor-pointer">
-                                <span className="mr-2 text-[#3BAA75]">{method.icon}</span>
-                                <span>{method.label}</span>
-                              </label>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
                     </div>
 
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <p className="text-sm text-gray-600">
-                        We respect your privacy and will only contact you regarding your application. 
-                        You can update your contact preferences at any time from your account settings.
-                      </p>
+                    <div className="flex items-center">
+                      <input
+                        id="collectsGovernmentBenefits"
+                        name="collectsGovernmentBenefits"
+                        type="checkbox"
+                        checked={formData.collectsGovernmentBenefits}
+                        onChange={handleInputChange}
+                        className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                      />
+                      <label htmlFor="collectsGovernmentBenefits" className="ml-2 block text-sm text-gray-700">
+                        I collect government benefits
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => toggleSection('governmentBenefits')}
+                        className="ml-2 text-[#3BAA75]"
+                      >
+                        {expandedSections.governmentBenefits ? (
+                          <ChevronUp className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        )}
+                      </button>
                     </div>
+
+                    <AnimatePresence>
+                      {formData.collectsGovernmentBenefits && expandedSections.governmentBenefits && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="pl-6 pt-2">
+                            <div className="space-y-2">
+                              <label className="block text-sm font-medium text-gray-700">
+                                Please specify which programs (Optional)
+                              </label>
+                              <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                  <Accessibility className="h-5 w-5 text-gray-400" />
+                                </div>
+                                <textarea
+                                  name="disabilityPrograms"
+                                  value={formData.disabilityPrograms}
+                                  onChange={handleInputChange}
+                                  className={`${inputClasses} h-20 py-2`}
+                                  placeholder="E.g., ODSP, CPP Disability, etc."
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    <div className="flex items-center">
+                      <input
+                        id="hasDebtDischargeHistory"
+                        name="hasDebtDischargeHistory"
+                        type="checkbox"
+                        checked={formData.hasDebtDischargeHistory}
+                        onChange={handleInputChange}
+                        className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                      />
+                      <label htmlFor="hasDebtDischargeHistory" className="ml-2 block text-sm text-gray-700">
+                        I have a history of bankruptcy, consumer proposal, or debt settlement
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => toggleSection('debtHistory')}
+                        className="ml-2 text-[#3BAA75]"
+                      >
+                        {expandedSections.debtHistory ? (
+                          <ChevronUp className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        )}
+                      </button>
+                    </div>
+
+                    <AnimatePresence>
+                      {formData.hasDebtDischargeHistory && expandedSections.debtHistory && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="pl-6 pt-2 space-y-4">
+                            <div className="space-y-2">
+                              <label className="block text-sm font-medium text-gray-700">
+                                Type
+                              </label>
+                              <div className="grid grid-cols-2 gap-3">
+                                {['bankruptcy', 'consumer_proposal', 'informal_settlement', 'other'].map((type) => (
+                                  <div 
+                                    key={type}
+                                    className={`
+                                      border rounded-lg p-3 text-center cursor-pointer transition-colors
+                                      ${formData.debtDischargeType === type 
+                                        ? 'border-[#3BAA75] bg-[#3BAA75]/5 text-[#3BAA75]' 
+                                        : 'border-gray-200 hover:border-[#3BAA75]/50 text-gray-700'
+                                      }
+                                    `}
+                                    onClick={() => setFormData({...formData, debtDischargeType: type})}
+                                  >
+                                    <span className="capitalize">{type.replace(/_/g, ' ')}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="block text-sm font-medium text-gray-700">
+                                Year
+                              </label>
+                              <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                  <Calendar className="h-5 w-5 text-gray-400" />
+                                </div>
+                                <input
+                                  type="number"
+                                  name="debtDischargeYear"
+                                  value={formData.debtDischargeYear}
+                                  onChange={handleInputChange}
+                                  min="1980"
+                                  max={new Date().getFullYear()}
+                                  className={inputClasses}
+                                  placeholder={new Date().getFullYear().toString()}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="block text-sm font-medium text-gray-700">
+                                Status
+                              </label>
+                              <div className="grid grid-cols-3 gap-3">
+                                {['active', 'discharged', 'not_sure'].map((status) => (
+                                  <div 
+                                    key={status}
+                                    className={`
+                                      border rounded-lg p-3 text-center cursor-pointer transition-colors
+                                      ${formData.debtDischargeStatus === status 
+                                        ? 'border-[#3BAA75] bg-[#3BAA75]/5 text-[#3BAA75]' 
+                                        : 'border-gray-200 hover:border-[#3BAA75]/50 text-gray-700'
+                                      }
+                                    `}
+                                    onClick={() => setFormData({...formData, debtDischargeStatus: status})}
+                                  >
+                                    <span className="capitalize">{status.replace(/_/g, ' ')}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="block text-sm font-medium text-gray-700">
+                                Additional Comments (Optional)
+                              </label>
+                              <div className="relative">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                  <FileText className="h-5 w-5 text-gray-400" />
+                                </div>
+                                <textarea
+                                  name="debtDischargeComments"
+                                  value={formData.debtDischargeComments}
+                                  onChange={handleInputChange}
+                                  className={`${inputClasses} h-20 py-2`}
+                                  placeholder="Any additional details about your situation..."
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 </div>
               )}
 
-              {/* Step 8: Review & Submit */}
-              {currentStep === 8 && (
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                      Review & Submit
-                    </h2>
-                    <p className="text-gray-600">Please review your information before submitting</p>
+              {/* Step 6: Preferences & Consent */}
+              {currentStep === 6 && (
+                <div className="space-y-8">
+                  <h2 className="text-2xl font-semibold text-gray-900 text-center mb-6">
+                    Preferences & Consent
+                  </h2>
+
+                  <div className="space-y-4">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Preferred Contact Method
+                    </label>
+                    <div className="grid grid-cols-3 gap-3">
+                      {[
+                        { value: 'email', icon: <Mail className="h-5 w-5 mx-auto mb-1" />, label: 'Email' },
+                        { value: 'phone', icon: <Phone className="h-5 w-5 mx-auto mb-1" />, label: 'Phone' },
+                        { value: 'sms', icon: <MessageSquare className="h-5 w-5 mx-auto mb-1" />, label: 'SMS' }
+                      ].map((method) => (
+                        <div 
+                          key={method.value}
+                          className={`
+                            border rounded-lg p-3 text-center cursor-pointer transition-colors
+                            ${formData.preferredContactMethod === method.value 
+                              ? 'border-[#3BAA75] bg-[#3BAA75]/5 text-[#3BAA75]' 
+                              : 'border-gray-200 hover:border-[#3BAA75]/50 text-gray-700'
+                            }
+                          `}
+                          onClick={() => setFormData({...formData, preferredContactMethod: method.value})}
+                        >
+                          {method.icon}
+                          <span>{method.label}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
-                  <div className="space-y-6">
-                    {/* Personal Information Summary */}
-                    <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-medium text-gray-900 mb-3 flex items-center">
-                        <User className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                        Personal Information
-                      </h3>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <span className="text-gray-500">Name:</span>
-                          <span className="ml-2 text-gray-900">{formData.firstName} {formData.lastName}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Email:</span>
-                          <span className="ml-2 text-gray-900">{formData.email}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Phone:</span>
-                          <span className="ml-2 text-gray-900">{formData.phone}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Date of Birth:</span>
-                          <span className="ml-2 text-gray-900">{formData.dateOfBirth}</span>
-                        </div>
-                        <div className="col-span-2">
-                          <span className="text-gray-500">Address:</span>
-                          <span className="ml-2 text-gray-900">
-                            {formData.address}, {formData.city}, {formData.province} {formData.postalCode}
-                          </span>
-                        </div>
+                  <div className="space-y-4 bg-gray-50 p-6 rounded-lg">
+                    <div className="flex items-start">
+                      <div className="flex items-center h-5">
+                        <input
+                          id="consentSoftCheck"
+                          name="consentSoftCheck"
+                          type="checkbox"
+                          checked={formData.consentSoftCheck}
+                          onChange={handleInputChange}
+                          className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                          required
+                        />
+                      </div>
+                      <div className="ml-3 text-sm">
+                        <label htmlFor="consentSoftCheck" className="font-medium text-gray-700">
+                          Credit Check Consent
+                        </label>
+                        <p className="text-gray-500">
+                          I consent to Clearpath Motors performing a soft credit check, which will not affect my credit score.
+                        </p>
                       </div>
                     </div>
 
-                    {/* Employment & Income Summary */}
-                    <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-medium text-gray-900 mb-3 flex items-center">
-                        <Briefcase className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                        Employment & Income
-                      </h3>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <span className="text-gray-500">Status:</span>
-                          <span className="ml-2 text-gray-900">
-                            {formData.employmentStatus?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                          </span>
-                        </div>
-                        {formData.employerName && (
-                          <div>
-                            <span className="text-gray-500">Employer:</span>
-                            <span className="ml-2 text-gray-900">{formData.employerName}</span>
-                          </div>
-                        )}
-                        <div>
-                          <span className="text-gray-500">Occupation:</span>
-                          <span className="ml-2 text-gray-900">{formData.occupation}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Duration:</span>
-                          <span className="ml-2 text-gray-900">
-                            {formData.employmentDuration?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Monthly Income:</span>
-                          <span className="ml-2 text-gray-900">{formData.monthlyIncome}</span>
-                        </div>
-                        {formData.otherIncome && (
-                          <div>
-                            <span className="text-gray-500">Other Income:</span>
-                            <span className="ml-2 text-gray-900">{formData.otherIncome}</span>
-                          </div>
-                        )}
+                    <div className="flex items-start">
+                      <div className="flex items-center h-5">
+                        <input
+                          id="termsAccepted"
+                          name="termsAccepted"
+                          type="checkbox"
+                          checked={formData.termsAccepted}
+                          onChange={handleInputChange}
+                          className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                          required
+                        />
+                      </div>
+                      <div className="ml-3 text-sm">
+                        <label htmlFor="termsAccepted" className="font-medium text-gray-700">
+                          Terms & Conditions
+                        </label>
+                        <p className="text-gray-500">
+                          I agree to the <Link to="/terms" className="text-[#3BAA75] hover:underline" target="_blank">Terms of Service</Link> and <Link to="/privacy" className="text-[#3BAA75] hover:underline" target="_blank">Privacy Policy</Link>.
+                        </p>
                       </div>
                     </div>
+                  </div>
 
-                    {/* Housing Summary */}
-                    <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-medium text-gray-900 mb-3 flex items-center">
-                        <Home className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                        Housing Information
-                      </h3>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <span className="text-gray-500">Status:</span>
-                          <span className="ml-2 text-gray-900">
-                            {formData.housingStatus?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Monthly Payment:</span>
-                          <span className="ml-2 text-gray-900">{formData.housingPayment}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Duration at Address:</span>
-                          <span className="ml-2 text-gray-900">
-                            {formData.residenceDuration?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                          </span>
-                        </div>
+                  <div className="bg-[#3BAA75]/5 p-6 rounded-lg border border-[#3BAA75]/20">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 mt-1">
+                        <Shield className="h-6 w-6 text-[#3BAA75]" />
                       </div>
-                    </div>
-
-                    {/* Financing Details Summary */}
-                    <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-medium text-gray-900 mb-3 flex items-center">
-                        <Car className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                        Financing Details
-                      </h3>
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <span className="text-gray-500">Loan Amount:</span>
-                          <span className="ml-2 text-gray-900">{formData.desiredLoanAmount}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Vehicle Type:</span>
-                          <span className="ml-2 text-gray-900">{formData.vehicleType}</span>
-                        </div>
-                        {formData.downPaymentAmount && (
-                          <div>
-                            <span className="text-gray-500">Down Payment:</span>
-                            <span className="ml-2 text-gray-900">{formData.downPaymentAmount}</span>
-                          </div>
-                        )}
-                        <div>
-                          <span className="text-gray-500">Driver's License:</span>
-                          <span className="ml-2 text-gray-900">{formData.hasDriverLicense ? 'Yes' : 'No'}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Government Benefits Summary (if applicable) */}
-                    {formData.collectsGovernmentBenefits && formData.selectedPrograms.length > 0 && (
-                      <div className="border border-gray-200 rounded-lg p-4 bg-green-50">
-                        <h3 className="font-medium text-gray-900 mb-3 flex items-center">
-                          <CheckCircle className="h-5 w-5 mr-2 text-green-500" />
-                          Government Benefits
-                        </h3>
-                        <div className="space-y-2 text-sm">
-                          {formData.selectedPrograms.map(programId => {
-                            const program = GOVERNMENT_PROGRAMS.find(p => p.id === programId);
-                            return (
-                              <div key={programId} className="flex justify-between">
-                                <span className="text-gray-700">
-                                  {programId === 'other' ? formData.otherProgramName : program?.name}:
-                                </span>
-                                <span className="font-medium">{formData.programAmounts[programId]}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Debt Discharge Summary (if applicable) */}
-                    {formData.hasDebtDischargeHistory && (
-                      <div className="border border-gray-200 rounded-lg p-4 bg-amber-50">
-                        <h3 className="font-medium text-gray-900 mb-3 flex items-center">
-                          <AlertCircle className="h-5 w-5 mr-2 text-amber-500" />
-                          Financial Challenges
-                        </h3>
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                          <div>
-                            <span className="text-gray-700">Type:</span>
-                            <span className="ml-2 text-gray-900">
-                              {formData.debtDischargeType?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-gray-700">Year:</span>
-                            <span className="ml-2 text-gray-900">{formData.debtDischargeYear}</span>
-                          </div>
-                          <div>
-                            <span className="text-gray-700">Status:</span>
-                            <span className="ml-2 text-gray-900">
-                              {formData.debtDischargeStatus?.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                            </span>
-                          </div>
-                          {formData.debtDischargeComments && (
-                            <div className="col-span-2">
-                              <span className="text-gray-700">Comments:</span>
-                              <span className="ml-2 text-gray-900">{formData.debtDischargeComments}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Contact Preferences Summary */}
-                    <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-medium text-gray-900 mb-3 flex items-center">
-                        <Phone className="h-5 w-5 mr-2 text-[#3BAA75]" />
-                        Contact Preferences
-                      </h3>
-                      <div className="text-sm">
-                        <span className="text-gray-500">Preferred Method:</span>
-                        <span className="ml-2 text-gray-900">
-                          {formData.preferredContactMethod === 'email' ? 'Email' : 
-                           formData.preferredContactMethod === 'phone' ? 'Phone Call' : 'Text Message (SMS)'}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Consent & Agreements */}
-                    <div className="space-y-4 pt-4">
-                      <div className="flex items-start">
-                        <div className="flex items-center h-5">
-                          <input
-                            id="consentSoftCheck"
-                            name="consentSoftCheck"
-                            type="checkbox"
-                            checked={formData.consentSoftCheck}
-                            onChange={(e) => setFormData(prev => ({ ...prev, consentSoftCheck: e.target.checked }))}
-                            className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
-                            required
-                          />
-                        </div>
-                        <div className="ml-3 text-sm">
-                          <label htmlFor="consentSoftCheck" className="font-medium text-gray-700">
-                            Consent to Soft Credit Check
-                          </label>
-                          <p className="text-gray-500">
-                            I authorize Clearpath Motors to perform a soft credit check, which will not affect my credit score,
-                            to determine my pre-qualification status.
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-start">
-                        <div className="flex items-center h-5">
-                          <input
-                            id="termsAccepted"
-                            name="termsAccepted"
-                            type="checkbox"
-                            checked={formData.termsAccepted}
-                            onChange={(e) => setFormData(prev => ({ ...prev, termsAccepted: e.target.checked }))}
-                            className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
-                            required
-                          />
-                        </div>
-                        <div className="ml-3 text-sm">
-                          <label htmlFor="termsAccepted" className="font-medium text-gray-700">
-                            Terms & Conditions
-                          </label>
-                          <p className="text-gray-500">
-                            I have read and agree to the <a href="/terms" target="_blank" className="text-[#3BAA75] hover:underline">Terms of Service</a> and <a href="/privacy" target="_blank" className="text-[#3BAA75] hover:underline">Privacy Policy</a>.
-                          </p>
-                        </div>
+                      <div>
+                        <h3 className="text-lg font-medium text-gray-900">Your Information is Secure</h3>
+                        <p className="mt-1 text-sm text-gray-600">
+                          We use bank-level encryption to protect your personal information. Your data is never sold to third parties and is only used to process your application.
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1725,14 +1594,13 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
               <button
                 type="button"
                 onClick={prevStep}
-                className="flex items-center px-6 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                className="px-6 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
               >
-                <ChevronLeft className="h-5 w-5 mr-1" />
                 Back
               </button>
             )}
             
-            {currentStep < totalSteps ? (
+            {currentStep < 6 ? (
               <motion.button
                 type="button"
                 onClick={nextStep}
