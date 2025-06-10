@@ -77,6 +77,7 @@ Deno.serve(async (req) => {
       role: 'user',
       content: userMessage,
       timestamp: new Date().toISOString(),
+      status: 'sent'
     };
 
     const newAssistantMessage = {
@@ -84,6 +85,7 @@ Deno.serve(async (req) => {
       role: 'assistant',
       content: response,
       timestamp: new Date().toISOString(),
+      status: 'sent'
     };
 
     const messages = existingChat?.messages || [];
