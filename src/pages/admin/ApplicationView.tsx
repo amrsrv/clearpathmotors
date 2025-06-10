@@ -37,7 +37,8 @@ import {
   Key,
   Home,
   Heart,
-  HelpCircle
+  HelpCircle,
+  Building
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
