@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
 import { useDocumentUpload } from '../hooks/useDocumentUpload';
+import { MapPin } from 'lucide-react';
 import { 
   FileText, 
   Clock, 
