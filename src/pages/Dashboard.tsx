@@ -43,6 +43,7 @@ import { AppointmentScheduler } from '../components/AppointmentScheduler';
 import toast from 'react-hot-toast';
 import { DocumentManager } from '../components/DocumentManager';
 import { UserMessageCenter } from '../components/UserMessageCenter';
+import { ApplicationCard } from '../components/ApplicationCard';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -79,73 +80,167 @@ const Dashboard = () => {
     }
   }, [user, authLoading]);
 
+  // Set up real-time subscription for all user applications
   useEffect(() => {
-    if (!selectedApplication?.id || !user?.id) return;
+    if (!user?.id) return;
 
-    // Set up real-time subscription for application updates
+    // Set up real-time subscription for application changes
     const applicationsChannel = supabase
-      .channel('application-updates')
+      .channel('user-applications-changes')
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: '*',
           schema: 'public',
           table: 'applications',
-          filter: `id=eq.${selectedApplication.id}`
+          filter: `user_id=eq.${user.id}`
         },
         async (payload) => {
-          console.log('Application update received:', payload);
+          console.log('Applications change received:', payload);
           
-          const oldStatus = selectedApplication.status;
-          const newStatus = payload.new.status;
-          const oldStage = selectedApplication.current_stage;
-          const newStage = payload.new.current_stage;
-          
-          // Update application state with new data
-          setSelectedApplication(payload.new as Application);
-          
-          // Update applications list
-          setApplications(prev => 
-            prev.map(app => app.id === payload.new.id ? payload.new as Application : app)
-          );
-          
-          // Reload stages and documents to ensure consistency
-          await loadStages(selectedApplication.id);
-          await loadDocuments(selectedApplication.id);
-          
-          // Create notification for status change
-          if (oldStatus !== newStatus) {
-            await createNotification(
-              `Application Status Updated`,
-              `Your application status has been updated from ${formatStatus(oldStatus)} to ${formatStatus(newStatus)}.`
+          if (payload.eventType === 'INSERT') {
+            // Add new application to the list
+            const newApplication = payload.new as Application;
+            setApplications(prev => [newApplication, ...prev]);
+            
+            // If this is the first application, set it as selected
+            if (applications.length === 0) {
+              setSelectedApplication(newApplication);
+              await loadStages(newApplication.id);
+              await loadDocuments(newApplication.id);
+              updatePrequalificationData(newApplication);
+            }
+            
+            // Update summary stats
+            await loadSummaryStats();
+            
+            toast.success('New application created');
+          } else if (payload.eventType === 'UPDATE') {
+            // Update the application in the list
+            setApplications(prev => 
+              prev.map(app => app.id === payload.new.id ? payload.new as Application : app)
             );
             
-            toast.success(`Application status updated to ${formatStatus(newStatus)}`);
-          }
-          
-          // Create notification for stage change
-          if (oldStage !== newStage) {
-            await createNotification(
-              `Application Stage Advanced`,
-              `Your application has moved to stage ${newStage} of 7.`
-            );
+            // If this is the selected application, update it
+            if (selectedApplication?.id === payload.new.id) {
+              const oldStatus = selectedApplication.status;
+              const newStatus = payload.new.status;
+              const oldStage = selectedApplication.current_stage;
+              const newStage = payload.new.current_stage;
+              
+              setSelectedApplication(payload.new as Application);
+              
+              // Create notification for status change
+              if (oldStatus !== newStatus) {
+                await createNotification(
+                  `Application Status Updated`,
+                  `Your application status has been updated from ${formatStatus(oldStatus)} to ${formatStatus(newStatus)}.`
+                );
+                
+                toast.success(`Application status updated to ${formatStatus(newStatus)}`);
+              }
+              
+              // Create notification for stage change
+              if (oldStage !== newStage) {
+                await createNotification(
+                  `Application Stage Advanced`,
+                  `Your application has moved to stage ${newStage} of 7.`
+                );
+                
+                toast.success(`Application advanced to stage ${newStage}`);
+              }
+              
+              // Update prequalification data if relevant fields changed
+              if (
+                payload.new.loan_amount_min !== selectedApplication.loan_amount_min ||
+                payload.new.loan_amount_max !== selectedApplication.loan_amount_max ||
+                payload.new.interest_rate !== selectedApplication.interest_rate ||
+                payload.new.loan_term !== selectedApplication.loan_term ||
+                payload.new.desired_monthly_payment !== selectedApplication.desired_monthly_payment
+              ) {
+                updatePrequalificationData(payload.new as Application);
+              }
+            }
+          } else if (payload.eventType === 'DELETE') {
+            // Remove the application from the list
+            setApplications(prev => prev.filter(app => app.id !== payload.old.id));
             
-            toast.success(`Application advanced to stage ${newStage}`);
-          }
-          
-          // Update prequalification data if relevant fields changed
-          if (
-            payload.new.loan_amount_min !== selectedApplication.loan_amount_min ||
-            payload.new.loan_amount_max !== selectedApplication.loan_amount_max ||
-            payload.new.interest_rate !== selectedApplication.interest_rate ||
-            payload.new.loan_term !== selectedApplication.loan_term ||
-            payload.new.desired_monthly_payment !== selectedApplication.desired_monthly_payment
-          ) {
-            updatePrequalificationData(payload.new as Application);
+            // If this was the selected application, select another one
+            if (selectedApplication?.id === payload.old.id) {
+              const remainingApplications = applications.filter(app => app.id !== payload.old.id);
+              if (remainingApplications.length > 0) {
+                const newSelectedApp = remainingApplications[0];
+                setSelectedApplication(newSelectedApp);
+                await loadStages(newSelectedApp.id);
+                await loadDocuments(newSelectedApp.id);
+                updatePrequalificationData(newSelectedApp);
+              } else {
+                // No applications left, redirect to create one
+                navigate('/get-prequalified');
+              }
+            }
+            
+            // Update summary stats
+            await loadSummaryStats();
           }
         }
       )
       .subscribe();
+
+    // Set up real-time subscription for notifications
+    const notificationsChannel = supabase
+      .channel('notifications-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`
+        },
+        async (payload) => {
+          console.log('Notification change received:', payload);
+          
+          // Reload notifications to get the latest state
+          await loadNotifications(user.id);
+          
+          // Update summary stats
+          await loadSummaryStats();
+        }
+      )
+      .subscribe();
+
+    // Set up real-time subscription for admin messages
+    const messagesChannel = supabase
+      .channel('admin-messages-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'admin_messages',
+          filter: `user_id=eq.${user.id}`
+        },
+        async () => {
+          // Update unread messages count
+          await loadSummaryStats();
+          
+          // Show toast notification for new message
+          toast.success('You have a new message from support');
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(applicationsChannel);
+      supabase.removeChannel(notificationsChannel);
+      supabase.removeChannel(messagesChannel);
+    };
+  }, [user?.id]);
+
+  // Set up real-time subscription for selected application details
+  useEffect(() => {
+    if (!selectedApplication?.id || !user?.id) return;
 
     // Set up real-time subscription for documents
     const documentsChannel = supabase
@@ -196,29 +291,6 @@ const Dashboard = () => {
       )
       .subscribe();
 
-    // Set up real-time subscription for notifications
-    const notificationsChannel = supabase
-      .channel('notifications-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`
-        },
-        async (payload) => {
-          console.log('Notification change received:', payload);
-          
-          // Reload notifications to get the latest state
-          await loadNotifications(user.id);
-          
-          // Update summary stats
-          await loadSummaryStats();
-        }
-      )
-      .subscribe();
-
     // Set up real-time subscription for application stages
     const stagesChannel = supabase
       .channel('stages-changes')
@@ -252,33 +324,9 @@ const Dashboard = () => {
       )
       .subscribe();
 
-    // Set up real-time subscription for admin messages
-    const messagesChannel = supabase
-      .channel('admin-messages-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'admin_messages',
-          filter: `user_id=eq.${user.id}`
-        },
-        async () => {
-          // Update unread messages count
-          await loadSummaryStats();
-          
-          // Show toast notification for new message
-          toast.success('You have a new message from support');
-        }
-      )
-      .subscribe();
-
     return () => {
-      supabase.removeChannel(applicationsChannel);
       supabase.removeChannel(documentsChannel);
-      supabase.removeChannel(notificationsChannel);
       supabase.removeChannel(stagesChannel);
-      supabase.removeChannel(messagesChannel);
     };
   }, [selectedApplication?.id, user?.id]);
 
@@ -309,7 +357,7 @@ const Dashboard = () => {
     try {
       if (!user) return;
 
-      // Load applications data
+      // Load applications data - get ALL applications for this user
       const { data: applicationsData, error: applicationsError } = await supabase
         .from('applications')
         .select('*')
@@ -652,74 +700,12 @@ const Dashboard = () => {
           
           <div className="space-y-4">
             {applications.map((application) => (
-              <div 
+              <ApplicationCard
                 key={application.id}
-                className={`
-                  border-2 rounded-lg p-4 cursor-pointer transition-colors
-                  ${selectedApplication?.id === application.id 
-                    ? 'border-[#3BAA75] bg-[#3BAA75]/5' 
-                    : 'border-gray-200 hover:border-[#3BAA75]/50 hover:bg-gray-50'
-                  }
-                `}
+                application={application}
+                isSelected={selectedApplication?.id === application.id}
                 onClick={() => handleSelectApplication(application)}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {application.status === 'pre_approved' && <PreQualifiedBadge />}
-                    <div>
-                      <h3 className="font-medium text-lg">
-                        {application.vehicle_type || 'Vehicle'} Financing
-                      </h3>
-                      <p className="text-sm text-gray-500">
-                        Application #{application.id.slice(0, 8)} • Created {format(new Date(application.created_at), 'MMM d, yyyy')}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <span className={`
-                      px-2 py-1 text-xs font-medium rounded-full
-                      ${application.status === 'pre_approved' ? 'bg-green-100 text-green-700' : 
-                        application.status === 'under_review' ? 'bg-yellow-100 text-yellow-700' :
-                        application.status === 'pending_documents' ? 'bg-orange-100 text-orange-700' :
-                        application.status === 'finalized' ? 'bg-blue-100 text-blue-700' :
-                        'bg-gray-100 text-gray-700'}
-                    `}>
-                      {formatStatus(application.status)}
-                    </span>
-                    <span className="text-xs text-gray-500 mt-1">
-                      Stage {application.current_stage}/7
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-3 gap-4 mt-4">
-                  <div className="flex flex-col">
-                    <span className="text-xs text-gray-500">Loan Amount</span>
-                    <span className="font-medium">
-                      ${application.loan_amount_min?.toLocaleString()} - ${application.loan_amount_max?.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-xs text-gray-500">Monthly Payment</span>
-                    <span className="font-medium">
-                      ${application.desired_monthly_payment?.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-xs text-gray-500">Interest Rate</span>
-                    <span className="font-medium">
-                      {application.interest_rate}%
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="flex justify-end mt-4">
-                  <button className="flex items-center text-[#3BAA75] hover:text-[#2D8259] text-sm font-medium">
-                    <Eye className="h-4 w-4 mr-1" />
-                    View Details
-                  </button>
-                </div>
-              </div>
+              />
             ))}
           </div>
         </div>
