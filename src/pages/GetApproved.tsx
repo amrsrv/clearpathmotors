@@ -26,8 +26,7 @@ import {
   BellRing, 
   Shield, 
   ChevronDown, 
-  ChevronUp,
-  MessageSquare
+  ChevronUp 
 } from 'lucide-react';
 import { Tooltip } from 'react-tooltip';
 import CurrencyInput from 'react-currency-input-field';
