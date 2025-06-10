@@ -49,6 +49,38 @@ Deno.serve(async (req) => {
       'time': 'The entire process from application to driving away in your new car can be as quick as 24-48 hours, depending on how quickly you provide the required documents and select your vehicle.',
     };
 
+    // Get or create chat
+    const { data: existingChat, error: fetchError } = await supabase
+      .from('chats')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (fetchError) {
+      console.error('Error fetching chat:', fetchError);
+      throw fetchError;
+    }
+
+    let chatId: string;
+    
+    if (existingChat) {
+      chatId = existingChat.id;
+    } else {
+      // Create a new chat
+      const { data: newChat, error: createError } = await supabase
+        .from('chats')
+        .insert({ user_id: userId })
+        .select('id')
+        .single();
+        
+      if (createError) {
+        console.error('Error creating chat:', createError);
+        throw createError;
+      }
+      
+      chatId = newChat.id;
+    }
+
     // Process the message and generate a response
     let response = "I'm not sure how to respond to that. Could you please ask about our auto financing options, application process, or required documents?";
     
@@ -61,43 +93,36 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Save the conversation to the database
-    const { data: existingChat, error: fetchError } = await supabase
-      .from('chats')
-      .select('messages')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (fetchError) {
-      console.error('Error fetching chat:', fetchError);
-    }
-
-    const newUserMessage = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: userMessage,
-      timestamp: new Date().toISOString(),
-    };
-
-    const newAssistantMessage = {
-      id: crypto.randomUUID(),
-      role: 'assistant',
-      content: response,
-      timestamp: new Date().toISOString(),
-    };
-
-    const messages = existingChat?.messages || [];
-    const updatedMessages = [...messages, newUserMessage, newAssistantMessage];
-
-    const { error: upsertError } = await supabase
-      .from('chats')
-      .upsert({
+    // Insert user message
+    const { error: userMsgError } = await supabase
+      .from('chat_messages')
+      .insert({
+        chat_id: chatId,
         user_id: userId,
-        messages: updatedMessages,
+        role: 'user',
+        content: userMessage,
+        read: true
       });
 
-    if (upsertError) {
-      console.error('Error saving chat:', upsertError);
+    if (userMsgError) {
+      console.error('Error saving user message:', userMsgError);
+      throw userMsgError;
+    }
+
+    // Insert assistant response
+    const { error: assistantMsgError } = await supabase
+      .from('chat_messages')
+      .insert({
+        chat_id: chatId,
+        user_id: userId,
+        role: 'assistant',
+        content: response,
+        read: false
+      });
+
+    if (assistantMsgError) {
+      console.error('Error saving assistant message:', assistantMsgError);
+      throw assistantMsgError;
     }
 
     return new Response(

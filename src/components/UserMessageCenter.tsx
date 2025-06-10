@@ -65,6 +65,11 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({ userId, ap
             if ((payload.new as Message).is_admin) {
               markMessageAsRead(payload.new.id);
             }
+            
+            // Scroll to bottom
+            if (messagesEndRef.current) {
+              messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+            }
           }
         }
       )

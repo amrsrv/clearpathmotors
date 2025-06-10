@@ -9,8 +9,8 @@ interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  timestamp: string;
-  status?: 'sending' | 'sent' | 'read' | 'error';
+  created_at: string;
+  read: boolean;
   attachments?: string[];
 }
 
@@ -64,7 +64,7 @@ export const ChatWidget = () => {
   useEffect(() => {
     if (!isOpen && user) {
       const unreadMessages = messages.filter(
-        msg => msg.role === 'assistant' && msg.status !== 'read'
+        msg => msg.role === 'assistant' && !msg.read
       );
       setUnreadCount(unreadMessages.length);
     } else {
@@ -72,17 +72,52 @@ export const ChatWidget = () => {
       
       // Mark messages as read when chat is opened
       if (isOpen && messages.length > 0 && chatId) {
-        const updatedMessages = messages.map(msg => 
-          msg.role === 'assistant' && msg.status !== 'read' 
-            ? { ...msg, status: 'read' as const } 
-            : msg
-        );
-        
-        setMessages(updatedMessages);
-        saveMessages(updatedMessages);
+        const unreadMessageIds = messages
+          .filter(msg => msg.role === 'assistant' && !msg.read)
+          .map(msg => msg.id);
+          
+        if (unreadMessageIds.length > 0) {
+          markMessagesAsRead(unreadMessageIds);
+        }
       }
     }
   }, [isOpen, messages, user, chatId]);
+
+  // Set up real-time subscription for new messages
+  useEffect(() => {
+    if (!user || !chatId) return;
+    
+    const messagesChannel = supabase
+      .channel('chat-messages')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `chat_id=eq.${chatId}`
+        },
+        (payload) => {
+          const newMessage = payload.new as Message;
+          setMessages(prev => [...prev, newMessage]);
+          
+          // If the chat is open and the message is from the assistant, mark it as read
+          if (isOpen && newMessage.role === 'assistant' && !newMessage.read) {
+            markMessagesAsRead([newMessage.id]);
+          }
+          
+          // Stop typing indicator if this is an assistant message
+          if (newMessage.role === 'assistant') {
+            setIsTyping(false);
+          }
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(messagesChannel);
+    };
+  }, [chatId, user, isOpen]);
 
   const loadChatHistory = async () => {
     if (!user) return;
@@ -91,36 +126,26 @@ export const ChatWidget = () => {
       setIsLoading(true);
       
       // Check if user has an existing chat
-      const { data, error } = await supabase
+      const { data: chatData, error: chatError } = await supabase
         .from('chats')
-        .select('*')
+        .select('id')
         .eq('user_id', user.id)
         .maybeSingle();
 
-      if (error) {
-        console.error('Error loading chat history:', error);
+      if (chatError) {
+        console.error('Error loading chat:', chatError);
         return;
       }
 
-      if (data) {
-        setChatId(data.id);
-        setMessages(data.messages || []);
+      let currentChatId: string;
+
+      if (chatData) {
+        currentChatId = chatData.id;
       } else {
         // Create a new chat for the user
         const { data: newChat, error: createError } = await supabase
           .from('chats')
-          .insert({ 
-            user_id: user.id,
-            messages: [
-              {
-                id: uuidv4(),
-                role: 'assistant',
-                content: 'Hello! How can I help you with your auto financing needs today?',
-                timestamp: new Date().toISOString(),
-                status: 'sent'
-              }
-            ]
-          })
+          .insert({ user_id: user.id })
           .select()
           .single();
 
@@ -129,9 +154,35 @@ export const ChatWidget = () => {
           return;
         }
 
-        setChatId(newChat.id);
-        setMessages(newChat.messages || []);
+        currentChatId = newChat.id;
+        
+        // Add welcome message
+        await supabase
+          .from('chat_messages')
+          .insert({
+            chat_id: currentChatId,
+            user_id: user.id,
+            role: 'assistant',
+            content: 'Hello! How can I help you with your auto financing needs today?',
+            read: false
+          });
       }
+
+      setChatId(currentChatId);
+      
+      // Load messages for this chat
+      const { data: messagesData, error: messagesError } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('chat_id', currentChatId)
+        .order('created_at', { ascending: true });
+        
+      if (messagesError) {
+        console.error('Error loading messages:', messagesError);
+        return;
+      }
+      
+      setMessages(messagesData || []);
     } catch (error) {
       console.error('Error loading chat history:', error);
     } finally {
@@ -139,55 +190,40 @@ export const ChatWidget = () => {
     }
   };
 
-  const saveMessages = async (updatedMessages: Message[]) => {
-    if (!user || !chatId) return;
-
+  const markMessagesAsRead = async (messageIds: string[]) => {
+    if (!messageIds.length) return;
+    
     try {
       const { error } = await supabase
-        .from('chats')
-        .update({ messages: updatedMessages })
-        .eq('id', chatId);
-
+        .from('chat_messages')
+        .update({ read: true })
+        .in('id', messageIds);
+        
       if (error) {
-        console.error('Error saving messages:', error);
+        console.error('Error marking messages as read:', error);
+        return;
       }
+      
+      // Update local state
+      setMessages(prev => 
+        prev.map(msg => 
+          messageIds.includes(msg.id) ? { ...msg, read: true } : msg
+        )
+      );
     } catch (error) {
-      console.error('Error saving messages:', error);
+      console.error('Error marking messages as read:', error);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim() || !user) return;
+    if (!message.trim() || !user || !chatId) return;
 
-    // Generate a unique ID for this message
-    const messageId = uuidv4();
-
-    const userMessage: Message = {
-      id: messageId,
-      role: 'user',
-      content: message,
-      timestamp: new Date().toISOString(),
-      status: 'sending'
-    };
-
-    // Update UI immediately
-    const updatedMessages = [...messages, userMessage];
-    setMessages(updatedMessages);
+    // Clear input and show typing indicator
     setMessage('');
     setIsTyping(true);
 
-    // Save to database
-    await saveMessages(updatedMessages);
-
     try {
-      // Update message status to sent
-      const sentMessages = updatedMessages.map(msg => 
-        msg.id === messageId ? { ...msg, status: 'sent' as const } : msg
-      );
-      setMessages(sentMessages);
-      await saveMessages(sentMessages);
-
       // Call the chatbot API
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chatbot`, {
         method: 'POST',
@@ -205,45 +241,32 @@ export const ChatWidget = () => {
         throw new Error('Failed to get response from chatbot');
       }
 
-      const data = await response.json();
-      
-      // Simulate typing delay for a more natural feel
-      setTimeout(() => {
-        setIsTyping(false);
-        
-        const aiResponse: Message = {
-          id: uuidv4(),
-          role: 'assistant',
-          content: data.response || getAIResponse(message),
-          timestamp: new Date().toISOString(),
-          status: 'sent'
-        };
-        
-        const finalMessages = [...sentMessages, aiResponse];
-        setMessages(finalMessages);
-        saveMessages(finalMessages);
-      }, 1000 + Math.random() * 1000); // Random delay between 1-2 seconds
+      // The messages will be added via the real-time subscription
     } catch (error) {
       console.error('Error getting AI response:', error);
       setIsTyping(false);
       
-      // Update message status to error
-      const errorMessages = updatedMessages.map(msg => 
-        msg.id === messageId ? { ...msg, status: 'error' as const } : msg
-      );
-      
       // Add error message
-      const errorResponse: Message = {
+      const errorMessage: Message = {
         id: uuidv4(),
         role: 'assistant',
         content: "I'm sorry, I couldn't process your message. Please try again later.",
-        timestamp: new Date().toISOString(),
-        status: 'sent'
+        created_at: new Date().toISOString(),
+        read: false
       };
       
-      const finalMessages = [...errorMessages, errorResponse];
-      setMessages(finalMessages);
-      saveMessages(finalMessages);
+      setMessages(prev => [...prev, errorMessage]);
+      
+      // Save error message to database
+      await supabase
+        .from('chat_messages')
+        .insert({
+          chat_id: chatId,
+          user_id: user.id,
+          role: 'assistant',
+          content: errorMessage.content,
+          read: false
+        });
     }
   };
 
@@ -256,23 +279,21 @@ export const ChatWidget = () => {
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
+    if (e.target.files && e.target.files.length > 0 && chatId) {
       // Handle file upload logic here
       // For now, just acknowledge the upload
       const fileName = e.target.files[0].name;
       
-      const userMessage: Message = {
-        id: uuidv4(),
-        role: 'user',
-        content: `Attached file: ${fileName}`,
-        timestamp: new Date().toISOString(),
-        status: 'sent',
-        attachments: [fileName]
-      };
-      
-      const updatedMessages = [...messages, userMessage];
-      setMessages(updatedMessages);
-      saveMessages(updatedMessages);
+      // Insert a message about the file
+      supabase
+        .from('chat_messages')
+        .insert({
+          chat_id: chatId,
+          user_id: user?.id,
+          role: 'user',
+          content: `Attached file: ${fileName}`,
+          read: true
+        });
       
       // Reset file input
       if (fileInputRef.current) {
@@ -284,38 +305,16 @@ export const ChatWidget = () => {
       
       // Simulate AI response
       setTimeout(() => {
-        const aiResponse: Message = {
-          id: uuidv4(),
-          role: 'assistant',
-          content: "I've received your file. Our team will review it shortly. Is there anything else you'd like to discuss about your auto financing?",
-          timestamp: new Date().toISOString(),
-          status: 'sent'
-        };
-        
-        const finalMessages = [...updatedMessages, aiResponse];
-        setMessages(finalMessages);
-        saveMessages(finalMessages);
+        supabase
+          .from('chat_messages')
+          .insert({
+            chat_id: chatId,
+            user_id: user?.id,
+            role: 'assistant',
+            content: "I've received your file. Our team will review it shortly. Is there anything else you'd like to discuss about your auto financing?",
+            read: false
+          });
       }, 1500);
-    }
-  };
-
-  const getAIResponse = (userMessage: string): string => {
-    const lowerCaseMessage = userMessage.toLowerCase();
-    
-    if (lowerCaseMessage.includes('hello') || lowerCaseMessage.includes('hi')) {
-      return "Hello! How can I help you with your auto financing needs today?";
-    } else if (lowerCaseMessage.includes('rate') || lowerCaseMessage.includes('interest')) {
-      return "Our interest rates start at 4.99% for qualified applicants. The exact rate depends on your credit score, income, and other factors. Would you like to get pre-qualified to see your personalized rate?";
-    } else if (lowerCaseMessage.includes('document') || lowerCaseMessage.includes('upload')) {
-      return "You can upload your documents through your dashboard after creating an account. We typically need proof of ID, income verification, and proof of residence. Is there a specific document you have questions about?";
-    } else if (lowerCaseMessage.includes('credit') || lowerCaseMessage.includes('score')) {
-      return "We work with all credit situations! Even if you have bad credit or no credit history, we have special programs designed to help you get approved. Would you like to learn more about our bad credit auto loans?";
-    } else if (lowerCaseMessage.includes('approve') || lowerCaseMessage.includes('qualify')) {
-      return "Our pre-qualification process takes just 30 seconds and has no impact on your credit score. Click the 'Get Started' button at the top of the page to begin your application.";
-    } else if (lowerCaseMessage.includes('contact') || lowerCaseMessage.includes('speak') || lowerCaseMessage.includes('call')) {
-      return "You can reach our customer support team at (647) 451-3830 or email us at info@clearpathmotors.com. Our office hours are Monday to Friday, 9AM to 6PM EST.";
-    } else {
-      return "Thank you for your message. To better assist you, would you like to speak with one of our financing specialists? You can schedule a consultation through your dashboard or call us directly at (647) 451-3830.";
     }
   };
 
@@ -345,7 +344,7 @@ export const ChatWidget = () => {
 
   // Group messages by date
   const groupedMessages = messages.reduce((groups, message) => {
-    const date = formatDate(message.timestamp);
+    const date = formatDate(message.created_at);
     if (!groups[date]) {
       groups[date] = [];
     }
@@ -484,18 +483,15 @@ export const ChatWidget = () => {
                                   <div className={`text-xs mt-1 flex items-center justify-end gap-1
                                     ${msg.role === 'user' ? 'text-white/70' : 'text-gray-400'}
                                   `}>
-                                    {formatTime(msg.timestamp)}
-                                    {msg.role === 'user' && msg.status && (
+                                    {formatTime(msg.created_at)}
+                                    {msg.role === 'user' && (
                                       <span className="ml-1">
-                                        {msg.status === 'sending' && <Loader2 className="h-3 w-3 animate-spin" />}
-                                        {msg.status === 'sent' && <Check className="h-3 w-3" />}
-                                        {msg.status === 'read' && (
-                                          <div className="relative">
-                                            <Check className="h-3 w-3 absolute" />
-                                            <Check className="h-3 w-3 ml-0.5" />
-                                          </div>
-                                        )}
-                                        {msg.status === 'error' && <X className="h-3 w-3 text-red-500" />}
+                                        <Check className="h-3 w-3" />
+                                      </span>
+                                    )}
+                                    {msg.role === 'assistant' && msg.read && (
+                                      <span className="ml-1">
+                                        <Check className="h-3 w-3" />
                                       </span>
                                     )}
                                   </div>
@@ -575,6 +571,12 @@ export const ChatWidget = () => {
                         placeholder="Type your message..."
                         className="flex-1 border rounded-full px-4 py-2 focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent text-sm"
                         disabled={!user || isLoading}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSubmit(e);
+                          }
+                        }}
                       />
                       
                       <button
@@ -588,7 +590,7 @@ export const ChatWidget = () => {
                       
                       <button
                         type="submit"
-                        disabled={!user || isLoading || !message.trim()}
+                        disabled={!user || isLoading || !message.trim() || isTyping}
                         className="p-2 bg-[#3BAA75] text-white rounded-full hover:bg-[#2D8259] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         aria-label="Send message"
                       >
