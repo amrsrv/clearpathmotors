@@ -16,9 +16,9 @@ export const PreQualifiedBadge = () => {
       className="relative inline-flex"
     >
       {/* Main badge */}
-      <div className="bg-gradient-to-r from-[#2A7A5B] to-[#3BAA75] px-4 sm:px-6 py-2.5 rounded-full flex items-center gap-2.5 shadow-lg relative z-10">
+      <div className="bg-gradient-to-r from-[#2A7A5B] to-[#3BAA75] px-3 sm:px-6 py-1.5 sm:py-2.5 rounded-full flex items-center gap-1.5 sm:gap-2.5 shadow-lg relative z-10">
         <div className="bg-white/20 rounded-full p-1">
-          <CheckCircle className="h-4 w-4 text-white" />
+          <CheckCircle className="h-3 w-3 sm:h-4 sm:w-4 text-white" />
         </div>
         <span className="font-medium text-xs text-white tracking-wide uppercase">Pre-Qualified</span>
       </div>

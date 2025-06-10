@@ -30,10 +30,7 @@ import {
   BarChart3,
   Shield,
   Inbox,
-  ArrowRight,
-  Home as HomeIcon,
-  Menu,
-  X
+  ArrowRight
 } from 'lucide-react';
 import type { Application, ApplicationStage, Document, Notification } from '../types/database';
 import { PreQualifiedBadge } from '../components/PreQualifiedBadge';
@@ -45,8 +42,8 @@ import { AppointmentScheduler } from '../components/AppointmentScheduler';
 import toast from 'react-hot-toast';
 import { DocumentManager } from '../components/DocumentManager';
 import { UserMessageCenter } from '../components/UserMessageCenter';
-import { ApplicationCard } from '../components/ApplicationCard';
 import { UserProfileSection } from '../components/UserProfileSection';
+import { ApplicationCard } from '../components/ApplicationCard';
 
 interface DashboardProps {
   activeSection?: string;
@@ -68,10 +65,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [prequalificationData, setPrequalificationData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'upload' | 'manage'>('upload');
-  const [activeDocumentSection, setActiveDocumentSection] = useState<'documents' | 'messages' | 'activity'>('documents');
   const [showApplicationSelector, setShowApplicationSelector] = useState(false);
-  const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
   
   // Summary stats
   const [summaryStats, setSummaryStats] = useState({
@@ -82,15 +76,6 @@ const Dashboard: React.FC<DashboardProps> = ({
   
   // Move the useDocumentUpload hook to the component level
   const { uploadDocument, deleteDocument, uploading, error: uploadError } = useDocumentUpload(selectedApplication?.id || '');
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobileView(window.innerWidth < 768);
-    };
-    
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -536,9 +521,12 @@ const Dashboard: React.FC<DashboardProps> = ({
     setShowApplicationSelector(false);
   };
 
-  const handleSectionChange = (section: string) => {
-    setActiveSection(section);
-  };
+  // Update the active section when it changes from props
+  useEffect(() => {
+    if (activeSection) {
+      setActiveSection(activeSection);
+    }
+  }, [activeSection]);
 
   if (authLoading || loading) {
     return (
@@ -584,7 +572,94 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const renderContent = () => {
     switch (activeSection) {
-      case 'overview':
+      case 'documents':
+        return (
+          <div className="space-y-6">
+            {/* Document Tabs */}
+            <div className="flex border-b border-gray-200 mb-6">
+              <button
+                onClick={() => setActiveTab('upload')}
+                className={`px-4 py-2 font-medium text-sm ${
+                  activeTab === 'upload'
+                    ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Upload Documents
+              </button>
+              <button
+                onClick={() => setActiveTab('manage')}
+                className={`px-4 py-2 font-medium text-sm ${
+                  activeTab === 'manage'
+                    ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Manage Documents
+              </button>
+            </div>
+
+            {/* Document Content */}
+            <AnimatePresence mode="wait">
+              {activeTab === 'upload' ? (
+                <motion.div
+                  key="upload"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <DocumentUpload
+                    applicationId={selectedApplication.id}
+                    documents={documents}
+                    onUpload={handleDocumentUpload}
+                    isUploading={uploading}
+                    uploadError={uploadError}
+                  />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="manage"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <DocumentManager
+                    applicationId={selectedApplication.id}
+                    documents={documents}
+                    onUpload={handleDocumentUpload}
+                    onDelete={handleDocumentDelete}
+                    isUploading={uploading}
+                    uploadError={uploadError}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        );
+      case 'messages':
+        return (
+          <UserMessageCenter 
+            userId={user?.id || ''} 
+            applicationId={selectedApplication.id} 
+          />
+        );
+      case 'notifications':
+        return (
+          <NotificationCenter
+            notifications={notifications}
+            onMarkAsRead={handleMarkNotificationAsRead}
+          />
+        );
+      case 'profile':
+        return (
+          <UserProfileSection 
+            application={selectedApplication}
+            onUpdate={loadDashboardData}
+          />
+        );
+      default:
         return (
           <div className="space-y-8">
             {/* Prequalification Results */}
@@ -592,26 +667,26 @@ const Dashboard: React.FC<DashboardProps> = ({
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-[#2A7A5B] rounded-xl p-8 text-white shadow-xl"
+                className="bg-[#2A7A5B] rounded-xl p-4 sm:p-8 text-white shadow-xl"
               >
-                <h2 className="text-2xl font-semibold mb-6">Your Prequalification Results</h2>
+                <h2 className="text-xl sm:text-2xl font-semibold mb-4 sm:mb-6">Your Prequalification Results</h2>
                 <LoanRangeBar
                   min={prequalificationData.loanRange.min}
                   max={prequalificationData.loanRange.max}
                   rate={prequalificationData.loanRange.rate}
                 />
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-8">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mt-6 sm:mt-8">
                   <div className="text-center">
                     <div className="text-white/80 text-sm mb-1">Monthly Payment</div>
-                    <div className="text-2xl font-bold">${prequalificationData.monthlyPayment}</div>
+                    <div className="text-xl sm:text-2xl font-bold">${prequalificationData.monthlyPayment}</div>
                   </div>
                   <div className="text-center">
                     <div className="text-white/80 text-sm mb-1">Term Length</div>
-                    <div className="text-2xl font-bold">{prequalificationData.term} months</div>
+                    <div className="text-xl sm:text-2xl font-bold">{prequalificationData.term} months</div>
                   </div>
                   <div className="text-center">
                     <div className="text-white/80 text-sm mb-1">Interest Rate</div>
-                    <div className="text-2xl font-bold">{prequalificationData.loanRange.rate}%</div>
+                    <div className="text-xl sm:text-2xl font-bold">{prequalificationData.loanRange.rate}%</div>
                   </div>
                 </div>
               </motion.div>
@@ -649,7 +724,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     className="flex items-center gap-2 text-[#3BAA75] hover:text-[#2D8259] font-medium"
                   >
                     <Plus className="h-5 w-5" />
-                    <span>Start New Application</span>
+                    <span className="hidden sm:inline">Start New Application</span>
                   </Link>
                 </div>
                 
@@ -665,160 +740,32 @@ const Dashboard: React.FC<DashboardProps> = ({
                 </div>
               </div>
             )}
-          </div>
-        );
-      
-      case 'applications':
-        return (
-          <div className="space-y-8">
-            {/* Applications List */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-semibold">Your Applications</h2>
-                <Link
-                  to="/get-prequalified"
-                  className="flex items-center gap-2 text-[#3BAA75] hover:text-[#2D8259] font-medium"
-                >
-                  <Plus className="h-5 w-5" />
-                  <span>Start New Application</span>
-                </Link>
-              </div>
-              
-              <div className="space-y-4">
-                {applications.map((app) => (
-                  <ApplicationCard
-                    key={app.id}
-                    application={app}
-                    isSelected={selectedApplication.id === app.id}
-                    onClick={() => handleApplicationSelect(app)}
-                  />
-                ))}
-              </div>
-            </div>
-            
-            {/* Application Progress */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h2 className="text-2xl font-semibold mb-6">Application Progress</h2>
-              <ApplicationTracker
-                application={selectedApplication}
-                stages={stages}
+
+            {/* Appointment Scheduler */}
+            <div id="appointment-section">
+              <AppointmentScheduler
+                onSchedule={async (date, type) => {
+                  try {
+                    const { error } = await supabase
+                      .from('applications')
+                      .update({ consultation_time: date.toISOString() })
+                      .eq('id', selectedApplication.id);
+
+                    if (error) throw error;
+                    
+                    setSelectedApplication(prev => prev ? {
+                      ...prev,
+                      consultation_time: date.toISOString()
+                    } : null);
+                    
+                    toast.success('Consultation scheduled successfully');
+                  } catch (error) {
+                    console.error('Error scheduling appointment:', error);
+                    toast.error('Failed to schedule consultation');
+                  }
+                }}
               />
             </div>
-          </div>
-        );
-      
-      case 'documents':
-        return (
-          <div className="space-y-8">
-            {/* Document Tabs */}
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              <div className="flex border-b border-gray-200">
-                <button
-                  onClick={() => setActiveTab('upload')}
-                  className={`flex-1 px-4 py-3 font-medium text-sm ${
-                    activeTab === 'upload'
-                      ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <Upload className="h-5 w-5" />
-                    Upload Documents
-                  </div>
-                </button>
-                <button
-                  onClick={() => setActiveTab('manage')}
-                  className={`flex-1 px-4 py-3 font-medium text-sm ${
-                    activeTab === 'manage'
-                      ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Manage Documents
-                  </div>
-                </button>
-              </div>
-
-              {/* Document Content */}
-              <div className="p-6">
-                <AnimatePresence mode="wait">
-                  {activeTab === 'upload' ? (
-                    <motion.div
-                      key="upload"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <DocumentUpload
-                        applicationId={selectedApplication.id}
-                        documents={documents}
-                        onUpload={handleDocumentUpload}
-                        isUploading={uploading}
-                        uploadError={uploadError}
-                      />
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="manage"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <DocumentManager
-                        applicationId={selectedApplication.id}
-                        documents={documents}
-                        onUpload={handleDocumentUpload}
-                        onDelete={handleDocumentDelete}
-                        isUploading={uploading}
-                        uploadError={uploadError}
-                      />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-          </div>
-        );
-      
-      case 'messages':
-        return (
-          <div className="space-y-8">
-            <UserMessageCenter 
-              userId={user?.id || ''} 
-              applicationId={selectedApplication.id} 
-            />
-          </div>
-        );
-      
-      case 'notifications':
-        return (
-          <div className="space-y-8">
-            <NotificationCenter
-              notifications={notifications}
-              onMarkAsRead={handleMarkNotificationAsRead}
-            />
-          </div>
-        );
-      
-      case 'profile':
-        return (
-          <div className="space-y-8">
-            <UserProfileSection 
-              application={selectedApplication}
-              onUpdate={loadDashboardData}
-            />
-          </div>
-        );
-      
-      default:
-        return (
-          <div className="text-center py-12">
-            <h2 className="text-2xl font-semibold mb-4">Section Not Found</h2>
-            <p className="text-gray-600">The requested section does not exist.</p>
           </div>
         );
     }
@@ -827,32 +774,73 @@ const Dashboard: React.FC<DashboardProps> = ({
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="sticky top-0 bg-white border-b border-gray-200 z-40">
+      <div className="sticky top-16 bg-white border-b border-gray-200 z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              {/* Mobile menu button */}
-              <button
-                onClick={() => setShowMobileMenu(!showMobileMenu)}
-                className="mr-3 p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 md:hidden"
-              >
-                {showMobileMenu ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-              </button>
-              
-              <div>
-                <h1 className="text-2xl font-semibold text-gray-900">
-                  Welcome Back, {selectedApplication.first_name || user?.email?.split('@')[0]}
-                </h1>
-                <div className="flex items-center gap-2 mt-1">
-                  <PreQualifiedBadge />
-                  <button 
-                    onClick={() => setShowApplicationSelector(!showApplicationSelector)}
-                    className="text-sm text-gray-500 hover:text-[#3BAA75] transition-colors flex items-center"
-                  >
-                    Application #{selectedApplication.id.slice(0, 8)}
-                    <ChevronRight className={`h-4 w-4 ml-1 transition-transform ${showApplicationSelector ? 'rotate-90' : ''}`} />
-                  </button>
-                </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">
+                Welcome Back, {selectedApplication.first_name || user?.email?.split('@')[0]}
+              </h1>
+              <div className="flex items-center gap-2 mt-1">
+                <PreQualifiedBadge />
+                <button 
+                  onClick={() => setShowApplicationSelector(!showApplicationSelector)}
+                  className="text-sm text-gray-500 hover:text-[#3BAA75] transition-colors flex items-center"
+                >
+                  Application #{selectedApplication.id.slice(0, 8)}
+                  <ChevronRight className={`h-4 w-4 ml-1 transition-transform ${showApplicationSelector ? 'rotate-90' : ''}`} />
+                </button>
+                
+                {/* Application Selector Dropdown */}
+                {showApplicationSelector && (
+                  <div className="absolute top-16 left-4 z-50 bg-white rounded-lg shadow-lg border border-gray-200 p-2 w-80">
+                    <div className="text-sm font-medium text-gray-700 mb-2 px-2">
+                      Your Applications ({applications.length})
+                    </div>
+                    <div className="max-h-60 overflow-y-auto">
+                      {applications.map((app) => (
+                        <button
+                          key={app.id}
+                          onClick={() => handleApplicationSelect(app)}
+                          className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                            selectedApplication.id === app.id 
+                              ? 'bg-[#3BAA75]/10 text-[#3BAA75]' 
+                              : 'hover:bg-gray-100'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="font-medium">
+                                {app.vehicle_type || 'Vehicle'} Application
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                Created {format(new Date(app.created_at), 'MMM d, yyyy')}
+                              </div>
+                            </div>
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              app.status === 'pre_approved' 
+                                ? 'bg-green-100 text-green-800' 
+                                : app.status === 'pending_documents'
+                                ? 'bg-orange-100 text-orange-800'
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {formatStatus(app.status)}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-gray-100">
+                      <Link
+                        to="/get-prequalified"
+                        className="flex items-center justify-center gap-1 w-full text-[#3BAA75] hover:bg-[#3BAA75]/5 px-3 py-2 rounded-lg transition-colors text-sm font-medium"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Start New Application
+                      </Link>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             
@@ -869,508 +857,174 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* Mobile Menu */}
-      <AnimatePresence>
-        {showMobileMenu && (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {/* Summary Stats - Desktop Only */}
+        <div className="hidden sm:grid grid-cols-3 gap-4 mb-8">
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white border-b border-gray-200 overflow-hidden"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-xl p-6 shadow-sm"
           >
-            <div className="px-4 py-3 space-y-2">
-              <button
-                onClick={() => {
-                  handleSectionChange('overview');
-                  setShowMobileMenu(false);
-                }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg ${
-                  activeSection === 'overview' 
-                    ? 'bg-[#3BAA75]/10 text-[#3BAA75]' 
-                    : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <HomeIcon className="h-5 w-5" />
-                <span>Dashboard Overview</span>
-              </button>
-              
-              <button
-                onClick={() => {
-                  handleSectionChange('applications');
-                  setShowMobileMenu(false);
-                }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg ${
-                  activeSection === 'applications' 
-                    ? 'bg-[#3BAA75]/10 text-[#3BAA75]' 
-                    : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <FileText className="h-5 w-5" />
-                <span>Applications</span>
-              </button>
-              
-              <button
-                onClick={() => {
-                  handleSectionChange('documents');
-                  setShowMobileMenu(false);
-                }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg ${
-                  activeSection === 'documents' 
-                    ? 'bg-[#3BAA75]/10 text-[#3BAA75]' 
-                    : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <FileCheck className="h-5 w-5" />
-                <span>Documents</span>
-              </button>
-              
-              <button
-                onClick={() => {
-                  handleSectionChange('messages');
-                  setShowMobileMenu(false);
-                }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg ${
-                  activeSection === 'messages' 
-                    ? 'bg-[#3BAA75]/10 text-[#3BAA75]' 
-                    : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <MessageSquare className="h-5 w-5" />
-                <span>Messages</span>
-                {summaryStats.unreadMessages > 0 && (
-                  <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    {summaryStats.unreadMessages}
-                  </span>
-                )}
-              </button>
-              
-              <button
-                onClick={() => {
-                  handleSectionChange('notifications');
-                  setShowMobileMenu(false);
-                }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg ${
-                  activeSection === 'notifications' 
-                    ? 'bg-[#3BAA75]/10 text-[#3BAA75]' 
-                    : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <Bell className="h-5 w-5" />
-                <span>Notifications</span>
-                {notifications.filter(n => !n.read).length > 0 && (
-                  <span className="ml-auto bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    {notifications.filter(n => !n.read).length}
-                  </span>
-                )}
-              </button>
-              
-              <button
-                onClick={() => {
-                  handleSectionChange('profile');
-                  setShowMobileMenu(false);
-                }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg ${
-                  activeSection === 'profile' 
-                    ? 'bg-[#3BAA75]/10 text-[#3BAA75]' 
-                    : 'text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <User className="h-5 w-5" />
-                <span>Profile</span>
-              </button>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Applications</p>
+                <p className="text-2xl font-semibold mt-1">{summaryStats.totalApplications}</p>
+              </div>
+              <div className="bg-blue-50 p-3 rounded-full">
+                <FileText className="h-6 w-6 text-blue-500" />
+              </div>
             </div>
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Application Selector Dropdown */}
-      {showApplicationSelector && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-start justify-center pt-20">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="font-semibold text-lg">Your Applications</h3>
-              <button
-                onClick={() => setShowApplicationSelector(false)}
-                className="text-gray-400 hover:text-gray-500 p-2"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            
-            <div className="max-h-[60vh] overflow-y-auto p-4 space-y-4">
-              {applications.map((app) => (
-                <div
-                  key={app.id}
-                  className={`
-                    border-2 rounded-lg p-4 cursor-pointer transition-colors
-                    ${selectedApplication.id === app.id 
-                      ? 'border-[#3BAA75] bg-[#3BAA75]/5' 
-                      : 'border-gray-200 hover:border-[#3BAA75]/50 hover:bg-gray-50'
-                    }
-                  `}
-                  onClick={() => handleApplicationSelect(app)}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium">
-                      {app.vehicle_type || 'Vehicle'} Application
-                    </h4>
-                    <span className={`
-                      px-2 py-1 text-xs font-medium rounded-full
-                      ${app.status === 'pre_approved' 
-                        ? 'bg-green-100 text-green-800' 
-                        : app.status === 'pending_documents'
-                        ? 'bg-orange-100 text-orange-800'
-                        : 'bg-blue-100 text-blue-800'
-                      }
-                    `}>
-                      {formatStatus(app.status)}
-                    </span>
-                  </div>
-                  
-                  <div className="text-sm text-gray-500">
-                    Created {format(new Date(app.created_at), 'MMM d, yyyy')}
-                  </div>
-                  
-                  <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className="text-gray-500">Loan:</span>{' '}
-                      <span className="font-medium">${app.loan_amount_min?.toLocaleString()} - ${app.loan_amount_max?.toLocaleString()}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500">Payment:</span>{' '}
-                      <span className="font-medium">${app.desired_monthly_payment?.toLocaleString()}/mo</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              
-              <Link
-                to="/get-prequalified"
-                className="block w-full text-center bg-[#3BAA75] text-white px-4 py-3 rounded-lg font-medium hover:bg-[#2D8259] transition-colors"
-              >
-                Start New Application
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Desktop Layout */}
-        <div className="hidden md:grid md:grid-cols-3 lg:grid-cols-4 gap-8">
-          {/* Left Sidebar - Desktop Only */}
-          <div className="hidden md:block md:col-span-1">
-            <div className="space-y-4 sticky top-28">
-              {/* Desktop Navigation */}
-              <div className="bg-white rounded-xl shadow-sm p-4">
-                <nav className="space-y-1">
-                  <button
-                    onClick={() => handleSectionChange('overview')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg ${
-                      activeSection === 'overview' 
-                        ? 'bg-[#3BAA75]/10 text-[#3BAA75]' 
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    <HomeIcon className="h-5 w-5" />
-                    <span>Dashboard Overview</span>
-                  </button>
-                  
-                  <button
-                    onClick={() => handleSectionChange('applications')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg ${
-                      activeSection === 'applications' 
-                        ? 'bg-[#3BAA75]/10 text-[#3BAA75]' 
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    <FileText className="h-5 w-5" />
-                    <span>Applications</span>
-                  </button>
-                  
-                  <button
-                    onClick={() => handleSectionChange('documents')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg ${
-                      activeSection === 'documents' 
-                        ? 'bg-[#3BAA75]/10 text-[#3BAA75]' 
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    <FileCheck className="h-5 w-5" />
-                    <span>Documents</span>
-                  </button>
-                  
-                  <button
-                    onClick={() => handleSectionChange('messages')}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg ${
-                      activeSection === 'messages' 
-                        ? 'bg-[#3BAA75]/10 text-[#3BAA75]' 
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <MessageSquare className="h-5 w-5" />
-                      <span>Messages</span>
-                    </div>
-                    {summaryStats.unreadMessages > 0 && (
-                      <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                        {summaryStats.unreadMessages}
-                      </span>
-                    )}
-                  </button>
-                  
-                  <button
-                    onClick={() => handleSectionChange('notifications')}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg ${
-                      activeSection === 'notifications' 
-                        ? 'bg-[#3BAA75]/10 text-[#3BAA75]' 
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Bell className="h-5 w-5" />
-                      <span>Notifications</span>
-                    </div>
-                    {notifications.filter(n => !n.read).length > 0 && (
-                      <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                        {notifications.filter(n => !n.read).length}
-                      </span>
-                    )}
-                  </button>
-                  
-                  <button
-                    onClick={() => handleSectionChange('profile')}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg ${
-                      activeSection === 'profile' 
-                        ? 'bg-[#3BAA75]/10 text-[#3BAA75]' 
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    <User className="h-5 w-5" />
-                    <span>Profile</span>
-                  </button>
-                </nav>
+          
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-white rounded-xl p-6 shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Approved</p>
+                <p className="text-2xl font-semibold mt-1">{summaryStats.approvedApplications}</p>
               </div>
-
-              {/* Account Summary */}
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="bg-white rounded-xl p-6 shadow-lg"
-              >
-                <h2 className="text-lg font-semibold mb-4">Account Summary</h2>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Application Status</span>
-                    <span className="font-medium text-[#3BAA75]">
-                      {selectedApplication.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Documents Pending</span>
-                    <span className="font-medium">{documents.filter(d => d.status === 'pending').length}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Next Appointment</span>
-                    <span className="font-medium">
-                      {selectedApplication.consultation_time
-                        ? format(new Date(selectedApplication.consultation_time), 'MMM d, h:mm a')
-                        : 'Not Scheduled'}
-                    </span>
-                  </div>
-                </div>
-              </motion.div>
-
-              {/* Quick Links */}
-              <motion.div
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-                className="bg-white rounded-xl p-6 shadow-lg"
-              >
-                <h2 className="text-lg font-semibold mb-4">Quick Links</h2>
-                <div className="space-y-3">
-                  <a 
-                    href="#appointment-section" 
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center">
-                      <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
-                        <CalendarClock className="h-5 w-5 text-[#3BAA75]" />
-                      </div>
-                      <span className="font-medium">Schedule Consultation</span>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-gray-400" />
-                  </a>
-                  
-                  <button 
-                    onClick={() => handleSectionChange('documents')}
-                    className="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center">
-                      <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
-                        <FileCheck className="h-5 w-5 text-[#3BAA75]" />
-                      </div>
-                      <span className="font-medium">Upload Documents</span>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-gray-400" />
-                  </button>
-                  
-                  <button 
-                    onClick={() => handleSectionChange('messages')}
-                    className="w-full flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center">
-                      <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
-                        <MessageSquare className="h-5 w-5 text-[#3BAA75]" />
-                      </div>
-                      <span className="font-medium">Message Support</span>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-gray-400" />
-                  </button>
-                  
-                  <Link
-                    to="/calculator"
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center">
-                      <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
-                        <BarChart3 className="h-5 w-5 text-[#3BAA75]" />
-                      </div>
-                      <span className="font-medium">Payment Calculator</span>
-                    </div>
-                    <ArrowUpRight className="h-5 w-5 text-gray-400" />
-                  </Link>
-                </div>
-              </motion.div>
+              <div className="bg-green-50 p-3 rounded-full">
+                <CheckCircle className="h-6 w-6 text-green-500" />
+              </div>
             </div>
-          </div>
+          </motion.div>
+          
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-white rounded-xl p-6 shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">Unread Messages</p>
+                <p className="text-2xl font-semibold mt-1">{summaryStats.unreadMessages}</p>
+              </div>
+              <div className="bg-amber-50 p-3 rounded-full">
+                <MessageSquare className="h-6 w-6 text-amber-500" />
+              </div>
+            </div>
+          </motion.div>
+        </div>
 
-          {/* Main Content - Desktop */}
-          <div className="md:col-span-2 lg:col-span-2 space-y-8">
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Main Content - Left Side */}
+          <div className="lg:col-span-2 space-y-8">
             {renderContent()}
           </div>
 
           {/* Right Sidebar - Desktop Only */}
-          <div className="hidden lg:block lg:col-span-1">
-            <div className="space-y-8 sticky top-28">
-              {/* Notifications */}
-              <NotificationCenter
-                notifications={notifications}
-                onMarkAsRead={handleMarkNotificationAsRead}
-              />
-
-              {/* Appointment Scheduler */}
-              <div id="appointment-section">
-                <AppointmentScheduler
-                  onSchedule={async (date, type) => {
-                    try {
-                      const { error } = await supabase
-                        .from('applications')
-                        .update({ consultation_time: date.toISOString() })
-                        .eq('id', selectedApplication.id);
-
-                      if (error) throw error;
-                      
-                      setSelectedApplication(prev => prev ? {
-                        ...prev,
-                        consultation_time: date.toISOString()
-                      } : null);
-                      
-                      toast.success('Consultation scheduled successfully');
-                    } catch (error) {
-                      console.error('Error scheduling appointment:', error);
-                      toast.error('Failed to schedule consultation');
-                    }
-                  }}
-                />
+          <div className="hidden lg:block space-y-8">
+            {/* Account Summary */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="bg-white rounded-xl p-6 shadow-lg"
+            >
+              <h2 className="text-xl font-semibold mb-6">Account Summary</h2>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Application Status</span>
+                  <span className="font-medium text-[#3BAA75]">
+                    {selectedApplication.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Documents Pending</span>
+                  <span className="font-medium">{documents.filter(d => d.status === 'pending').length}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Next Appointment</span>
+                  <span className="font-medium">
+                    {selectedApplication.consultation_time
+                      ? format(new Date(selectedApplication.consultation_time), 'MMM d, h:mm a')
+                      : 'Not Scheduled'}
+                  </span>
+                </div>
               </div>
-            </div>
+            </motion.div>
+
+            {/* Notifications */}
+            <NotificationCenter
+              notifications={notifications}
+              onMarkAsRead={handleMarkNotificationAsRead}
+            />
+
+            {/* Quick Links */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
+              className="bg-white rounded-xl p-6 shadow-lg"
+            >
+              <h2 className="text-xl font-semibold mb-4">Quick Links</h2>
+              <div className="space-y-3">
+                <a 
+                  href="#appointment-section" 
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-center">
+                    <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
+                      <CalendarClock className="h-5 w-5 text-[#3BAA75]" />
+                    </div>
+                    <span className="font-medium">Schedule Consultation</span>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-gray-400" />
+                </a>
+                
+                <a 
+                  href="#" 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setActiveSection('documents');
+                  }}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-center">
+                    <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
+                      <FileCheck className="h-5 w-5 text-[#3BAA75]" />
+                    </div>
+                    <span className="font-medium">Upload Documents</span>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-gray-400" />
+                </a>
+                
+                <a 
+                  href="#" 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setActiveSection('messages');
+                  }}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-center">
+                    <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
+                      <MessageSquare className="h-5 w-5 text-[#3BAA75]" />
+                    </div>
+                    <span className="font-medium">Message Support</span>
+                  </div>
+                  <ChevronRight className="h-5 w-5 text-gray-400" />
+                </a>
+                
+                <Link
+                  to="/calculator"
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-center">
+                    <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
+                      <BarChart3 className="h-5 w-5 text-[#3BAA75]" />
+                    </div>
+                    <span className="font-medium">Payment Calculator</span>
+                  </div>
+                  <ArrowUpRight className="h-5 w-5 text-gray-400" />
+                </Link>
+              </div>
+            </motion.div>
           </div>
-        </div>
-
-        {/* Mobile Layout */}
-        <div className="md:hidden">
-          {renderContent()}
-          
-          {/* Mobile-only sections that are in the sidebar on desktop */}
-          {activeSection === 'overview' && (
-            <>
-              {/* Appointment Scheduler for mobile */}
-              <div id="appointment-section" className="mt-8">
-                <AppointmentScheduler
-                  onSchedule={async (date, type) => {
-                    try {
-                      const { error } = await supabase
-                        .from('applications')
-                        .update({ consultation_time: date.toISOString() })
-                        .eq('id', selectedApplication.id);
-
-                      if (error) throw error;
-                      
-                      setSelectedApplication(prev => prev ? {
-                        ...prev,
-                        consultation_time: date.toISOString()
-                      } : null);
-                      
-                      toast.success('Consultation scheduled successfully');
-                    } catch (error) {
-                      console.error('Error scheduling appointment:', error);
-                      toast.error('Failed to schedule consultation');
-                    }
-                  }}
-                />
-              </div>
-
-              {/* Future Payments Block (Placeholder) */}
-              <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200 mt-8">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold flex items-center gap-2">
-                    <Wallet className="h-5 w-5 text-[#3BAA75]" />
-                    Future Payments
-                  </h2>
-                  <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-1 rounded">Coming Soon</span>
-                </div>
-                <p className="text-gray-600 mb-4">
-                  Once your loan is finalized, you'll be able to view and manage your payments here.
-                </p>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <div className="flex items-center justify-between text-gray-500">
-                    <span>Next Payment</span>
-                    <span>--/--/----</span>
-                  </div>
-                  <div className="flex items-center justify-between text-gray-500 mt-2">
-                    <span>Amount</span>
-                    <span>$---</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Add-On Services Block (Placeholder) */}
-              <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200 mt-8">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold flex items-center gap-2">
-                    <Shield className="h-5 w-5 text-[#3BAA75]" />
-                    Add-On Services
-                  </h2>
-                  <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-1 rounded">Coming Soon</span>
-                </div>
-                <p className="text-gray-600 mb-4">
-                  Enhance your vehicle ownership experience with additional services and protection plans.
-                </p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-gray-50 p-4 rounded-lg text-center">
-                    <p className="font-medium text-gray-700">Extended Warranty</p>
-                    <p className="text-sm text-gray-500">Protect your investment</p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg text-center">
-                    <p className="font-medium text-gray-700">GAP Insurance</p>
-                    <p className="text-sm text-gray-500">Coverage for the unexpected</p>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
         </div>
       </div>
     </div>

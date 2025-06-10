@@ -129,9 +129,9 @@ const QualificationResults = () => {
         <div className="pt-4 lg:mt-12 space-y-8">
           {/* Loan Range Card */}
           <ScrollReveal>
-            <div className="bg-[#2A7A5B] rounded-xl p-8 text-white shadow-xl">
+            <div className="bg-[#2A7A5B] rounded-xl p-4 sm:p-8 text-white shadow-xl">
               <div className="space-y-4">
-                <h2 className="text-xl font-medium">Available Loan Amount</h2>
+                <h2 className="text-lg sm:text-xl font-medium">Available Loan Amount</h2>
                 <p className="text-white/80 text-sm leading-relaxed md:block hidden">
                   Based on your desired monthly payment of ${monthlyBudget}, we've calculated a loan range that fits your budget 
                   while maintaining comfortable monthly payments. This estimate reflects what you're most likely to be approved 
@@ -151,8 +151,8 @@ const QualificationResults = () => {
 
           {/* Monthly Payment Comparison */}
           <ScrollReveal>
-            <div className="bg-white rounded-xl p-8 shadow-lg">
-              <h2 className="text-2xl font-semibold mb-6 text-gray-900">Monthly Payment Comparison</h2>
+            <div className="bg-white rounded-xl p-4 sm:p-8 shadow-lg">
+              <h2 className="text-xl sm:text-2xl font-semibold mb-4 sm:mb-6 text-gray-900">Monthly Payment Comparison</h2>
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="bg-gray-50 p-6 rounded-lg">
                   <div className="text-center">
@@ -198,10 +198,10 @@ const QualificationResults = () => {
 
           {/* Sign Up CTA */}
           <ScrollReveal>
-            <div className="bg-gradient-to-br from-[#2A7A5B] to-[#1F5F3F] rounded-xl p-8 text-white shadow-xl">
+            <div className="bg-gradient-to-br from-[#2A7A5B] to-[#1F5F3F] rounded-xl p-4 sm:p-8 text-white shadow-xl">
               <div className="grid md:grid-cols-2 gap-8 items-center">
                 <div>
-                  <h2 className="text-2xl font-bold mb-6">Create Your Account</h2>
+                  <h2 className="text-xl sm:text-2xl font-bold mb-6">Create Your Account</h2>
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
                       <div className="bg-white/10 rounded-full p-2">
@@ -255,8 +255,8 @@ const QualificationResults = () => {
 
           {/* CTA Section */}
           <ScrollReveal>
-            <div className="bg-white rounded-xl p-8 text-center shadow-lg">
-              <h2 className="text-2xl font-semibold mb-3 text-gray-900">Ready to Move Forward?</h2>
+            <div className="bg-white rounded-xl p-4 sm:p-8 text-center shadow-lg">
+              <h2 className="text-xl sm:text-2xl font-semibold mb-3 text-gray-900">Ready to Move Forward?</h2>
               <p className="text-gray-600 mb-8 max-w-lg mx-auto">
                 Schedule your free consultation with our financing expert to discuss your options and get all your questions answered.
               </p>
@@ -315,10 +315,10 @@ const QualificationResults = () => {
 
           {/* FAQ Section */}
           <ScrollReveal>
-            <div className="bg-white rounded-xl p-8 shadow-lg">
+            <div className="bg-white rounded-xl p-4 sm:p-8 shadow-lg">
               <div className="flex items-center gap-3 mb-6">
                 <HelpCircle className="h-6 w-6 text-[#2A7A5B]" />
-                <h2 className="text-2xl font-semibold text-gray-900">Common Questions</h2>
+                <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">Common Questions</h2>
               </div>
               <div className="space-y-6">
                 {[

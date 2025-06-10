@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Menu as MenuIcon, X, User } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { Menu, MenuItem, ProductMenu, HoveredLink } from './Menu';
@@ -11,6 +11,7 @@ const Navbar = () => {
   const [activeItem, setActiveItem] = useState<string | null>(null);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSignOut = async () => {
     await signOut();
@@ -40,6 +41,9 @@ const Navbar = () => {
       navigate('/get-prequalified');
     }
   };
+
+  // Hide mobile menu button on dashboard page
+  const showMobileMenuButton = !(location.pathname === '/dashboard' && user);
 
   return (
     <nav className="fixed top-0 left-0 right-0 bg-white z-50 border-b border-gray-100 shadow-sm">
@@ -130,16 +134,18 @@ const Navbar = () => {
             )}
           </div>
 
-          {/* Mobile menu button */}
-          <div className="md:hidden flex items-center">
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="text-gray-700 hover:text-[#3BAA75] transition-colors p-2 rounded-lg hover:bg-gray-50"
-              aria-label="Toggle menu"
-            >
-              {isOpen ? <X className="h-6 w-6" /> : <MenuIcon className="h-6 w-6" />}
-            </button>
-          </div>
+          {/* Mobile menu button - only show if not on dashboard */}
+          {showMobileMenuButton && (
+            <div className="md:hidden flex items-center">
+              <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="text-gray-700 hover:text-[#3BAA75] transition-colors p-2 rounded-lg hover:bg-gray-50"
+                aria-label="Toggle menu"
+              >
+                {isOpen ? <X className="h-6 w-6" /> : <MenuIcon className="h-6 w-6" />}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Mobile Navigation */}
