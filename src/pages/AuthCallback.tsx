@@ -11,10 +11,28 @@ const AuthCallback = () => {
         const { data: { user } } = await supabase.auth.getUser();
         
         if (user) {
+          // Extract first and last name from email if available
+          let firstName = '';
+          let lastName = '';
+          
+          if (user.email) {
+            // Try to extract name from email (e.g., john.doe@example.com -> John Doe)
+            const emailName = user.email.split('@')[0];
+            const nameParts = emailName.split(/[._-]/);
+            
+            if (nameParts.length > 1) {
+              firstName = nameParts[0].charAt(0).toUpperCase() + nameParts[0].slice(1);
+              lastName = nameParts[1].charAt(0).toUpperCase() + nameParts[1].slice(1);
+            } else {
+              // If no separator, use the whole name as first name
+              firstName = emailName.charAt(0).toUpperCase() + emailName.slice(1);
+            }
+          }
+          
           // Check if an application exists with the user's email
           const { data: existingApplicationByEmail, error: emailError } = await supabase
             .from('applications')
-            .select('id')
+            .select('id, email, first_name, last_name')
             .eq('email', user.email)
             .maybeSingle();
 
@@ -25,7 +43,7 @@ const AuthCallback = () => {
           // Check if user already has an application
           const { data: existingApplication } = await supabase
             .from('applications')
-            .select('id')
+            .select('id, email, first_name, last_name')
             .eq('user_id', user.id)
             .maybeSingle();
 
@@ -33,7 +51,12 @@ const AuthCallback = () => {
             // Update the existing application with the new user ID
             const { error: updateError } = await supabase
               .from('applications')
-              .update({ user_id: user.id })
+              .update({ 
+                user_id: user.id,
+                // Only update first_name and last_name if they're empty
+                first_name: existingApplicationByEmail.first_name || firstName,
+                last_name: existingApplicationByEmail.last_name || lastName
+              })
               .eq('id', existingApplicationByEmail.id);
 
             if (updateError) {
@@ -47,7 +70,10 @@ const AuthCallback = () => {
                 user_id: user.id,
                 status: 'submitted',
                 current_stage: 1,
-                employment_status: 'employed'
+                employment_status: 'employed',
+                email: user.email,
+                first_name: firstName,
+                last_name: lastName
               })
               .select()
               .single();
