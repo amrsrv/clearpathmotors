@@ -35,6 +35,9 @@ interface UserData {
   last_sign_in_at: string | null;
   email_confirmed_at: string | null;
   app_metadata: any;
+  user_profile?: {
+    is_admin: boolean;
+  };
 }
 
 interface Application {
@@ -103,28 +106,54 @@ const AdminUsers = () => {
     
     try {
       setLoading(true);
-      const session = await supabase.auth.getSession();
-      if (!session.data.session) {
-        throw new Error('No active session');
+      
+      // Get users with their profiles to check admin status
+      let query = supabase
+        .from('users')
+        .select(`
+          id,
+          email,
+          created_at,
+          last_sign_in_at,
+          email_confirmed_at,
+          raw_app_meta_data,
+          user_profiles (
+            is_admin
+          )
+        `)
+        .range(0, ITEMS_PER_PAGE - 1)
+        .order('created_at', { ascending: false });
+
+      // Apply filters
+      if (statusFilter === 'verified') {
+        query = query.not('email_confirmed_at', 'is', null);
+      } else if (statusFilter === 'unverified') {
+        query = query.is('email_confirmed_at', null);
+      } else if (statusFilter === 'admin') {
+        query = query.eq('user_profiles.is_admin', true);
+      } else if (statusFilter === 'non_admin') {
+        query = query.eq('user_profiles.is_admin', false);
       }
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-users?start=0&limit=${ITEMS_PER_PAGE}${statusFilter ? `&status=${statusFilter}` : ''}`,
-        {
-          headers: {
-            Authorization: `Bearer ${session.data.session.access_token}`,
-          },
-        }
-      );
+      const { data, error } = await query;
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch users');
-      }
-
-      const { users: userData } = await response.json();
-      setUsers(userData || []);
-      setHasMore(userData.length === ITEMS_PER_PAGE);
+      if (error) throw error;
+      
+      // Transform data to match expected format
+      const transformedUsers = data?.map(user => ({
+        id: user.id,
+        email: user.email,
+        created_at: user.created_at,
+        last_sign_in_at: user.last_sign_in_at,
+        email_confirmed_at: user.email_confirmed_at,
+        app_metadata: {
+          is_admin: user.user_profiles?.is_admin || false
+        },
+        user_profile: user.user_profiles
+      })) || [];
+      
+      setUsers(transformedUsers);
+      setHasMore(data?.length === ITEMS_PER_PAGE);
       setError(null);
     } catch (error: any) {
       console.error('Error loading users:', error);
@@ -137,32 +166,56 @@ const AdminUsers = () => {
 
   const loadMoreUsers = async () => {
     try {
-      const session = await supabase.auth.getSession();
-      if (!session.data.session) {
-        throw new Error('No active session');
+      // Get users with their profiles to check admin status
+      let query = supabase
+        .from('users')
+        .select(`
+          id,
+          email,
+          created_at,
+          last_sign_in_at,
+          email_confirmed_at,
+          raw_app_meta_data,
+          user_profiles (
+            is_admin
+          )
+        `)
+        .range(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE - 1)
+        .order('created_at', { ascending: false });
+
+      // Apply filters
+      if (statusFilter === 'verified') {
+        query = query.not('email_confirmed_at', 'is', null);
+      } else if (statusFilter === 'unverified') {
+        query = query.is('email_confirmed_at', null);
+      } else if (statusFilter === 'admin') {
+        query = query.eq('user_profiles.is_admin', true);
+      } else if (statusFilter === 'non_admin') {
+        query = query.eq('user_profiles.is_admin', false);
       }
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-users?start=${page * ITEMS_PER_PAGE}&limit=${ITEMS_PER_PAGE}${statusFilter ? `&status=${statusFilter}` : ''}`,
-        {
-          headers: {
-            Authorization: `Bearer ${session.data.session.access_token}`,
-          },
-        }
-      );
+      const { data, error } = await query;
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to fetch users');
-      }
-
-      const { users: userData } = await response.json();
+      if (error) throw error;
       
-      if (userData.length === 0) {
+      if (data.length === 0) {
         setHasMore(false);
       } else {
-        setUsers(prev => [...prev, ...userData]);
-        setHasMore(userData.length === ITEMS_PER_PAGE);
+        // Transform data to match expected format
+        const transformedUsers = data?.map(user => ({
+          id: user.id,
+          email: user.email,
+          created_at: user.created_at,
+          last_sign_in_at: user.last_sign_in_at,
+          email_confirmed_at: user.email_confirmed_at,
+          app_metadata: {
+            is_admin: user.user_profiles?.is_admin || false
+          },
+          user_profile: user.user_profiles
+        })) || [];
+        
+        setUsers(prev => [...prev, ...transformedUsers]);
+        setHasMore(data.length === ITEMS_PER_PAGE);
       }
     } catch (error: any) {
       console.error('Error loading more users:', error);
@@ -217,12 +270,26 @@ const AdminUsers = () => {
           break;
           
         case 'make_admin':
-          // In a real implementation, you would update the user's app_metadata
+          // Update user_profiles.is_admin to true
+          const { error: makeAdminError } = await supabase
+            .from('user_profiles')
+            .update({ is_admin: true })
+            .eq('user_id', selectedUser.id);
+            
+          if (makeAdminError) throw makeAdminError;
+          
           toast.success(`${selectedUser.email} is now an admin`);
           break;
           
         case 'remove_admin':
-          // In a real implementation, you would update the user's app_metadata
+          // Update user_profiles.is_admin to false
+          const { error: removeAdminError } = await supabase
+            .from('user_profiles')
+            .update({ is_admin: false })
+            .eq('user_id', selectedUser.id);
+            
+          if (removeAdminError) throw removeAdminError;
+          
           toast.success(`Admin privileges removed from ${selectedUser.email}`);
           break;
           
@@ -444,6 +511,8 @@ const AdminUsers = () => {
             <div className="divide-y divide-gray-200">
               {filteredUsers.map((user, index) => {
                 const isLastItem = index === filteredUsers.length - 1;
+                const isAdmin = user.user_profile?.is_admin || user.app_metadata?.is_admin;
+                
                 return (
                   <div
                     key={user.id}
@@ -499,11 +568,11 @@ const AdminUsers = () => {
 
                     <div className="mt-3">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        user.app_metadata?.is_admin
+                        isAdmin
                           ? 'bg-purple-100 text-purple-700'
                           : 'bg-gray-100 text-gray-700'
                       }`}>
-                        {user.app_metadata?.is_admin ? 'Admin' : 'User'}
+                        {isAdmin ? 'Admin' : 'User'}
                       </span>
                     </div>
 
@@ -535,7 +604,7 @@ const AdminUsers = () => {
                             <Key className="h-4 w-4 mr-2" />
                             Reset Password
                           </button>
-                          {user.app_metadata?.is_admin ? (
+                          {isAdmin ? (
                             <button
                               onClick={() => {
                                 setSelectedUser(user);

@@ -16,8 +16,15 @@ import { useAuth } from '../../hooks/useAuth';
 const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { signOut, isAdmin } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Redirect if not admin
+  React.useEffect(() => {
+    if (!isAdmin) {
+      navigate('/login');
+    }
+  }, [isAdmin, navigate]);
 
   const handleSignOut = async () => {
     await signOut();

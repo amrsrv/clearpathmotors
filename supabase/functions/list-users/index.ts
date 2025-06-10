@@ -56,8 +56,19 @@ Deno.serve(async (req) => {
       throw new Error('Invalid user session');
     }
 
-    // Check if user is an admin directly from the user's app_metadata
-    const isAdmin = user.app_metadata?.is_admin === true;
+    // Check if user is an admin by querying user_profiles
+    const { data: userProfile, error: profileError } = await supabaseAdmin
+      .from('user_profiles')
+      .select('is_admin')
+      .eq('user_id', user.id)
+      .single();
+      
+    if (profileError) {
+      console.error('Error fetching user profile:', profileError);
+      throw new Error('Error verifying admin status');
+    }
+    
+    const isAdmin = userProfile?.is_admin === true;
     if (!isAdmin) {
       throw new Error('Unauthorized - Admin access required');
     }
@@ -72,24 +83,37 @@ Deno.serve(async (req) => {
         throw new Error('userIds array is required in request body');
       }
 
-      // Get users by IDs
-      const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers();
+      // Get users with their profiles
+      const { data: users, error } = await supabaseAdmin
+        .from('users')
+        .select(`
+          id,
+          email,
+          created_at,
+          last_sign_in_at,
+          email_confirmed_at,
+          raw_app_meta_data,
+          user_profiles (
+            is_admin
+          )
+        `)
+        .in('id', userIds);
       
       if (error) {
         console.error('Error listing users:', error);
         throw error;
       }
 
-      // Filter users by the provided IDs
-      const filteredUsers = (users || []).filter(u => userIds.includes(u.id));
-      
-      // Return only the necessary user data
-      const userData = filteredUsers.map(u => ({
+      // Transform data to match expected format
+      const userData = users.map(u => ({
         id: u.id,
         email: u.email,
         created_at: u.created_at,
+        last_sign_in_at: u.last_sign_in_at,
         email_confirmed_at: u.email_confirmed_at,
-        app_metadata: u.app_metadata
+        app_metadata: {
+          is_admin: u.user_profiles?.is_admin || false
+        }
       }));
 
       return new Response(JSON.stringify({ users: userData }), {
@@ -103,14 +127,22 @@ Deno.serve(async (req) => {
       const limit = parseInt(url.searchParams.get('limit') || '10');
       const status = url.searchParams.get('status');
 
-      // Calculate pagination
-      const page = Math.floor(start / limit) + 1;
-
-      // Get the list of users using admin client
-      const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers({
-        page: page,
-        perPage: limit,
-      });
+      // Get users with their profiles
+      const { data: users, error } = await supabaseAdmin
+        .from('users')
+        .select(`
+          id,
+          email,
+          created_at,
+          last_sign_in_at,
+          email_confirmed_at,
+          raw_app_meta_data,
+          user_profiles (
+            is_admin
+          )
+        `)
+        .range(start, start + limit - 1)
+        .order('created_at', { ascending: false });
       
       if (error) {
         console.error('Error listing users:', error);
@@ -125,13 +157,25 @@ Deno.serve(async (req) => {
         } else if (status === 'unverified') {
           filteredUsers = filteredUsers.filter(u => u.email_confirmed_at === null);
         } else if (status === 'admin') {
-          filteredUsers = filteredUsers.filter(u => u.app_metadata?.is_admin === true);
+          filteredUsers = filteredUsers.filter(u => u.user_profiles?.is_admin === true);
         } else if (status === 'non_admin') {
-          filteredUsers = filteredUsers.filter(u => u.app_metadata?.is_admin !== true);
+          filteredUsers = filteredUsers.filter(u => u.user_profiles?.is_admin !== true);
         }
       }
 
-      return new Response(JSON.stringify({ users: filteredUsers }), {
+      // Transform data to match expected format
+      const userData = filteredUsers.map(u => ({
+        id: u.id,
+        email: u.email,
+        created_at: u.created_at,
+        last_sign_in_at: u.last_sign_in_at,
+        email_confirmed_at: u.email_confirmed_at,
+        app_metadata: {
+          is_admin: u.user_profiles?.is_admin || false
+        }
+      }));
+
+      return new Response(JSON.stringify({ users: userData }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       });
