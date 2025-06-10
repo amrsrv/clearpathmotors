@@ -1,4 +1,4 @@
-console.log('PreQualificationform is rendering')
+console.log('PreQualificationform is rendering');
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -13,6 +13,7 @@ import { useAuth } from '../hooks/useAuth';
 import CurrencyInput from 'react-currency-input-field';
 import { Tooltip } from 'react-tooltip';
 import toast from 'react-hot-toast';
+console.log('Initial currentStep:', currentStep); 
 
 // Define government benefit programs
 const GOVERNMENT_PROGRAMS = [
