@@ -14,7 +14,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ notifica
   return (
     <div className="bg-white rounded-xl shadow-lg p-6">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-semibold">Notifications</h2>
+        <h2 className="text-xl font-semibold">Notifications</h2>
         {unreadCount > 0 && (
           <span className="bg-[#3BAA75] text-white px-2 py-1 rounded-full text-sm">
             {unreadCount} new
@@ -22,7 +22,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({ notifica
         )}
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-4 max-h-[400px] overflow-y-auto">
         <AnimatePresence>
           {notifications.length === 0 ? (
             <div className="text-center py-8 text-gray-500">

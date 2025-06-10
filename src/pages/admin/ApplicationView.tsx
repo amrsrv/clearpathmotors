@@ -35,7 +35,16 @@ import {
   Ban,
   Unlock,
   Key,
-  Building
+  Building,
+  Home,
+  Users,
+  Cake,
+  Heart,
+  Wallet,
+  BadgeCheck,
+  HelpCircle,
+  FileQuestion,
+  MessageCircle
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
@@ -88,6 +97,10 @@ const ApplicationView = () => {
   const [appointmentTime, setAppointmentTime] = useState('');
   const [isSchedulingAppointment, setIsSchedulingAppointment] = useState(false);
 
+  // New fields for editing
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
+  const [editedApplication, setEditedApplication] = useState<Partial<Application>>({});
+
   const { uploadDocument, deleteDocument, uploading, error: uploadError } = useDocumentUpload(id || '');
 
   const statusOptions = [
@@ -98,6 +111,41 @@ const ApplicationView = () => {
     { value: 'vehicle_selection', label: 'Vehicle Selection', color: 'bg-purple-100 text-purple-700' },
     { value: 'final_approval', label: 'Final Approval', color: 'bg-indigo-100 text-indigo-700' },
     { value: 'finalized', label: 'Finalized', color: 'bg-gray-100 text-gray-700' }
+  ];
+
+  const maritalStatusOptions = [
+    { value: 'single', label: 'Single' },
+    { value: 'married', label: 'Married' },
+    { value: 'divorced', label: 'Divorced' },
+    { value: 'widowed', label: 'Widowed' },
+    { value: 'separated', label: 'Separated' },
+    { value: 'other', label: 'Other' }
+  ];
+
+  const housingStatusOptions = [
+    { value: 'own', label: 'Own' },
+    { value: 'rent', label: 'Rent' },
+    { value: 'live_with_parents', label: 'Live with Parents' },
+    { value: 'other', label: 'Other' }
+  ];
+
+  const debtDischargeTypeOptions = [
+    { value: 'bankruptcy', label: 'Bankruptcy' },
+    { value: 'consumer_proposal', label: 'Consumer Proposal' },
+    { value: 'informal_settlement', label: 'Informal Settlement' },
+    { value: 'other', label: 'Other' }
+  ];
+
+  const debtDischargeStatusOptions = [
+    { value: 'active', label: 'Active' },
+    { value: 'discharged', label: 'Discharged' },
+    { value: 'not_sure', label: 'Not Sure' }
+  ];
+
+  const preferredContactMethodOptions = [
+    { value: 'email', label: 'Email' },
+    { value: 'phone', label: 'Phone' },
+    { value: 'sms', label: 'SMS' }
   ];
 
   useEffect(() => {
@@ -122,13 +170,45 @@ const ApplicationView = () => {
           table: 'applications',
           filter: `id=eq.${application.id}`
         },
-        (payload) => {
+        async (payload) => {
+          console.log('Application update received:', payload);
+          
+          const oldStatus = application.status;
+          const newStatus = payload.new.status;
+          const oldStage = application.current_stage;
+          const newStage = payload.new.current_stage;
+          
+          // Update application state with new data
           setApplication(payload.new as Application);
-          toast.success('Application updated');
+          
+          // Reload stages and documents to ensure consistency
+          await loadStages(application.id);
+          await loadDocuments(application.id);
+          
+          // Create notification for status change
+          if (oldStatus !== newStatus) {
+            await createNotification(
+              `Application Status Updated`,
+              `Your application status has been updated from ${formatStatus(oldStatus)} to ${formatStatus(newStatus)}.`
+            );
+            
+            toast.success(`Application status updated to ${formatStatus(newStatus)}`);
+          }
+          
+          // Create notification for stage change
+          if (oldStage !== newStage) {
+            await createNotification(
+              `Application Stage Advanced`,
+              `Your application has moved to stage ${newStage} of 7.`
+            );
+            
+            toast.success(`Application advanced to stage ${newStage}`);
+          }
         }
       )
       .subscribe();
 
+    // Set up real-time subscription for documents
     const documentsChannel = supabase
       .channel('admin-documents-view')
       .on(
@@ -140,11 +220,12 @@ const ApplicationView = () => {
           filter: `application_id=eq.${application.id}`
         },
         () => {
-          loadDocuments();
+          loadDocuments(application.id);
         }
       )
       .subscribe();
 
+    // Set up real-time subscription for stages
     const stagesChannel = supabase
       .channel('admin-stages-view')
       .on(
@@ -156,7 +237,7 @@ const ApplicationView = () => {
           filter: `application_id=eq.${application.id}`
         },
         () => {
-          loadStages();
+          loadStages(application.id);
         }
       )
       .subscribe();
@@ -186,11 +267,12 @@ const ApplicationView = () => {
       setNotes(appData.internal_notes || '');
       setNewStatus(appData.status);
       setNewStage(appData.current_stage);
+      setEditedApplication(appData);
 
       // Load related data
       await Promise.all([
-        loadStages(),
-        loadDocuments(),
+        loadStages(appData.id),
+        loadDocuments(appData.id),
         loadMessages(),
       ]);
 
@@ -202,12 +284,12 @@ const ApplicationView = () => {
     }
   };
 
-  const loadStages = async () => {
+  const loadStages = async (applicationId: string) => {
     try {
       const { data, error } = await supabase
         .from('application_stages')
         .select('*')
-        .eq('application_id', id)
+        .eq('application_id', applicationId)
         .order('stage_number', { ascending: true });
 
       if (error) throw error;
@@ -217,12 +299,12 @@ const ApplicationView = () => {
     }
   };
 
-  const loadDocuments = async () => {
+  const loadDocuments = async (applicationId: string) => {
     try {
       const { data, error } = await supabase
         .from('documents')
         .select('*')
-        .eq('application_id', id)
+        .eq('application_id', applicationId)
         .order('uploaded_at', { ascending: false });
 
       if (error) throw error;
@@ -244,6 +326,23 @@ const ApplicationView = () => {
       setMessages(data || []);
     } catch (error) {
       console.error('Error loading messages:', error);
+    }
+  };
+
+  const createNotification = async (title: string, message: string) => {
+    if (!application?.user_id) return;
+    
+    try {
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: application.user_id,
+          title,
+          message,
+          read: false
+        });
+    } catch (error) {
+      console.error('Error creating notification:', error);
     }
   };
 
@@ -362,7 +461,7 @@ const ApplicationView = () => {
   };
 
   const handleSendMessage = async () => {
-    if (!application || !messageTitle.trim() || !messageText.trim()) return;
+    if (!application || !messageTitle.trim() || !messageText.trim() || !user) return;
 
     try {
       setIsSendingMessage(true);
@@ -370,8 +469,8 @@ const ApplicationView = () => {
       const { error } = await supabase
         .from('admin_messages')
         .insert({
-          admin_id: user?.id,
           user_id: application.user_id,
+          admin_id: user.id,
           application_id: application.id,
           message: `${messageTitle}\n\n${messageText}`,
           is_admin: true,
@@ -531,9 +630,78 @@ const ApplicationView = () => {
     }
   };
 
+  const handleEditDetails = () => {
+    if (!application) return;
+    setEditedApplication(application);
+    setIsEditingDetails(true);
+  };
+
+  const handleSaveDetails = async () => {
+    if (!application) return;
+    
+    try {
+      const { error } = await supabase
+        .from('applications')
+        .update({ 
+          ...editedApplication,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', application.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setApplication({
+        ...application,
+        ...editedApplication
+      } as Application);
+      
+      setIsEditingDetails(false);
+      toast.success('Application details updated successfully');
+    } catch (error: any) {
+      console.error('Error updating application details:', error);
+      toast.error('Failed to update application details');
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    
+    // Handle checkbox inputs
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
+      setEditedApplication(prev => ({
+        ...prev,
+        [name]: checked
+      }));
+      return;
+    }
+    
+    // Handle number inputs
+    if (type === 'number') {
+      setEditedApplication(prev => ({
+        ...prev,
+        [name]: value === '' ? null : Number(value)
+      }));
+      return;
+    }
+    
+    // Handle all other inputs
+    setEditedApplication(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   const getStatusColor = (status: string) => {
     const statusOption = statusOptions.find(opt => opt.value === status);
     return statusOption?.color || 'bg-gray-100 text-gray-700';
+  };
+
+  const formatStatus = (status: string): string => {
+    return status
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, char => char.toUpperCase());
   };
 
   if (loading) {
@@ -753,62 +921,1057 @@ const ApplicationView = () => {
               </div>
 
               {/* Application Details */}
-              <div className="grid lg:grid-cols-2 gap-6">
-                {/* Personal Information */}
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <h3 className="text-lg font-semibold mb-4">Personal Information</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <User className="h-5 w-5 text-gray-400" />
-                      <span>{application.first_name} {application.last_name}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Mail className="h-5 w-5 text-gray-400" />
-                      <span>{application.email}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Phone className="h-5 w-5 text-gray-400" />
-                      <span>{application.phone}</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <MapPin className="h-5 w-5 text-gray-400" />
-                      <span>{application.address}, {application.city}, {application.province} {application.postal_code}</span>
-                    </div>
-                    {application.date_of_birth && (
-                      <div className="flex items-center gap-3">
-                        <Calendar className="h-5 w-5 text-gray-400" />
-                        <span>Born {format(new Date(application.date_of_birth), 'MMMM d, yyyy')}</span>
-                      </div>
-                    )}
-                  </div>
+              <div className="bg-white rounded-lg shadow-sm p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-lg font-semibold">Application Details</h3>
+                  <button
+                    onClick={handleEditDetails}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors text-sm"
+                  >
+                    <Edit className="h-4 w-4" />
+                    Edit Details
+                  </button>
                 </div>
 
-                {/* Financial Information */}
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <h3 className="text-lg font-semibold mb-4">Financial Information</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <Briefcase className="h-5 w-5 text-gray-400" />
-                      <span>{application.employment_status?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+                {isEditingDetails ? (
+                  <div className="space-y-6">
+                    {/* Personal Information */}
+                    <div>
+                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200">Personal Information</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                          <input
+                            type="text"
+                            name="first_name"
+                            value={editedApplication.first_name || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                          <input
+                            type="text"
+                            name="last_name"
+                            value={editedApplication.last_name || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                          <input
+                            type="email"
+                            name="email"
+                            value={editedApplication.email || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                          <input
+                            type="tel"
+                            name="phone"
+                            value={editedApplication.phone || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+                          <input
+                            type="date"
+                            name="date_of_birth"
+                            value={editedApplication.date_of_birth ? new Date(editedApplication.date_of_birth).toISOString().split('T')[0] : ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Marital Status</label>
+                          <select
+                            name="marital_status"
+                            value={editedApplication.marital_status || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                          >
+                            <option value="">Select Status</option>
+                            {maritalStatusOptions.map(option => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Dependents</label>
+                          <input
+                            type="number"
+                            name="dependents"
+                            value={editedApplication.dependents || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            min="0"
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <DollarSign className="h-5 w-5 text-gray-400" />
-                      <span>Annual Income: ${application.annual_income?.toLocaleString()}</span>
+
+                    {/* Address Information */}
+                    <div>
+                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200">Address Information</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="md:col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                          <input
+                            type="text"
+                            name="address"
+                            value={editedApplication.address || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                          <input
+                            type="text"
+                            name="city"
+                            value={editedApplication.city || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Province</label>
+                          <input
+                            type="text"
+                            name="province"
+                            value={editedApplication.province || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Postal Code</label>
+                          <input
+                            type="text"
+                            name="postal_code"
+                            value={editedApplication.postal_code || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Housing Status</label>
+                          <select
+                            name="housing_status"
+                            value={editedApplication.housing_status || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                          >
+                            <option value="">Select Status</option>
+                            {housingStatusOptions.map(option => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Housing Payment</label>
+                          <input
+                            type="number"
+                            name="housing_payment"
+                            value={editedApplication.housing_payment || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Residence Duration</label>
+                          <input
+                            type="text"
+                            name="residence_duration"
+                            value={editedApplication.residence_duration || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            placeholder="e.g., 3 years"
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <CreditCard className="h-5 w-5 text-gray-400" />
-                      <span>Credit Score: {application.credit_score}</span>
+
+                    {/* Employment & Income */}
+                    <div>
+                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200">Employment & Income</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Employment Status</label>
+                          <select
+                            name="employment_status"
+                            value={editedApplication.employment_status || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                          >
+                            <option value="">Select Status</option>
+                            <option value="employed">Employed</option>
+                            <option value="self_employed">Self-Employed</option>
+                            <option value="unemployed">Unemployed</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Employer Name</label>
+                          <input
+                            type="text"
+                            name="employer_name"
+                            value={editedApplication.employer_name || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Occupation</label>
+                          <input
+                            type="text"
+                            name="occupation"
+                            value={editedApplication.occupation || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Employment Duration</label>
+                          <input
+                            type="text"
+                            name="employment_duration"
+                            value={editedApplication.employment_duration || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            placeholder="e.g., 2 years"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Annual Income</label>
+                          <input
+                            type="number"
+                            name="annual_income"
+                            value={editedApplication.annual_income || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Other Income</label>
+                          <input
+                            type="number"
+                            name="other_income"
+                            value={editedApplication.other_income || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <Car className="h-5 w-5 text-gray-400" />
-                      <span>Vehicle Type: {application.vehicle_type}</span>
+
+                    {/* Loan & Vehicle Details */}
+                    <div>
+                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200">Loan & Vehicle Details</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle Type</label>
+                          <input
+                            type="text"
+                            name="vehicle_type"
+                            value={editedApplication.vehicle_type || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Credit Score</label>
+                          <input
+                            type="number"
+                            name="credit_score"
+                            value={editedApplication.credit_score || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            min="300"
+                            max="900"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Desired Loan Amount</label>
+                          <input
+                            type="number"
+                            name="desired_loan_amount"
+                            value={editedApplication.desired_loan_amount || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Down Payment Amount</label>
+                          <input
+                            type="number"
+                            name="down_payment_amount"
+                            value={editedApplication.down_payment_amount || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Desired Monthly Payment</label>
+                          <input
+                            type="number"
+                            name="desired_monthly_payment"
+                            value={editedApplication.desired_monthly_payment || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Interest Rate</label>
+                          <input
+                            type="number"
+                            name="interest_rate"
+                            value={editedApplication.interest_rate || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            min="0"
+                            max="30"
+                            step="0.01"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Loan Term (months)</label>
+                          <select
+                            name="loan_term"
+                            value={editedApplication.loan_term || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                          >
+                            <option value="">Select Term</option>
+                            <option value="36">36 months</option>
+                            <option value="48">48 months</option>
+                            <option value="60">60 months</option>
+                            <option value="72">72 months</option>
+                            <option value="84">84 months</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Loan Amount Min</label>
+                          <input
+                            type="number"
+                            name="loan_amount_min"
+                            value={editedApplication.loan_amount_min || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Loan Amount Max</label>
+                          <input
+                            type="number"
+                            name="loan_amount_max"
+                            value={editedApplication.loan_amount_max || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <DollarSign className="h-5 w-5 text-gray-400" />
-                      <span>Desired Payment: ${application.desired_monthly_payment?.toLocaleString()}/month</span>
+
+                    {/* Additional Information */}
+                    <div>
+                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200">Additional Information</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            id="has_driver_license"
+                            name="has_driver_license"
+                            checked={editedApplication.has_driver_license || false}
+                            onChange={(e) => setEditedApplication(prev => ({
+                              ...prev,
+                              has_driver_license: e.target.checked
+                            }))}
+                            className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                          />
+                          <label htmlFor="has_driver_license" className="ml-2 block text-sm text-gray-700">
+                            Has Driver's License
+                          </label>
+                        </div>
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            id="collects_government_benefits"
+                            name="collects_government_benefits"
+                            checked={editedApplication.collects_government_benefits || false}
+                            onChange={(e) => setEditedApplication(prev => ({
+                              ...prev,
+                              collects_government_benefits: e.target.checked
+                            }))}
+                            className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                          />
+                          <label htmlFor="collects_government_benefits" className="ml-2 block text-sm text-gray-700">
+                            Collects Government Benefits
+                          </label>
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Disability Programs (JSON)</label>
+                          <textarea
+                            name="disability_programs"
+                            value={editedApplication.disability_programs ? JSON.stringify(editedApplication.disability_programs) : ''}
+                            onChange={(e) => {
+                              try {
+                                const jsonValue = e.target.value ? JSON.parse(e.target.value) : null;
+                                setEditedApplication(prev => ({
+                                  ...prev,
+                                  disability_programs: jsonValue
+                                }));
+                              } catch (error) {
+                                // If not valid JSON, store as string
+                                setEditedApplication(prev => ({
+                                  ...prev,
+                                  disability_programs: e.target.value
+                                }));
+                              }
+                            }}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            rows={2}
+                            placeholder='{"program": "example", "details": "example"}'
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Debt Discharge History */}
+                    <div>
+                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200">Debt Discharge History</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            id="has_debt_discharge_history"
+                            name="has_debt_discharge_history"
+                            checked={editedApplication.has_debt_discharge_history || false}
+                            onChange={(e) => setEditedApplication(prev => ({
+                              ...prev,
+                              has_debt_discharge_history: e.target.checked
+                            }))}
+                            className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                          />
+                          <label htmlFor="has_debt_discharge_history" className="ml-2 block text-sm text-gray-700">
+                            Has Debt Discharge History
+                          </label>
+                        </div>
+
+                        {editedApplication.has_debt_discharge_history && (
+                          <>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Debt Discharge Type</label>
+                              <select
+                                name="debt_discharge_type"
+                                value={editedApplication.debt_discharge_type || ''}
+                                onChange={handleInputChange}
+                                className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                              >
+                                <option value="">Select Type</option>
+                                {debtDischargeTypeOptions.map(option => (
+                                  <option key={option.value} value={option.value}>{option.label}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Debt Discharge Year</label>
+                              <input
+                                type="number"
+                                name="debt_discharge_year"
+                                value={editedApplication.debt_discharge_year || ''}
+                                onChange={handleInputChange}
+                                className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                                min="1900"
+                                max={new Date().getFullYear()}
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Debt Discharge Status</label>
+                              <select
+                                name="debt_discharge_status"
+                                value={editedApplication.debt_discharge_status || ''}
+                                onChange={handleInputChange}
+                                className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                              >
+                                <option value="">Select Status</option>
+                                {debtDischargeStatusOptions.map(option => (
+                                  <option key={option.value} value={option.value}>{option.label}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="md:col-span-2">
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Debt Discharge Comments</label>
+                              <textarea
+                                name="debt_discharge_comments"
+                                value={editedApplication.debt_discharge_comments || ''}
+                                onChange={handleInputChange}
+                                className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                                rows={2}
+                              />
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Contact Preferences */}
+                    <div>
+                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200">Contact Preferences</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Preferred Contact Method</label>
+                          <select
+                            name="preferred_contact_method"
+                            value={editedApplication.preferred_contact_method || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                          >
+                            <option value="">Select Method</option>
+                            {preferredContactMethodOptions.map(option => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            id="consent_soft_check"
+                            name="consent_soft_check"
+                            checked={editedApplication.consent_soft_check || false}
+                            onChange={(e) => setEditedApplication(prev => ({
+                              ...prev,
+                              consent_soft_check: e.target.checked
+                            }))}
+                            className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                          />
+                          <label htmlFor="consent_soft_check" className="ml-2 block text-sm text-gray-700">
+                            Consent to Soft Credit Check
+                          </label>
+                        </div>
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            id="terms_accepted"
+                            name="terms_accepted"
+                            checked={editedApplication.terms_accepted || false}
+                            onChange={(e) => setEditedApplication(prev => ({
+                              ...prev,
+                              terms_accepted: e.target.checked
+                            }))}
+                            className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                          />
+                          <label htmlFor="terms_accepted" className="ml-2 block text-sm text-gray-700">
+                            Terms & Conditions Accepted
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Admin Assignment */}
+                    <div>
+                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200">Admin Assignment</h4>
+                      <div className="grid grid-cols-1 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Assigned Admin</label>
+                          <select
+                            name="assigned_to_admin_id"
+                            value={editedApplication.assigned_to_admin_id || ''}
+                            onChange={handleInputChange}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                          >
+                            <option value="">Not Assigned</option>
+                            <option value={user?.id || ''}>Assign to Me</option>
+                            {/* In a real implementation, you would fetch and display all admin users here */}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end gap-3 pt-4">
+                      <button
+                        onClick={() => setIsEditingDetails(false)}
+                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSaveDetails}
+                        className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors"
+                      >
+                        Save Changes
+                      </button>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-8">
+                    {/* Personal Information */}
+                    <div>
+                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200 flex items-center">
+                        <User className="h-5 w-5 mr-2 text-gray-400" />
+                        Personal Information
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex items-start gap-3">
+                          <User className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Full Name</p>
+                            <p className="text-sm text-gray-900">{application.first_name} {application.last_name}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <Mail className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Email</p>
+                            <p className="text-sm text-gray-900">{application.email}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <Phone className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Phone</p>
+                            <p className="text-sm text-gray-900">{application.phone}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <Cake className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Date of Birth</p>
+                            <p className="text-sm text-gray-900">
+                              {application.date_of_birth 
+                                ? format(new Date(application.date_of_birth), 'MMMM d, yyyy')
+                                : 'Not provided'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <Heart className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Marital Status</p>
+                            <p className="text-sm text-gray-900">
+                              {application.marital_status 
+                                ? formatStatus(application.marital_status)
+                                : 'Not provided'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <Users className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Dependents</p>
+                            <p className="text-sm text-gray-900">
+                              {application.dependents !== null && application.dependents !== undefined
+                                ? application.dependents
+                                : 'Not provided'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Address Information */}
+                    <div>
+                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200 flex items-center">
+                        <MapPin className="h-5 w-5 mr-2 text-gray-400" />
+                        Address Information
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex items-start gap-3 md:col-span-2">
+                          <MapPin className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Address</p>
+                            <p className="text-sm text-gray-900">{application.address || 'Not provided'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <Building className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">City</p>
+                            <p className="text-sm text-gray-900">{application.city || 'Not provided'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <MapPin className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Province</p>
+                            <p className="text-sm text-gray-900">{application.province || 'Not provided'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <MapPin className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Postal Code</p>
+                            <p className="text-sm text-gray-900">{application.postal_code || 'Not provided'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <Home className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Housing Status</p>
+                            <p className="text-sm text-gray-900">
+                              {application.housing_status 
+                                ? formatStatus(application.housing_status)
+                                : 'Not provided'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <DollarSign className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Housing Payment</p>
+                            <p className="text-sm text-gray-900">
+                              {application.housing_payment 
+                                ? `$${application.housing_payment.toLocaleString()}`
+                                : 'Not provided'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <Clock className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Residence Duration</p>
+                            <p className="text-sm text-gray-900">{application.residence_duration || 'Not provided'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Employment & Income */}
+                    <div>
+                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200 flex items-center">
+                        <Briefcase className="h-5 w-5 mr-2 text-gray-400" />
+                        Employment & Income
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex items-start gap-3">
+                          <Briefcase className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Employment Status</p>
+                            <p className="text-sm text-gray-900">
+                              {application.employment_status 
+                                ? formatStatus(application.employment_status)
+                                : 'Not provided'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <Building className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Employer Name</p>
+                            <p className="text-sm text-gray-900">{application.employer_name || 'Not provided'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <Briefcase className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Occupation</p>
+                            <p className="text-sm text-gray-900">{application.occupation || 'Not provided'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <Clock className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Employment Duration</p>
+                            <p className="text-sm text-gray-900">{application.employment_duration || 'Not provided'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <DollarSign className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Annual Income</p>
+                            <p className="text-sm text-gray-900">
+                              {application.annual_income 
+                                ? `$${application.annual_income.toLocaleString()}`
+                                : 'Not provided'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <DollarSign className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Other Income</p>
+                            <p className="text-sm text-gray-900">
+                              {application.other_income 
+                                ? `$${application.other_income.toLocaleString()}`
+                                : 'Not provided'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Loan & Vehicle Details */}
+                    <div>
+                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200 flex items-center">
+                        <Car className="h-5 w-5 mr-2 text-gray-400" />
+                        Loan & Vehicle Details
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex items-start gap-3">
+                          <Car className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Vehicle Type</p>
+                            <p className="text-sm text-gray-900">{application.vehicle_type || 'Not provided'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <CreditCard className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Credit Score</p>
+                            <p className="text-sm text-gray-900">{application.credit_score || 'Not provided'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <DollarSign className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Desired Loan Amount</p>
+                            <p className="text-sm text-gray-900">
+                              {application.desired_loan_amount 
+                                ? `$${application.desired_loan_amount.toLocaleString()}`
+                                : 'Not provided'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <DollarSign className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Down Payment Amount</p>
+                            <p className="text-sm text-gray-900">
+                              {application.down_payment_amount 
+                                ? `$${application.down_payment_amount.toLocaleString()}`
+                                : 'Not provided'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <DollarSign className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Desired Monthly Payment</p>
+                            <p className="text-sm text-gray-900">
+                              {application.desired_monthly_payment 
+                                ? `$${application.desired_monthly_payment.toLocaleString()}`
+                                : 'Not provided'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <Wallet className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Interest Rate</p>
+                            <p className="text-sm text-gray-900">
+                              {application.interest_rate 
+                                ? `${application.interest_rate}%`
+                                : 'Not provided'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <Calendar className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Loan Term</p>
+                            <p className="text-sm text-gray-900">
+                              {application.loan_term 
+                                ? `${application.loan_term} months`
+                                : 'Not provided'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <DollarSign className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Loan Amount Range</p>
+                            <p className="text-sm text-gray-900">
+                              {application.loan_amount_min && application.loan_amount_max
+                                ? `$${application.loan_amount_min.toLocaleString()} - $${application.loan_amount_max.toLocaleString()}`
+                                : 'Not provided'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Additional Information */}
+                    <div>
+                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200 flex items-center">
+                        <FileText className="h-5 w-5 mr-2 text-gray-400" />
+                        Additional Information
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex items-start gap-3">
+                          <BadgeCheck className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Has Driver's License</p>
+                            <p className="text-sm text-gray-900">
+                              {application.has_driver_license !== null && application.has_driver_license !== undefined
+                                ? (application.has_driver_license ? 'Yes' : 'No')
+                                : 'Not provided'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <DollarSign className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Collects Government Benefits</p>
+                            <p className="text-sm text-gray-900">
+                              {application.collects_government_benefits !== null && application.collects_government_benefits !== undefined
+                                ? (application.collects_government_benefits ? 'Yes' : 'No')
+                                : 'Not provided'}
+                            </p>
+                          </div>
+                        </div>
+                        {application.disability_programs && (
+                          <div className="flex items-start gap-3 md:col-span-2">
+                            <HelpCircle className="h-5 w-5 text-gray-400 mt-0.5" />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700">Disability Programs</p>
+                              <p className="text-sm text-gray-900 font-mono">
+                                {typeof application.disability_programs === 'object'
+                                  ? JSON.stringify(application.disability_programs, null, 2)
+                                  : application.disability_programs}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Debt Discharge History */}
+                    {application.has_debt_discharge_history && (
+                      <div>
+                        <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200 flex items-center">
+                          <FileQuestion className="h-5 w-5 mr-2 text-gray-400" />
+                          Debt Discharge History
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="flex items-start gap-3">
+                            <FileText className="h-5 w-5 text-gray-400 mt-0.5" />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700">Debt Discharge Type</p>
+                              <p className="text-sm text-gray-900">
+                                {application.debt_discharge_type 
+                                  ? formatStatus(application.debt_discharge_type)
+                                  : 'Not provided'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-3">
+                            <Calendar className="h-5 w-5 text-gray-400 mt-0.5" />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700">Debt Discharge Year</p>
+                              <p className="text-sm text-gray-900">{application.debt_discharge_year || 'Not provided'}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-3">
+                            <Clock className="h-5 w-5 text-gray-400 mt-0.5" />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700">Debt Discharge Status</p>
+                              <p className="text-sm text-gray-900">
+                                {application.debt_discharge_status 
+                                  ? formatStatus(application.debt_discharge_status)
+                                  : 'Not provided'}
+                              </p>
+                            </div>
+                          </div>
+                          {application.debt_discharge_comments && (
+                            <div className="flex items-start gap-3 md:col-span-2">
+                              <MessageCircle className="h-5 w-5 text-gray-400 mt-0.5" />
+                              <div>
+                                <p className="text-sm font-medium text-gray-700">Debt Discharge Comments</p>
+                                <p className="text-sm text-gray-900">{application.debt_discharge_comments}</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Contact Preferences */}
+                    <div>
+                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200 flex items-center">
+                        <MessageSquare className="h-5 w-5 mr-2 text-gray-400" />
+                        Contact Preferences
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="flex items-start gap-3">
+                          <Mail className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Preferred Contact Method</p>
+                            <p className="text-sm text-gray-900">
+                              {application.preferred_contact_method 
+                                ? formatStatus(application.preferred_contact_method)
+                                : 'Not provided'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <CheckCircle className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Consent to Soft Credit Check</p>
+                            <p className="text-sm text-gray-900">
+                              {application.consent_soft_check !== null && application.consent_soft_check !== undefined
+                                ? (application.consent_soft_check ? 'Yes' : 'No')
+                                : 'Not provided'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                          <CheckCircle className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Terms & Conditions Accepted</p>
+                            <p className="text-sm text-gray-900">
+                              {application.terms_accepted !== null && application.terms_accepted !== undefined
+                                ? (application.terms_accepted ? 'Yes' : 'No')
+                                : 'Not provided'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Admin Assignment */}
+                    <div>
+                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200 flex items-center">
+                        <UserCheck className="h-5 w-5 mr-2 text-gray-400" />
+                        Admin Assignment
+                      </h4>
+                      <div className="grid grid-cols-1 gap-4">
+                        <div className="flex items-start gap-3">
+                          <User className="h-5 w-5 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">Assigned Admin</p>
+                            <p className="text-sm text-gray-900">
+                              {application.assigned_to_admin_id
+                                ? (application.assigned_to_admin_id === user?.id ? 'You' : application.assigned_to_admin_id)
+                                : 'Not assigned'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Application Progress */}

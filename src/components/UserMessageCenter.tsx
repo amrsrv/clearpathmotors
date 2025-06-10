@@ -244,7 +244,7 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({ userId, ap
         </p>
       </div>
       
-      <div className="h-[400px] flex flex-col">
+      <div className="h-[400px] sm:h-[500px] flex flex-col">
         {/* Message List */}
         <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
           {loading ? (

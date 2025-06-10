@@ -561,7 +561,7 @@ const Dashboard = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">
+              <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">
                 Welcome Back, {selectedApplication.first_name || user?.email?.split('@')[0]}
               </h1>
               <div className="flex items-center gap-2 mt-1">
@@ -642,7 +642,7 @@ const Dashboard = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Summary Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -710,7 +710,7 @@ const Dashboard = () => {
                   max={prequalificationData.loanRange.max}
                   rate={prequalificationData.loanRange.rate}
                 />
-                <div className="grid grid-cols-3 gap-6 mt-8">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-8">
                   <div className="text-center">
                     <div className="text-white/80 text-sm mb-1">Monthly Payment</div>
                     <div className="text-2xl font-bold">${prequalificationData.monthlyPayment}</div>
@@ -730,7 +730,7 @@ const Dashboard = () => {
             {/* Applications Hub */}
             <div className="bg-white rounded-xl shadow-lg p-6">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-semibold">Applications Hub</h2>
+                <h2 className="text-xl sm:text-2xl font-semibold">Applications Hub</h2>
                 {applications.length > 1 && (
                   <button
                     onClick={() => setShowApplicationSelector(!showApplicationSelector)}
@@ -753,7 +753,7 @@ const Dashboard = () => {
             {applications.length > 1 && (
               <div className="bg-white rounded-xl shadow-lg p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-semibold">Your Applications</h2>
+                  <h2 className="text-xl sm:text-2xl font-semibold">Your Applications</h2>
                   <Link
                     to="/get-prequalified"
                     className="flex items-center gap-2 text-[#3BAA75] hover:text-[#2D8259] font-medium"
@@ -823,10 +823,10 @@ const Dashboard = () => {
 
             {/* Section Tabs */}
             <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              <div className="flex border-b border-gray-200">
+              <div className="flex border-b border-gray-200 overflow-x-auto">
                 <button
                   onClick={() => setActiveSection('documents')}
-                  className={`flex-1 px-4 py-3 font-medium text-sm ${
+                  className={`flex-1 px-4 py-3 font-medium text-sm whitespace-nowrap ${
                     activeSection === 'documents'
                       ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
                       : 'text-gray-500 hover:text-gray-700'
@@ -839,7 +839,7 @@ const Dashboard = () => {
                 </button>
                 <button
                   onClick={() => setActiveSection('messages')}
-                  className={`flex-1 px-4 py-3 font-medium text-sm ${
+                  className={`flex-1 px-4 py-3 font-medium text-sm whitespace-nowrap ${
                     activeSection === 'messages'
                       ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
                       : 'text-gray-500 hover:text-gray-700'
@@ -857,7 +857,7 @@ const Dashboard = () => {
                 </button>
                 <button
                   onClick={() => setActiveSection('activity')}
-                  className={`flex-1 px-4 py-3 font-medium text-sm ${
+                  className={`flex-1 px-4 py-3 font-medium text-sm whitespace-nowrap ${
                     activeSection === 'activity'
                       ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
                       : 'text-gray-500 hover:text-gray-700'
@@ -882,10 +882,10 @@ const Dashboard = () => {
                       transition={{ duration: 0.2 }}
                     >
                       {/* Document Tabs */}
-                      <div className="flex border-b border-gray-200 mb-6">
+                      <div className="flex border-b border-gray-200 mb-6 overflow-x-auto">
                         <button
                           onClick={() => setActiveTab('upload')}
-                          className={`px-4 py-2 font-medium text-sm ${
+                          className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
                             activeTab === 'upload'
                               ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
                               : 'text-gray-500 hover:text-gray-700'
@@ -895,7 +895,7 @@ const Dashboard = () => {
                         </button>
                         <button
                           onClick={() => setActiveTab('manage')}
-                          className={`px-4 py-2 font-medium text-sm ${
+                          className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
                             activeTab === 'manage'
                               ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
                               : 'text-gray-500 hover:text-gray-700'
@@ -1073,7 +1073,7 @@ const Dashboard = () => {
               <p className="text-gray-600 mb-4">
                 Enhance your vehicle ownership experience with additional services and protection plans.
               </p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-gray-50 p-4 rounded-lg text-center">
                   <p className="font-medium text-gray-700">Extended Warranty</p>
                   <p className="text-sm text-gray-500">Protect your investment</p>
