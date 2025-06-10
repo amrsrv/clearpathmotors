@@ -146,7 +146,7 @@ const CreateAccount = () => {
                   {error}
                   {emailExists && (
                     <span className="ml-1">
-                      <Link to="/login" className="underline font-medium">
+                      <Link to="/login\" className="underline font-medium">
                         Click here to sign in
                       </Link>
                     </span>
