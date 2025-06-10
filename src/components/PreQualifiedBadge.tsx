@@ -20,7 +20,7 @@ export const PreQualifiedBadge = () => {
         <div className="bg-white/20 rounded-full p-1">
           <CheckCircle className="h-4 w-4 text-white" />
         </div>
-        <span className="font-medium text-sm text-white tracking-wide uppercase">Pre-Qualified</span>
+        <span className="font-medium text-xs text-white tracking-wide uppercase">Pre-Qualified</span>
       </div>
       
       {/* Subtle glow effect */}
