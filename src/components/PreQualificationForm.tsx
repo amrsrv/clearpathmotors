@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   User, Mail, Phone, Calendar, MapPin, Building, Briefcase, DollarSign, 
   Home, Car, CreditCard, FileText, CheckCircle, AlertCircle, ChevronRight,
-  ChevronLeft, Info, Heart, Shield, HelpCircle, ArrowRight
+  ChevronLeft, Info, Heart, Shield, HelpCircle, ArrowRight, MessageSquare
 } from 'lucide-react';
 import { ProgressBar } from './ProgressBar';
 import { supabase } from '../lib/supabaseClient';
@@ -13,7 +13,6 @@ import { useAuth } from '../hooks/useAuth';
 import CurrencyInput from 'react-currency-input-field';
 import { Tooltip } from 'react-tooltip';
 import toast from 'react-hot-toast';
-console.log('Initial currentStep:', currentStep); 
 
 // Define government benefit programs
 const GOVERNMENT_PROGRAMS = [
@@ -57,6 +56,8 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isHovered, setIsHovered] = useState(false);
+  
+  console.log('Initial currentStep:', currentStep); 
   
   // Form data state
   const [formData, setFormData] = useState({
