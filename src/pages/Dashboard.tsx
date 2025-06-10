@@ -29,7 +29,9 @@ import {
   Plus,
   BarChart3,
   Shield,
-  Inbox
+  Inbox,
+  Eye,
+  PlusCircle
 } from 'lucide-react';
 import type { Application, ApplicationStage, Document, Notification } from '../types/database';
 import { PreQualifiedBadge } from '../components/PreQualifiedBadge';
@@ -45,7 +47,8 @@ import { UserMessageCenter } from '../components/UserMessageCenter';
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const [application, setApplication] = useState<Application | null>(null);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
   const [stages, setStages] = useState<ApplicationStage[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -63,7 +66,7 @@ const Dashboard = () => {
   });
   
   // Move the useDocumentUpload hook to the component level
-  const { uploadDocument, deleteDocument, uploading, error: uploadError } = useDocumentUpload(application?.id || '');
+  const { uploadDocument, deleteDocument, uploading, error: uploadError } = useDocumentUpload(selectedApplication?.id || '');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -77,7 +80,7 @@ const Dashboard = () => {
   }, [user, authLoading]);
 
   useEffect(() => {
-    if (!application?.id || !user?.id) return;
+    if (!selectedApplication?.id || !user?.id) return;
 
     // Set up real-time subscription for application updates
     const applicationsChannel = supabase
@@ -88,22 +91,27 @@ const Dashboard = () => {
           event: 'UPDATE',
           schema: 'public',
           table: 'applications',
-          filter: `id=eq.${application.id}`
+          filter: `id=eq.${selectedApplication.id}`
         },
         async (payload) => {
           console.log('Application update received:', payload);
           
-          const oldStatus = application.status;
+          const oldStatus = selectedApplication.status;
           const newStatus = payload.new.status;
-          const oldStage = application.current_stage;
+          const oldStage = selectedApplication.current_stage;
           const newStage = payload.new.current_stage;
           
           // Update application state with new data
-          setApplication(payload.new as Application);
+          setSelectedApplication(payload.new as Application);
+          
+          // Update applications list
+          setApplications(prev => 
+            prev.map(app => app.id === payload.new.id ? payload.new as Application : app)
+          );
           
           // Reload stages and documents to ensure consistency
-          await loadStages(application.id);
-          await loadDocuments(application.id);
+          await loadStages(selectedApplication.id);
+          await loadDocuments(selectedApplication.id);
           
           // Create notification for status change
           if (oldStatus !== newStatus) {
@@ -127,11 +135,11 @@ const Dashboard = () => {
           
           // Update prequalification data if relevant fields changed
           if (
-            payload.new.loan_amount_min !== application.loan_amount_min ||
-            payload.new.loan_amount_max !== application.loan_amount_max ||
-            payload.new.interest_rate !== application.interest_rate ||
-            payload.new.loan_term !== application.loan_term ||
-            payload.new.desired_monthly_payment !== application.desired_monthly_payment
+            payload.new.loan_amount_min !== selectedApplication.loan_amount_min ||
+            payload.new.loan_amount_max !== selectedApplication.loan_amount_max ||
+            payload.new.interest_rate !== selectedApplication.interest_rate ||
+            payload.new.loan_term !== selectedApplication.loan_term ||
+            payload.new.desired_monthly_payment !== selectedApplication.desired_monthly_payment
           ) {
             updatePrequalificationData(payload.new as Application);
           }
@@ -148,13 +156,13 @@ const Dashboard = () => {
           event: '*',
           schema: 'public',
           table: 'documents',
-          filter: `application_id=eq.${application.id}`
+          filter: `application_id=eq.${selectedApplication.id}`
         },
         async (payload) => {
           console.log('Document change received:', payload);
           
           // Reload documents to get the latest state
-          await loadDocuments(application.id);
+          await loadDocuments(selectedApplication.id);
           
           // Handle document status changes
           if (payload.eventType === 'UPDATE') {
@@ -220,13 +228,13 @@ const Dashboard = () => {
           event: '*',
           schema: 'public',
           table: 'application_stages',
-          filter: `application_id=eq.${application.id}`
+          filter: `application_id=eq.${selectedApplication.id}`
         },
         async (payload) => {
           console.log('Stage change received:', payload);
           
           // Reload stages to get the latest state
-          await loadStages(application.id);
+          await loadStages(selectedApplication.id);
           
           // Create notification for new stage
           if (payload.eventType === 'INSERT') {
@@ -272,7 +280,7 @@ const Dashboard = () => {
       supabase.removeChannel(stagesChannel);
       supabase.removeChannel(messagesChannel);
     };
-  }, [application?.id, user?.id]);
+  }, [selectedApplication?.id, user?.id]);
 
   const formatStatus = (status: string): string => {
     return status
@@ -301,29 +309,33 @@ const Dashboard = () => {
     try {
       if (!user) return;
 
-      // Load application data
-      const { data: applicationData, error: applicationError } = await supabase
+      // Load applications data
+      const { data: applicationsData, error: applicationsError } = await supabase
         .from('applications')
         .select('*')
         .eq('user_id', user.id)
-        .maybeSingle();
+        .order('created_at', { ascending: false });
 
-      if (applicationError) {
-        throw applicationError;
+      if (applicationsError) {
+        throw applicationsError;
       }
 
-      if (!applicationData) {
-        navigate('/get-approved');
+      if (!applicationsData || applicationsData.length === 0) {
+        navigate('/get-prequalified');
         return;
       }
 
-      setApplication(applicationData);
+      setApplications(applicationsData);
+      
+      // Set the first application as the selected one
+      const firstApplication = applicationsData[0];
+      setSelectedApplication(firstApplication);
 
-      // Load stages
-      await loadStages(applicationData.id);
+      // Load stages for the selected application
+      await loadStages(firstApplication.id);
 
-      // Load documents
-      await loadDocuments(applicationData.id);
+      // Load documents for the selected application
+      await loadDocuments(firstApplication.id);
 
       // Load notifications
       await loadNotifications(user.id);
@@ -331,8 +343,8 @@ const Dashboard = () => {
       // Load summary stats
       await loadSummaryStats();
 
-      // Set prequalification data
-      updatePrequalificationData(applicationData);
+      // Set prequalification data for the selected application
+      updatePrequalificationData(firstApplication);
 
     } catch (error: any) {
       console.error('Error loading dashboard data:', error);
@@ -443,7 +455,7 @@ const Dashboard = () => {
   };
 
   const handleDocumentUpload = async (file: File, category: string) => {
-    if (!application) return;
+    if (!selectedApplication) return;
     
     try {
       const document = await uploadDocument(file, category);
@@ -492,6 +504,13 @@ const Dashboard = () => {
     }
   };
 
+  const handleSelectApplication = async (application: Application) => {
+    setSelectedApplication(application);
+    await loadStages(application.id);
+    await loadDocuments(application.id);
+    updatePrequalificationData(application);
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -517,14 +536,14 @@ const Dashboard = () => {
     );
   }
 
-  if (!application) {
+  if (applications.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-semibold mb-4">No Application Found</h2>
+          <h2 className="text-2xl font-semibold mb-4">No Applications Found</h2>
           <p className="text-gray-600 mb-6">Start your application to view this dashboard</p>
           <button
-            onClick={() => navigate('/get-approved')}
+            onClick={() => navigate('/get-prequalified')}
             className="bg-[#3BAA75] text-white px-6 py-3 rounded-lg hover:bg-[#2D8259] transition-colors"
           >
             Start Application
@@ -542,12 +561,11 @@ const Dashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-semibold text-gray-900">
-                Welcome Back, {application.first_name || user?.email?.split('@')[0]}
+                Welcome Back, {selectedApplication?.first_name || user?.email?.split('@')[0]}
               </h1>
               <div className="flex items-center gap-2 mt-1">
-                <PreQualifiedBadge />
                 <span className="text-sm text-gray-500">
-                  Application #{application.id.slice(0, 8)}
+                  You have {applications.length} application{applications.length !== 1 ? 's' : ''}
                 </span>
               </div>
             </div>
@@ -619,427 +637,493 @@ const Dashboard = () => {
           </motion.div>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Content - Left Side */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Prequalification Results */}
-            {prequalificationData && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-[#2A7A5B] rounded-xl p-8 text-white shadow-xl"
+        {/* Applications List */}
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-semibold">Your Applications</h2>
+            <Link
+              to="/get-prequalified"
+              className="flex items-center gap-2 text-[#3BAA75] hover:text-[#2D8259] font-medium"
+            >
+              <PlusCircle className="h-5 w-5" />
+              <span>New Application</span>
+            </Link>
+          </div>
+          
+          <div className="space-y-4">
+            {applications.map((application) => (
+              <div 
+                key={application.id}
+                className={`
+                  border-2 rounded-lg p-4 cursor-pointer transition-colors
+                  ${selectedApplication?.id === application.id 
+                    ? 'border-[#3BAA75] bg-[#3BAA75]/5' 
+                    : 'border-gray-200 hover:border-[#3BAA75]/50 hover:bg-gray-50'
+                  }
+                `}
+                onClick={() => handleSelectApplication(application)}
               >
-                <h2 className="text-2xl font-semibold mb-6">Your Prequalification Results</h2>
-                <LoanRangeBar
-                  min={prequalificationData.loanRange.min}
-                  max={prequalificationData.loanRange.max}
-                  rate={prequalificationData.loanRange.rate}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {application.status === 'pre_approved' && <PreQualifiedBadge />}
+                    <div>
+                      <h3 className="font-medium text-lg">
+                        {application.vehicle_type || 'Vehicle'} Financing
+                      </h3>
+                      <p className="text-sm text-gray-500">
+                        Application #{application.id.slice(0, 8)} • Created {format(new Date(application.created_at), 'MMM d, yyyy')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className={`
+                      px-2 py-1 text-xs font-medium rounded-full
+                      ${application.status === 'pre_approved' ? 'bg-green-100 text-green-700' : 
+                        application.status === 'under_review' ? 'bg-yellow-100 text-yellow-700' :
+                        application.status === 'pending_documents' ? 'bg-orange-100 text-orange-700' :
+                        application.status === 'finalized' ? 'bg-blue-100 text-blue-700' :
+                        'bg-gray-100 text-gray-700'}
+                    `}>
+                      {formatStatus(application.status)}
+                    </span>
+                    <span className="text-xs text-gray-500 mt-1">
+                      Stage {application.current_stage}/7
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-4 mt-4">
+                  <div className="flex flex-col">
+                    <span className="text-xs text-gray-500">Loan Amount</span>
+                    <span className="font-medium">
+                      ${application.loan_amount_min?.toLocaleString()} - ${application.loan_amount_max?.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs text-gray-500">Monthly Payment</span>
+                    <span className="font-medium">
+                      ${application.desired_monthly_payment?.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs text-gray-500">Interest Rate</span>
+                    <span className="font-medium">
+                      {application.interest_rate}%
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="flex justify-end mt-4">
+                  <button className="flex items-center text-[#3BAA75] hover:text-[#2D8259] text-sm font-medium">
+                    <Eye className="h-4 w-4 mr-1" />
+                    View Details
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {selectedApplication && (
+          <div className="grid lg:grid-cols-3 gap-8">
+            {/* Main Content - Left Side */}
+            <div className="lg:col-span-2 space-y-8">
+              {/* Prequalification Results */}
+              {prequalificationData && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-[#2A7A5B] rounded-xl p-8 text-white shadow-xl"
+                >
+                  <h2 className="text-2xl font-semibold mb-6">Your Prequalification Results</h2>
+                  <LoanRangeBar
+                    min={prequalificationData.loanRange.min}
+                    max={prequalificationData.loanRange.max}
+                    rate={prequalificationData.loanRange.rate}
+                  />
+                  <div className="grid grid-cols-3 gap-6 mt-8">
+                    <div className="text-center">
+                      <div className="text-white/80 text-sm mb-1">Monthly Payment</div>
+                      <div className="text-2xl font-bold">${prequalificationData.monthlyPayment}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-white/80 text-sm mb-1">Term Length</div>
+                      <div className="text-2xl font-bold">{prequalificationData.term} months</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-white/80 text-sm mb-1">Interest Rate</div>
+                      <div className="text-2xl font-bold">{prequalificationData.loanRange.rate}%</div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Application Progress */}
+              <div className="bg-white rounded-xl shadow-lg p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-semibold">Application Progress</h2>
+                </div>
+                
+                <ApplicationTracker
+                  application={selectedApplication}
+                  stages={stages}
                 />
-                <div className="grid grid-cols-3 gap-6 mt-8">
-                  <div className="text-center">
-                    <div className="text-white/80 text-sm mb-1">Monthly Payment</div>
-                    <div className="text-2xl font-bold">${prequalificationData.monthlyPayment}</div>
+              </div>
+
+              {/* Section Tabs */}
+              <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+                <div className="flex border-b border-gray-200">
+                  <button
+                    onClick={() => setActiveSection('documents')}
+                    className={`flex-1 px-4 py-3 font-medium text-sm ${
+                      activeSection === 'documents'
+                        ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Document Center
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setActiveSection('messages')}
+                    className={`flex-1 px-4 py-3 font-medium text-sm ${
+                      activeSection === 'messages'
+                        ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <MessageSquare className="h-5 w-5" />
+                      Message Center
+                      {summaryStats.unreadMessages > 0 && (
+                        <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                          {summaryStats.unreadMessages}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setActiveSection('activity')}
+                    className={`flex-1 px-4 py-3 font-medium text-sm ${
+                      activeSection === 'activity'
+                        ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <Clock className="h-5 w-5" />
+                      Activity
+                    </div>
+                  </button>
+                </div>
+
+                {/* Section Content */}
+                <div className="p-6">
+                  <AnimatePresence mode="wait">
+                    {activeSection === 'documents' && (
+                      <motion.div
+                        key="documents"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        {/* Document Tabs */}
+                        <div className="flex border-b border-gray-200 mb-6">
+                          <button
+                            onClick={() => setActiveTab('upload')}
+                            className={`px-4 py-2 font-medium text-sm ${
+                              activeTab === 'upload'
+                                ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                                : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                          >
+                            Upload Documents
+                          </button>
+                          <button
+                            onClick={() => setActiveTab('manage')}
+                            className={`px-4 py-2 font-medium text-sm ${
+                              activeTab === 'manage'
+                                ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                                : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                          >
+                            Manage Documents
+                          </button>
+                        </div>
+
+                        {/* Document Content */}
+                        <AnimatePresence mode="wait">
+                          {activeTab === 'upload' ? (
+                            <motion.div
+                              key="upload"
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <DocumentUpload
+                                applicationId={selectedApplication.id}
+                                documents={documents}
+                                onUpload={handleDocumentUpload}
+                                isUploading={uploading}
+                                uploadError={uploadError}
+                              />
+                            </motion.div>
+                          ) : (
+                            <motion.div
+                              key="manage"
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <DocumentManager
+                                applicationId={selectedApplication.id}
+                                documents={documents}
+                                onUpload={handleDocumentUpload}
+                                onDelete={handleDocumentDelete}
+                                isUploading={uploading}
+                                uploadError={uploadError}
+                              />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </motion.div>
+                    )}
+
+                    {activeSection === 'messages' && (
+                      <motion.div
+                        key="messages"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <UserMessageCenter 
+                          userId={user?.id || ''} 
+                          applicationId={selectedApplication.id} 
+                        />
+                      </motion.div>
+                    )}
+
+                    {activeSection === 'activity' && (
+                      <motion.div
+                        key="activity"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <div className="space-y-6">
+                          <h3 className="text-lg font-semibold">Recent Activity</h3>
+                          
+                          {stages.length === 0 ? (
+                            <div className="text-center py-8 text-gray-500">
+                              <Clock className="h-12 w-12 mx-auto mb-3 opacity-20" />
+                              <p>No activity yet</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-6">
+                              {stages.slice(-5).reverse().map((stage) => (
+                                <div key={stage.id} className="relative">
+                                  <div className="flex gap-4">
+                                    <div className="relative z-10">
+                                      <div className="w-10 h-10 rounded-full bg-[#3BAA75]/10 flex items-center justify-center">
+                                        <Clock className="h-5 w-5 text-[#3BAA75]" />
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <div className="flex items-center">
+                                        <p className="font-medium text-gray-900">
+                                          Stage {stage.stage_number} - {stage.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                        </p>
+                                      </div>
+                                      <p className="text-gray-600 mt-1">
+                                        {stage.notes || `Your application has ${stage.status === 'completed' ? 'completed' : 'entered'} stage ${stage.stage_number}.`}
+                                      </p>
+                                      <p className="text-sm text-gray-500 mt-2">
+                                        {format(new Date(stage.timestamp), 'MMM d, yyyy h:mm a')}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+
+              {/* Appointment Scheduler */}
+              <div id="appointment-section">
+                <AppointmentScheduler
+                  onSchedule={async (date, type) => {
+                    if (!selectedApplication) return;
+                    
+                    try {
+                      const { error } = await supabase
+                        .from('applications')
+                        .update({ consultation_time: date.toISOString() })
+                        .eq('id', selectedApplication.id);
+
+                      if (error) throw error;
+                      
+                      setSelectedApplication(prev => prev ? {
+                        ...prev,
+                        consultation_time: date.toISOString()
+                      } : null);
+                      
+                      // Update the application in the applications array
+                      setApplications(prev => prev.map(app => 
+                        app.id === selectedApplication.id 
+                          ? { ...app, consultation_time: date.toISOString() } 
+                          : app
+                      ));
+                      
+                      toast.success('Consultation scheduled successfully');
+                    } catch (error) {
+                      console.error('Error scheduling appointment:', error);
+                      toast.error('Failed to schedule consultation');
+                    }
+                  }}
+                />
+              </div>
+
+              {/* Future Payments Block (Placeholder) */}
+              <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold flex items-center gap-2">
+                    <Wallet className="h-5 w-5 text-[#3BAA75]" />
+                    Future Payments
+                  </h2>
+                  <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-1 rounded">Coming Soon</span>
+                </div>
+                <p className="text-gray-600 mb-4">
+                  Once your loan is finalized, you'll be able to view and manage your payments here.
+                </p>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="flex items-center justify-between text-gray-500">
+                    <span>Next Payment</span>
+                    <span>--/--/----</span>
                   </div>
-                  <div className="text-center">
-                    <div className="text-white/80 text-sm mb-1">Term Length</div>
-                    <div className="text-2xl font-bold">{prequalificationData.term} months</div>
+                  <div className="flex items-center justify-between text-gray-500 mt-2">
+                    <span>Amount</span>
+                    <span>$---</span>
                   </div>
-                  <div className="text-center">
-                    <div className="text-white/80 text-sm mb-1">Interest Rate</div>
-                    <div className="text-2xl font-bold">{prequalificationData.loanRange.rate}%</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Sidebar */}
+            <div className="space-y-8">
+              {/* Account Summary */}
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="bg-white rounded-xl p-6 shadow-lg"
+              >
+                <h2 className="text-xl font-semibold mb-6">Account Summary</h2>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Application Status</span>
+                    <span className="font-medium text-[#3BAA75]">
+                      {selectedApplication.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Documents Pending</span>
+                    <span className="font-medium">{documents.filter(d => d.status === 'pending').length}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Next Appointment</span>
+                    <span className="font-medium">
+                      {selectedApplication.consultation_time
+                        ? format(new Date(selectedApplication.consultation_time), 'MMM d, h:mm a')
+                        : 'Not Scheduled'}
+                    </span>
                   </div>
                 </div>
               </motion.div>
-            )}
 
-            {/* Applications Hub */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-semibold">Applications Hub</h2>
-                <Link
-                  to="/get-prequalified"
-                  className="flex items-center gap-2 text-[#3BAA75] hover:text-[#2D8259] font-medium"
-                >
-                  <Plus className="h-5 w-5" />
-                  <span>Start New Application</span>
-                </Link>
-              </div>
-              
-              {/* Application Progress */}
-              <ApplicationTracker
-                application={application}
-                stages={stages}
+              {/* Notifications */}
+              <NotificationCenter
+                notifications={notifications}
+                onMarkAsRead={handleMarkNotificationAsRead}
               />
-            </div>
 
-            {/* Section Tabs */}
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              <div className="flex border-b border-gray-200">
-                <button
-                  onClick={() => setActiveSection('documents')}
-                  className={`flex-1 px-4 py-3 font-medium text-sm ${
-                    activeSection === 'documents'
-                      ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Document Center
-                  </div>
-                </button>
-                <button
-                  onClick={() => setActiveSection('messages')}
-                  className={`flex-1 px-4 py-3 font-medium text-sm ${
-                    activeSection === 'messages'
-                      ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <MessageSquare className="h-5 w-5" />
-                    Message Center
-                    {summaryStats.unreadMessages > 0 && (
-                      <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                        {summaryStats.unreadMessages}
-                      </span>
-                    )}
-                  </div>
-                </button>
-                <button
-                  onClick={() => setActiveSection('activity')}
-                  className={`flex-1 px-4 py-3 font-medium text-sm ${
-                    activeSection === 'activity'
-                      ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <Clock className="h-5 w-5" />
-                    Activity
-                  </div>
-                </button>
-              </div>
-
-              {/* Section Content */}
-              <div className="p-6">
-                <AnimatePresence mode="wait">
-                  {activeSection === 'documents' && (
-                    <motion.div
-                      key="documents"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      {/* Document Tabs */}
-                      <div className="flex border-b border-gray-200 mb-6">
-                        <button
-                          onClick={() => setActiveTab('upload')}
-                          className={`px-4 py-2 font-medium text-sm ${
-                            activeTab === 'upload'
-                              ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                              : 'text-gray-500 hover:text-gray-700'
-                          }`}
-                        >
-                          Upload Documents
-                        </button>
-                        <button
-                          onClick={() => setActiveTab('manage')}
-                          className={`px-4 py-2 font-medium text-sm ${
-                            activeTab === 'manage'
-                              ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                              : 'text-gray-500 hover:text-gray-700'
-                          }`}
-                        >
-                          Manage Documents
-                        </button>
+              {/* Quick Links */}
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 }}
+                className="bg-white rounded-xl p-6 shadow-lg"
+              >
+                <h2 className="text-xl font-semibold mb-4">Quick Links</h2>
+                <div className="space-y-3">
+                  <a 
+                    href="#appointment-section" 
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center">
+                      <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
+                        <CalendarClock className="h-5 w-5 text-[#3BAA75]" />
                       </div>
-
-                      {/* Document Content */}
-                      <AnimatePresence mode="wait">
-                        {activeTab === 'upload' ? (
-                          <motion.div
-                            key="upload"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.2 }}
-                          >
-                            <DocumentUpload
-                              applicationId={application.id}
-                              documents={documents}
-                              onUpload={handleDocumentUpload}
-                              isUploading={uploading}
-                              uploadError={uploadError}
-                            />
-                          </motion.div>
-                        ) : (
-                          <motion.div
-                            key="manage"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.2 }}
-                          >
-                            <DocumentManager
-                              applicationId={application.id}
-                              documents={documents}
-                              onUpload={handleDocumentUpload}
-                              onDelete={handleDocumentDelete}
-                              isUploading={uploading}
-                              uploadError={uploadError}
-                            />
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </motion.div>
-                  )}
-
-                  {activeSection === 'messages' && (
-                    <motion.div
-                      key="messages"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <UserMessageCenter 
-                        userId={user?.id || ''} 
-                        applicationId={application.id} 
-                      />
-                    </motion.div>
-                  )}
-
-                  {activeSection === 'activity' && (
-                    <motion.div
-                      key="activity"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <div className="space-y-6">
-                        <h3 className="text-lg font-semibold">Recent Activity</h3>
-                        
-                        {stages.length === 0 ? (
-                          <div className="text-center py-8 text-gray-500">
-                            <Clock className="h-12 w-12 mx-auto mb-3 opacity-20" />
-                            <p>No activity yet</p>
-                          </div>
-                        ) : (
-                          <div className="space-y-6">
-                            {stages.slice(-5).reverse().map((stage) => (
-                              <div key={stage.id} className="relative">
-                                <div className="flex gap-4">
-                                  <div className="relative z-10">
-                                    <div className="w-10 h-10 rounded-full bg-[#3BAA75]/10 flex items-center justify-center">
-                                      <Clock className="h-5 w-5 text-[#3BAA75]" />
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <div className="flex items-center">
-                                      <p className="font-medium text-gray-900">
-                                        Stage {stage.stage_number} - {stage.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                                      </p>
-                                    </div>
-                                    <p className="text-gray-600 mt-1">
-                                      {stage.notes || `Your application has ${stage.status === 'completed' ? 'completed' : 'entered'} stage ${stage.stage_number}.`}
-                                    </p>
-                                    <p className="text-sm text-gray-500 mt-2">
-                                      {format(new Date(stage.timestamp), 'MMM d, yyyy h:mm a')}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                      <span className="font-medium">Schedule Consultation</span>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-gray-400" />
+                  </a>
+                  
+                  <a 
+                    href="#" 
+                    onClick={() => setActiveSection('documents')}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center">
+                      <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
+                        <FileCheck className="h-5 w-5 text-[#3BAA75]" />
                       </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-
-            {/* Appointment Scheduler */}
-            <div id="appointment-section">
-              <AppointmentScheduler
-                onSchedule={async (date, type) => {
-                  try {
-                    const { error } = await supabase
-                      .from('applications')
-                      .update({ consultation_time: date.toISOString() })
-                      .eq('id', application.id);
-
-                    if (error) throw error;
-                    
-                    setApplication(prev => prev ? {
-                      ...prev,
-                      consultation_time: date.toISOString()
-                    } : null);
-                    
-                    toast.success('Consultation scheduled successfully');
-                  } catch (error) {
-                    console.error('Error scheduling appointment:', error);
-                    toast.error('Failed to schedule consultation');
-                  }
-                }}
-              />
-            </div>
-
-            {/* Future Payments Block (Placeholder) */}
-            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold flex items-center gap-2">
-                  <Wallet className="h-5 w-5 text-[#3BAA75]" />
-                  Future Payments
-                </h2>
-                <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-1 rounded">Coming Soon</span>
-              </div>
-              <p className="text-gray-600 mb-4">
-                Once your loan is finalized, you'll be able to view and manage your payments here.
-              </p>
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="flex items-center justify-between text-gray-500">
-                  <span>Next Payment</span>
-                  <span>--/--/----</span>
+                      <span className="font-medium">Upload Documents</span>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-gray-400" />
+                  </a>
+                  
+                  <a 
+                    href="#" 
+                    onClick={() => setActiveSection('messages')}
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center">
+                      <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
+                        <MessageSquare className="h-5 w-5 text-[#3BAA75]" />
+                      </div>
+                      <span className="font-medium">Message Support</span>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-gray-400" />
+                  </a>
+                  
+                  <Link
+                    to="/calculator"
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center">
+                      <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
+                        <BarChart3 className="h-5 w-5 text-[#3BAA75]" />
+                      </div>
+                      <span className="font-medium">Payment Calculator</span>
+                    </div>
+                    <ArrowUpRight className="h-5 w-5 text-gray-400" />
+                  </Link>
                 </div>
-                <div className="flex items-center justify-between text-gray-500 mt-2">
-                  <span>Amount</span>
-                  <span>$---</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Add-On Services Block (Placeholder) */}
-            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-[#3BAA75]" />
-                  Add-On Services
-                </h2>
-                <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-1 rounded">Coming Soon</span>
-              </div>
-              <p className="text-gray-600 mb-4">
-                Enhance your vehicle ownership experience with additional services and protection plans.
-              </p>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-50 p-4 rounded-lg text-center">
-                  <p className="font-medium text-gray-700">Extended Warranty</p>
-                  <p className="text-sm text-gray-500">Protect your investment</p>
-                </div>
-                <div className="bg-gray-50 p-4 rounded-lg text-center">
-                  <p className="font-medium text-gray-700">GAP Insurance</p>
-                  <p className="text-sm text-gray-500">Coverage for the unexpected</p>
-                </div>
-              </div>
+              </motion.div>
             </div>
           </div>
-
-          {/* Right Sidebar */}
-          <div className="space-y-8">
-            {/* Account Summary */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="bg-white rounded-xl p-6 shadow-lg"
-            >
-              <h2 className="text-xl font-semibold mb-6">Account Summary</h2>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Application Status</span>
-                  <span className="font-medium text-[#3BAA75]">
-                    {application.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Documents Pending</span>
-                  <span className="font-medium">{documents.filter(d => d.status === 'pending').length}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Next Appointment</span>
-                  <span className="font-medium">
-                    {application.consultation_time
-                      ? format(new Date(application.consultation_time), 'MMM d, h:mm a')
-                      : 'Not Scheduled'}
-                  </span>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Notifications */}
-            <NotificationCenter
-              notifications={notifications}
-              onMarkAsRead={handleMarkNotificationAsRead}
-            />
-
-            {/* Quick Links */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-              className="bg-white rounded-xl p-6 shadow-lg"
-            >
-              <h2 className="text-xl font-semibold mb-4">Quick Links</h2>
-              <div className="space-y-3">
-                <a 
-                  href="#appointment-section" 
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center">
-                    <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
-                      <CalendarClock className="h-5 w-5 text-[#3BAA75]" />
-                    </div>
-                    <span className="font-medium">Schedule Consultation</span>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-gray-400" />
-                </a>
-                
-                <a 
-                  href="#" 
-                  onClick={() => setActiveSection('documents')}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center">
-                    <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
-                      <FileCheck className="h-5 w-5 text-[#3BAA75]" />
-                    </div>
-                    <span className="font-medium">Upload Documents</span>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-gray-400" />
-                </a>
-                
-                <a 
-                  href="#" 
-                  onClick={() => setActiveSection('messages')}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center">
-                    <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
-                      <MessageSquare className="h-5 w-5 text-[#3BAA75]" />
-                    </div>
-                    <span className="font-medium">Message Support</span>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-gray-400" />
-                </a>
-                
-                <Link
-                  to="/calculator"
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center">
-                    <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
-                      <BarChart3 className="h-5 w-5 text-[#3BAA75]" />
-                    </div>
-                    <span className="font-medium">Payment Calculator</span>
-                  </div>
-                  <ArrowUpRight className="h-5 w-5 text-gray-400" />
-                </Link>
-              </div>
-            </motion.div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
