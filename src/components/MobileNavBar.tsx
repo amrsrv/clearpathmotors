@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, FileText, Bell, User } from 'lucide-react';
+import { Home, FileText, Bell, User, MessageSquare } from 'lucide-react';
 
 interface MobileNavBarProps {
   onNavigate: (section: string) => void;
@@ -9,7 +9,8 @@ interface MobileNavBarProps {
 export const MobileNavBar: React.FC<MobileNavBarProps> = ({ onNavigate, activeSection }) => {
   const navItems = [
     { name: 'Home', icon: Home, section: 'overview' },
-    { name: 'Applications', icon: FileText, section: 'applications' },
+    { name: 'Documents', icon: FileText, section: 'documents' },
+    { name: 'Messages', icon: MessageSquare, section: 'messages' },
     { name: 'Notifications', icon: Bell, section: 'notifications' },
     { name: 'Profile', icon: User, section: 'profile' },
   ];
@@ -26,7 +27,7 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({ onNavigate, activeSe
             `}
           >
             <item.icon className="h-6 w-6 mb-1" />
-            {item.name}
+            <span>{item.name}</span>
           </button>
         ))}
       </nav>
