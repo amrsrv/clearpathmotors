@@ -26,7 +26,8 @@ import {
   BellRing, 
   Shield, 
   ChevronDown, 
-  ChevronUp 
+  ChevronUp,
+  MessageSquare
 } from 'lucide-react';
 import { Tooltip } from 'react-tooltip';
 import CurrencyInput from 'react-currency-input-field';
@@ -1479,7 +1480,7 @@ const GetApproved = () => {
                                 Terms & Conditions
                               </label>
                               <p className="text-gray-500">
-                                I agree to the <Link to="/terms" className="text-[#3BAA75] hover:underline" target="_blank">Terms of Service</Link> and <Link to="/privacy" className=\"text-[#3BAA75] hover:underline" target=\"_blank">Privacy Policy</Link>.
+                                I agree to the <Link to="/terms" className="text-[#3BAA75] hover:underline" target="_blank">Terms of Service</Link> and <Link to="/privacy" className="text-[#3BAA75] hover:underline" target="_blank">Privacy Policy</Link>.
                               </p>
                             </div>
                           </div>
