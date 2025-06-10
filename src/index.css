@@ -40,6 +40,20 @@
     animation: slide 20s linear infinite;
   }
 
+  /* Logo scroll animation */
+  @keyframes scroll {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-100%);
+    }
+  }
+
+  .animate-scroll {
+    animation: scroll 30s linear infinite;
+  }
+
   @keyframes gradient {
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
@@ -53,7 +67,8 @@
 
   @media (prefers-reduced-motion: reduce) {
     .animated-gradient,
-    .animated-dots {
+    .animated-dots,
+    .animate-scroll {
       animation: none;
     }
   }
