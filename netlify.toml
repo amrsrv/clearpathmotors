@@ -1,46 +1,51 @@
 [[redirects]]
-  from = "http://*"
-  to = "https://:splat"
-  status = 301
-  force = true
+from = "http://*"
+to = "https://:splat"
+status = 301
+force = true
 
 [[redirects]]
-  from = "https://www.clearpathmotors.com/*"
-  to = "https://clearpathmotors.com/:splat"
-  status = 301
-  force = true
+from = "https://www.clearpathmotors.com/*"
+to = "https://clearpathmotors.com/:splat"
+status = 301
+force = true
 
 [[redirects]]
-  from = "/assets/*"
-  to = "/assets/:splat"
-  status = 200
+from = "/assets/*"
+to = "/assets/:splat"
+status = 200
 
 [[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+from = "/*"
+to = "/index.html"
+status = 200
 
-# Edge Functions
 [[edge_functions]]
-  path = "/api/*"
-  function = "api-handler"
+path = "/api/*"
+function = "api-handler"
 
 [[headers]]
-  for = "/*"
-  [headers.values]
-    X-Frame-Options = "DENY"
-    X-XSS-Protection = "1; mode=block"
-    X-Content-Type-Options = "nosniff"
-    Referrer-Policy = "strict-origin-when-cross-origin"
-    Content-Security-Policy = "default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: https://www.google-analytics.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' data: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.clearpathmotors.com https://www.google-analytics.com https://www.googletagmanager.com;"
+for = "/*"
 
-# Add proper MIME types for JavaScript files
-[[headers]]
-  for = "/*.js"
-  [headers.values]
-    Content-Type = "application/javascript"
+[headers.values]
+X-Frame-Options = "DENY"
+X-XSS-Protection = "1; mode=block"
+X-Content-Type-Options = "nosniff"
+Referrer-Policy = "strict-origin-when-cross-origin"
+Content-Security-Policy = "default-src 'self' https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: https://www.google-analytics.com https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https:; font-src 'self' data: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.clearpathmotors.com https://www.google-analytics.com https://www.googletagmanager.com;"
 
 [[headers]]
-  for = "/assets/*.js"
-  [headers.values]
-    Content-Type = "application/javascript"
+for = "/*.js"
+
+[headers.values]
+Content-Type = "application/javascript"
+
+[[headers]]
+for = "/assets/*.js"
+
+[headers.values]
+Content-Type = "application/javascript"
+
+[build]
+command = "npx vite build"
+publish = "dist"
