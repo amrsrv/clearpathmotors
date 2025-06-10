@@ -1,3 +1,4 @@
+console.log('PreQualificationform is rendering')
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
