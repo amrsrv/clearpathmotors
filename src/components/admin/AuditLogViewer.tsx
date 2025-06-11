@@ -30,14 +30,10 @@ interface AuditLogEntry {
   is_admin_action: boolean;
   is_visible_to_user: boolean;
   created_at: string;
-  application?: {
-    first_name: string;
-    last_name: string;
-    email: string;
-  };
-  user?: {
-    email: string;
-  };
+  application_first_name?: string;
+  application_last_name?: string;
+  application_email?: string;
+  user_email?: string;
 }
 
 export const AuditLogViewer: React.FC = () => {
@@ -51,13 +47,12 @@ export const AuditLogViewer: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  
+
   const ITEMS_PER_PAGE = 20;
 
   useEffect(() => {
     loadLogs();
-    
-    // Set up real-time subscription for new audit logs
+
     const auditLogChannel = supabase
       .channel('audit-log-changes')
       .on(
@@ -72,7 +67,7 @@ export const AuditLogViewer: React.FC = () => {
         }
       )
       .subscribe();
-      
+
     return () => {
       supabase.removeChannel(auditLogChannel);
     };
@@ -87,40 +82,38 @@ export const AuditLogViewer: React.FC = () => {
       } else {
         setIsRefreshing(true);
       }
-      
+
       let query = supabase
-        .from('activity_log')
-        .select(`
-          *,
-          application:application_id(first_name, last_name, email),
-          user:user_id(email)
-        `)
+        .from('activity_log_with_email')
+        .select('*')
         .order('created_at', { ascending: false })
-        .range(reset ? 0 : page * ITEMS_PER_PAGE, reset ? ITEMS_PER_PAGE - 1 : (page + 1) * ITEMS_PER_PAGE - 1);
-      
-      // Apply filters
+        .range(
+          reset ? 0 : page * ITEMS_PER_PAGE,
+          reset ? ITEMS_PER_PAGE - 1 : (page + 1) * ITEMS_PER_PAGE - 1
+        );
+
       if (actionFilter) {
         query = query.eq('action', actionFilter);
       }
-      
+
       if (userTypeFilter === 'admin') {
         query = query.eq('is_admin_action', true);
       } else if (userTypeFilter === 'user') {
         query = query.eq('is_admin_action', false);
       }
-      
+
       const { data, error } = await query;
-      
+
       if (error) throw error;
-      
+
       if (reset) {
         setLogs(data || []);
       } else {
         setLogs(prev => [...prev, ...(data || [])]);
       }
-      
+
       setHasMore((data || []).length === ITEMS_PER_PAGE);
-      
+
       if (!reset) {
         setPage(prev => prev + 1);
       }
@@ -155,19 +148,19 @@ export const AuditLogViewer: React.FC = () => {
       if (action.includes('delete')) return <Trash2 className="h-5 w-5 text-red-500" />;
       return <FileText className="h-5 w-5 text-amber-500" />;
     }
-    
+
     if (action.includes('application')) {
       return <Edit className="h-5 w-5 text-green-500" />;
     }
-    
+
     if (action.includes('message')) {
       return <MessageSquare className="h-5 w-5 text-purple-500" />;
     }
-    
+
     if (action.includes('stage')) {
       return <Calendar className="h-5 w-5 text-indigo-500" />;
     }
-    
+
     return <Clock className="h-5 w-5 text-gray-500" />;
   };
 
@@ -175,10 +168,10 @@ export const AuditLogViewer: React.FC = () => {
     const searchLower = searchTerm.toLowerCase();
     return (
       log.action.toLowerCase().includes(searchLower) ||
-      log.application?.first_name?.toLowerCase().includes(searchLower) ||
-      log.application?.last_name?.toLowerCase().includes(searchLower) ||
-      log.application?.email?.toLowerCase().includes(searchLower) ||
-      log.user?.email?.toLowerCase().includes(searchLower)
+      log.application_first_name?.toLowerCase().includes(searchLower) ||
+      log.application_last_name?.toLowerCase().includes(searchLower) ||
+      log.application_email?.toLowerCase().includes(searchLower) ||
+      log.user_email?.toLowerCase().includes(searchLower)
     );
   });
 
@@ -195,7 +188,7 @@ export const AuditLogViewer: React.FC = () => {
             <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
           </button>
         </div>
-        
+
         <div className="flex flex-col gap-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -268,7 +261,7 @@ export const AuditLogViewer: React.FC = () => {
           </AnimatePresence>
         </div>
       </div>
-      
+
       <div className="overflow-x-auto">
         {loading && page === 0 ? (
           <div className="flex items-center justify-center py-12">
@@ -285,25 +278,25 @@ export const AuditLogViewer: React.FC = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Timestamp
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Action
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     User
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Application
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Details
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredLogs.map((log) => (
+                {filteredLogs.map(log => (
                   <tr key={log.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {format(new Date(log.created_at), 'MMM d, yyyy h:mm a')}
@@ -322,7 +315,7 @@ export const AuditLogViewer: React.FC = () => {
                           <User className={`h-4 w-4 ${log.is_admin_action ? 'text-purple-500' : 'text-blue-500'}`} />
                         </div>
                         <span className="ml-2 text-sm text-gray-900">
-                          {log.user?.email || 'Unknown User'}
+                          {log.user_email || 'Unknown User'}
                           {log.is_admin_action && <span className="ml-1 text-xs text-purple-600">(Admin)</span>}
                         </span>
                       </div>
@@ -333,7 +326,7 @@ export const AuditLogViewer: React.FC = () => {
                           onClick={() => navigate(`/admin/applications/${log.application_id}`)}
                           className="text-sm text-[#3BAA75] hover:text-[#2D8259] font-medium flex items-center"
                         >
-                          {log.application?.first_name} {log.application?.last_name}
+                          {log.application_first_name} {log.application_last_name}
                           <ArrowRight className="ml-1 h-3 w-3" />
                         </button>
                       ) : (
@@ -343,9 +336,9 @@ export const AuditLogViewer: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {log.action === 'update_application' && log.details?.old && log.details?.new && (
                         <div>
-                          {Object.keys(log.details.new).filter(key => 
-                            log.details.old[key] !== log.details.new[key] && 
-                            log.details.old[key] !== null && 
+                          {Object.keys(log.details.new).filter(key =>
+                            log.details.old[key] !== log.details.new[key] &&
+                            log.details.old[key] !== null &&
                             log.details.new[key] !== null
                           ).map(key => (
                             <div key={key} className="text-xs">
@@ -357,34 +350,28 @@ export const AuditLogViewer: React.FC = () => {
                           ))}
                         </div>
                       )}
-                      
+
                       {log.action === 'upload_document' && (
-                        <span>
-                          {log.details?.category?.replace(/_/g, ' ')}
-                        </span>
+                        <span>{log.details?.category?.replace(/_/g, ' ')}</span>
                       )}
-                      
+
                       {log.action === 'delete_document' && (
-                        <span>
-                          {log.details?.category?.replace(/_/g, ' ')}
-                        </span>
+                        <span>{log.details?.category?.replace(/_/g, ' ')}</span>
                       )}
-                      
+
                       {log.action === 'user_message_sent' && (
                         <span>New message</span>
                       )}
-                      
+
                       {log.action === 'stage_update' && (
-                        <span>
-                          Stage {log.details?.stage_number} - {log.details?.status?.replace(/_/g, ' ')}
-                        </span>
+                        <span>Stage {log.details?.stage_number} - {log.details?.status?.replace(/_/g, ' ')}</span>
                       )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            
+
             {hasMore && (
               <div className="flex justify-center py-4">
                 <button
