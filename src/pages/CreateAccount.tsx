@@ -10,7 +10,40 @@ const CreateAccount = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { signUp } = useAuth();
-  const { applicationId, tempUserId, formData } = location.state || {};
+const CreateAccount = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { signUp } = useAuth();
+
+  const stateFromLocation = location.state || {};
+  const [applicationId, setApplicationId] = useState(stateFromLocation.applicationId || localStorage.getItem('applicationId'));
+  const [tempUserId, setTempUserId] = useState(stateFromLocation.tempUserId || localStorage.getItem('tempUserId'));
+  const [formData, setFormData] = useState(() => {
+    const data = stateFromLocation.formData || localStorage.getItem('formData');
+    return data ? (typeof data === 'string' ? JSON.parse(data) : data) : null;
+  });
+
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [emailExists, setEmailExists] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    // Save state to localStorage if coming from the prequalification page
+    if (stateFromLocation.applicationId && stateFromLocation.tempUserId && stateFromLocation.formData) {
+      localStorage.setItem('applicationId', stateFromLocation.applicationId);
+      localStorage.setItem('tempUserId', stateFromLocation.tempUserId);
+      localStorage.setItem('formData', JSON.stringify(stateFromLocation.formData));
+    }
+
+    // Redirect if no data is found
+    if (!applicationId || !tempUserId || !formData) {
+      navigate('/get-prequalified');
+    }
+  }, [applicationId, tempUserId, formData, stateFromLocation, navigate]);
+
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
