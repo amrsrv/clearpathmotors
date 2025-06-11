@@ -79,12 +79,12 @@ const QualificationResults = () => {
   const monthlySavings = standardMonthlyPayment - competitiveMonthlyPayment;
   const totalSavings = monthlySavings * 60; // Based on 60-month term
 
-  const handleSignUp = () => {
-    navigate('/signup', {
+  const handleCreateAccount = () => {
+    navigate('/create-account', {
       state: {
-        formData: originalFormData,
         applicationId,
-        tempUserId
+        tempUserId,
+        formData: originalFormData
       }
     });
   };
@@ -234,7 +234,7 @@ const QualificationResults = () => {
                 </div>
                 <div className="text-center">
                   <motion.button
-                    onClick={handleSignUp}
+                    onClick={handleCreateAccount}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     className="w-full bg-white text-[#2A7A5B] px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-colors shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
