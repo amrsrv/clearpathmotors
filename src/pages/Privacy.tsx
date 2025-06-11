@@ -76,6 +76,42 @@ const Privacy = () => {
 
           <ScrollReveal>
             <section className="mb-12">
+              <h2 className="text-2xl font-bold mb-4">Data Sharing</h2>
+              <p className="text-gray-600">
+                We may share your information with third parties, such as lenders, dealerships, or trusted service providers, to help us deliver our services to you. We require these parties to maintain the confidentiality of your information and use it only for the purposes we specify.
+              </p>
+            </section>
+          </ScrollReveal>
+
+          <ScrollReveal>
+            <section className="mb-12">
+              <h2 className="text-2xl font-bold mb-4">Data Retention</h2>
+              <p className="text-gray-600">
+                We retain your personal information only as long as necessary to provide our services, comply with legal obligations, resolve disputes, and enforce our agreements. When data is no longer needed, it will be securely deleted or anonymized.
+              </p>
+            </section>
+          </ScrollReveal>
+
+          <ScrollReveal>
+            <section className="mb-12">
+              <h2 className="text-2xl font-bold mb-4">Cookies and Tracking</h2>
+              <p className="text-gray-600">
+                We use cookies and similar tracking technologies to improve your browsing experience, personalize content, and gather analytics data. You can control the use of cookies through your browser settings.
+              </p>
+            </section>
+          </ScrollReveal>
+
+          <ScrollReveal>
+            <section className="mb-12">
+              <h2 className="text-2xl font-bold mb-4">Consent</h2>
+              <p className="text-gray-600">
+                By using our website and services, you consent to the collection, use, and disclosure of your information as described in this Privacy Policy. You have the right to withdraw your consent at any time by contacting us.
+              </p>
+            </section>
+          </ScrollReveal>
+
+          <ScrollReveal>
+            <section className="mb-12">
               <h2 className="text-2xl font-bold mb-4">Data Security</h2>
               <p className="text-gray-600">
                 At ClearPath Motors, data security is a top priority. We implement a range of physical, electronic, and administrative safeguards to protect your information from unauthorized access, disclosure, alteration, or destruction. These measures include encryption of sensitive data, secure socket layer (SSL) technology, firewall protection, secure data centers, and employee confidentiality agreements.
@@ -101,7 +137,7 @@ const Privacy = () => {
           </ScrollReveal>
 
           <ScrollReveal>
-            <section className="mb-12">
+            <section>
               <h2 className="text-2xl font-bold mb-4">Contact Information</h2>
               <p className="text-gray-600 mb-4">
                 If you have any questions or concerns about this Privacy Policy or the handling of your personal data, please contact us at:
