@@ -44,6 +44,7 @@ import { DocumentManager } from '../components/DocumentManager';
 import { UserMessageCenter } from '../components/UserMessageCenter';
 import { UserProfileSection } from '../components/UserProfileSection';
 import { ApplicationCard } from '../components/ApplicationCard';
+import { DashboardNavBar } from '../components/DashboardNavBar';
 
 interface DashboardProps {
   activeSection?: string;
@@ -794,13 +795,13 @@ const Dashboard: React.FC<DashboardProps> = ({
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="sticky top-0 bg-white border-b border-gray-200 z-40 pt-16 md:pt-0">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">
                 Welcome Back, {selectedApplication.first_name || user?.email?.split('@')[0]}
               </h1>
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-2">
                 <PreQualifiedBadge />
                 <button 
                   onClick={() => setShowApplicationSelector(!showApplicationSelector)}
@@ -875,6 +876,12 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Desktop Navigation Bar */}
+      <DashboardNavBar 
+        activeSection={activeSection} 
+        onNavigate={handleSectionChange} 
+      />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {/* Desktop Summary Stats */}
