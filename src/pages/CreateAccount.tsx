@@ -10,19 +10,8 @@ const CreateAccount = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { signUp } = useAuth();
-const CreateAccount = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { signUp } = useAuth();
-
-  const stateFromLocation = location.state || {};
-  const [applicationId, setApplicationId] = useState(stateFromLocation.applicationId || localStorage.getItem('applicationId'));
-  const [tempUserId, setTempUserId] = useState(stateFromLocation.tempUserId || localStorage.getItem('tempUserId'));
-  const [formData, setFormData] = useState(() => {
-    const data = stateFromLocation.formData || localStorage.getItem('formData');
-    return data ? (typeof data === 'string' ? JSON.parse(data) : data) : null;
-  });
-
+  const { applicationId, tempUserId, formData } = location.state || {};
+  
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -31,20 +20,7 @@ const CreateAccount = () => {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    // Save state to localStorage if coming from the prequalification page
-    if (stateFromLocation.applicationId && stateFromLocation.tempUserId && stateFromLocation.formData) {
-      localStorage.setItem('applicationId', stateFromLocation.applicationId);
-      localStorage.setItem('tempUserId', stateFromLocation.tempUserId);
-      localStorage.setItem('formData', JSON.stringify(stateFromLocation.formData));
-    }
-
-    // Redirect if no data is found
-    if (!applicationId || !tempUserId || !formData) {
-      navigate('/get-prequalified');
-    }
-  }, [applicationId, tempUserId, formData, stateFromLocation, navigate]);
-
-  useEffect(() => {
+    // Redirect if no application data
     if (!applicationId || !tempUserId || !formData) {
       navigate('/get-prequalified');
     }
@@ -57,6 +33,7 @@ const CreateAccount = () => {
     setLoading(true);
 
     try {
+      // Validate passwords
       if (password.length < 8) {
         setError('Password must be at least 8 characters long');
         setLoading(false);
@@ -69,13 +46,12 @@ const CreateAccount = () => {
         return;
       }
 
+      // Sign up with Supabase Auth
       const { data, error: signUpError } = await signUp(formData.email, password);
       
       if (signUpError) {
-        if (
-          signUpError.message === 'User already registered' ||
-          signUpError.message.includes('user_already_exists')
-        ) {
+        if (signUpError.message === 'User already registered' || 
+            signUpError.message.includes('user_already_exists')) {
           setEmailExists(true);
           setError('An account with this email already exists. Please sign in instead.');
           setLoading(false);
@@ -85,11 +61,12 @@ const CreateAccount = () => {
       }
 
       if (data?.user) {
+        // Update the application with the new user_id
         const { error: updateError } = await supabase
           .from('applications')
           .update({
             user_id: data.user.id,
-            temp_user_id: null,
+            temp_user_id: null
           })
           .eq('id', applicationId)
           .eq('temp_user_id', tempUserId);
@@ -98,7 +75,9 @@ const CreateAccount = () => {
 
         setSuccess(true);
         setTimeout(() => {
-          navigate('/login', { state: { email: formData.email } });
+          navigate('/login', {
+            state: { email: formData.email }
+          });
         }, 3000);
       }
     } catch (error: any) {
@@ -146,10 +125,10 @@ const CreateAccount = () => {
           />
         </Link>
         <h2 className="mt-6 text-center text-3xl font-bold text-gray-900">
-          Set your password to complete your pre-qualification
+          Create your account to see your instant prequalification results
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Your email has been pre-filled from your prequalification form
+          Set your password to continue
         </p>
       </div>
 
@@ -167,7 +146,7 @@ const CreateAccount = () => {
                   {error}
                   {emailExists && (
                     <span className="ml-1">
-                      <Link to="/login" className="underline font-medium">
+                      <Link to="/login\" className="underline font-medium">
                         Click here to sign in
                       </Link>
                     </span>
