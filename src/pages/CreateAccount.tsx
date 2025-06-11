@@ -44,14 +44,6 @@ const CreateAccount = () => {
     }
   }, [applicationId, tempUserId, formData, stateFromLocation, navigate]);
 
-
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
-  const [emailExists, setEmailExists] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState(false);
-
   useEffect(() => {
     if (!applicationId || !tempUserId || !formData) {
       navigate('/get-prequalified');
