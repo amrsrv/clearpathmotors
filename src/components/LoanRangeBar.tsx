@@ -19,35 +19,32 @@ export const LoanRangeBar: React.FC<LoanRangeBarProps> = ({ min, max, rate }) =>
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-3 gap-2 text-center">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="text-center"
         >
-          <div className="text-sm text-white/60 mb-2">Minimum</div>
-          <div className="text-xl font-semibold">{formatCurrency(min)}</div>
+          <div className="text-xs sm:text-sm text-white/60 mb-1">Minimum</div>
+          <div className="text-base sm:text-xl font-semibold">{formatCurrency(min)}</div>
         </motion.div>
         
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="text-center"
         >
-          <div className="text-sm text-white/60 mb-2">Recommended</div>
-          <div className="text-xl font-semibold">{formatCurrency((min + max) / 2)}</div>
+          <div className="text-xs sm:text-sm text-white/60 mb-1">Recommended</div>
+          <div className="text-base sm:text-xl font-semibold">{formatCurrency((min + max) / 2)}</div>
         </motion.div>
         
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="text-center"
         >
-          <div className="text-sm text-white/60 mb-2">Maximum</div>
-          <div className="text-xl font-semibold">{formatCurrency(max)}</div>
+          <div className="text-xs sm:text-sm text-white/60 mb-1">Maximum</div>
+          <div className="text-base sm:text-xl font-semibold">{formatCurrency(max)}</div>
         </motion.div>
       </div>
 
@@ -66,10 +63,10 @@ export const LoanRangeBar: React.FC<LoanRangeBarProps> = ({ min, max, rate }) =>
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
-        className="flex items-center justify-center gap-2 mt-6"
+        className="flex items-center justify-center gap-2 mt-4"
       >
-        <div className="text-sm text-white/60">Interest Rate</div>
-        <div className="text-lg font-semibold">{rate}% APR</div>
+        <div className="text-xs sm:text-sm text-white/60">Interest Rate</div>
+        <div className="text-base sm:text-lg font-semibold">{rate}% APR</div>
       </motion.div>
     </div>
   );

@@ -877,24 +877,6 @@ const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-        {/* Mobile Summary Stats */}
-        {isMobile && (
-          <div className="grid grid-cols-3 gap-3 mb-6 bg-white rounded-xl p-3 shadow-sm">
-            <div className="flex flex-col items-center justify-center p-2 rounded-lg bg-gray-50">
-              <div className="text-xs text-gray-500 mb-1">Applications</div>
-              <div className="text-xl font-semibold text-[#3BAA75]">{summaryStats.totalApplications}</div>
-            </div>
-            <div className="flex flex-col items-center justify-center p-2 rounded-lg bg-gray-50">
-              <div className="text-xs text-gray-500 mb-1">Approved</div>
-              <div className="text-xl font-semibold text-[#3BAA75]">{summaryStats.approvedApplications}</div>
-            </div>
-            <div className="flex flex-col items-center justify-center p-2 rounded-lg bg-gray-50">
-              <div className="text-xs text-gray-500 mb-1">Messages</div>
-              <div className="text-xl font-semibold text-[#3BAA75]">{summaryStats.unreadMessages}</div>
-            </div>
-          </div>
-        )}
-
         {/* Desktop Summary Stats */}
         {!isMobile && (
           <div className="grid grid-cols-3 gap-4 mb-8">
