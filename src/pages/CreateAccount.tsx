@@ -19,8 +19,8 @@ const CreateAccount = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  // Redirect if no application data
   useEffect(() => {
-    // Redirect if no application data
     if (!applicationId || !tempUserId || !formData) {
       navigate('/get-prequalified');
     }
@@ -51,7 +51,8 @@ const CreateAccount = () => {
       
       if (signUpError) {
         if (signUpError.message === 'User already registered' || 
-            signUpError.message.includes('user_already_exists')) {
+            signUpError.message.includes('user_already_exists') ||
+            signUpError.status === 400) {
           setEmailExists(true);
           setError('An account with this email already exists. Please sign in instead.');
           setLoading(false);
@@ -146,7 +147,7 @@ const CreateAccount = () => {
                   {error}
                   {emailExists && (
                     <span className="ml-1">
-                      <Link to="/login\" className="underline font-medium">
+                      <Link to="/login" className="underline font-medium">
                         Click here to sign in
                       </Link>
                     </span>

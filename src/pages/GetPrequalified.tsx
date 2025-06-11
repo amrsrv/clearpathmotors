@@ -7,9 +7,15 @@ import { CheckCircle } from 'lucide-react';
 const GetPrequalified = () => {
   const navigate = useNavigate();
 
-  const handleFormComplete = (applicationId: string) => {
-    // Navigate to dashboard or results page
-    navigate('/dashboard');
+  const handleFormComplete = (applicationId: string, tempUserId: string, formData: any) => {
+    // Navigate to create account page with the necessary data
+    navigate('/create-account', {
+      state: {
+        applicationId,
+        tempUserId,
+        formData
+      }
+    });
   };
 
   return (
