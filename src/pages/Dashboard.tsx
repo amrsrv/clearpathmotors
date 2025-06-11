@@ -44,7 +44,6 @@ import { DocumentManager } from '../components/DocumentManager';
 import { UserMessageCenter } from '../components/UserMessageCenter';
 import { UserProfileSection } from '../components/UserProfileSection';
 import { ApplicationCard } from '../components/ApplicationCard';
-import { DashboardNavBar } from '../components/DashboardNavBar';
 
 interface DashboardProps {
   activeSection?: string;
@@ -589,15 +588,15 @@ const Dashboard: React.FC<DashboardProps> = ({
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-[#2A7A5B] rounded-xl p-4 sm:p-8 text-white shadow-xl mb-6"
+                className="bg-[#2A7A5B] rounded-xl p-4 sm:p-6 text-white shadow-xl mb-6"
               >
-                <h2 className="text-xl sm:text-2xl font-semibold mb-4 sm:mb-6">Your Prequalification Results</h2>
+                <h2 className="text-xl sm:text-2xl font-semibold mb-4">Your Prequalification Results</h2>
                 <LoanRangeBar
                   min={prequalificationData.loanRange.min}
                   max={prequalificationData.loanRange.max}
                   rate={prequalificationData.loanRange.rate}
                 />
-                <div className="grid grid-cols-3 gap-4 sm:gap-6 mt-6 sm:mt-8">
+                <div className="grid grid-cols-3 gap-4 sm:gap-6 mt-6">
                   <div className="text-center">
                     <div className="text-white/80 text-xs sm:text-sm mb-1">Monthly Payment</div>
                     <div className="text-lg sm:text-2xl font-bold">${prequalificationData.monthlyPayment}</div>
@@ -793,8 +792,8 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="sticky top-0 bg-white border-b border-gray-200 z-40 pt-16 md:pt-0">
+      {/* Header - REDUCED HEIGHT */}
+      <div className="sticky top-0 bg-white border-b border-gray-200 z-40 pt-4 md:pt-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
           <div className="flex items-center justify-between">
             <div>
@@ -876,12 +875,6 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Desktop Navigation Bar */}
-      <DashboardNavBar 
-        activeSection={activeSection} 
-        onNavigate={handleSectionChange} 
-      />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {/* Desktop Summary Stats */}
@@ -965,93 +958,3 @@ const Dashboard: React.FC<DashboardProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">Documents Pending</span>
                     <span className="font-medium">{documents.filter(d => d.status === 'pending').length}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Next Appointment</span>
-                    <span className="font-medium">
-                      {selectedApplication.consultation_time
-                        ? format(new Date(selectedApplication.consultation_time), 'MMM d, h:mm a')
-                        : 'Not Scheduled'}
-                    </span>
-                  </div>
-                </div>
-              </motion.div>
-
-              {/* Notifications */}
-              <NotificationCenter
-                notifications={notifications.slice(0, 3)}
-                onMarkAsRead={handleMarkNotificationAsRead}
-                onNavigate={handleSectionChange}
-              />
-
-              {/* Quick Links */}
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}
-                className="bg-white rounded-xl p-6 shadow-lg"
-              >
-                <h2 className="text-xl font-semibold mb-4">Quick Links</h2>
-                <div className="space-y-3">
-                  <a 
-                    href="#appointment-section" 
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center">
-                      <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
-                        <CalendarClock className="h-5 w-5 text-[#3BAA75]" />
-                      </div>
-                      <span className="font-medium">Schedule Consultation</span>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-gray-400" />
-                  </a>
-                  
-                  <button 
-                    onClick={() => handleSectionChange('documents')}
-                    className="flex items-center justify-between w-full p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-left"
-                  >
-                    <div className="flex items-center">
-                      <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
-                        <FileCheck className="h-5 w-5 text-[#3BAA75]" />
-                      </div>
-                      <span className="font-medium">Upload Documents</span>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-gray-400" />
-                  </button>
-                  
-                  <button 
-                    onClick={() => handleSectionChange('messages')}
-                    className="flex items-center justify-between w-full p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-left"
-                  >
-                    <div className="flex items-center">
-                      <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
-                        <MessageSquare className="h-5 w-5 text-[#3BAA75]" />
-                      </div>
-                      <span className="font-medium">Message Support</span>
-                    </div>
-                    <ChevronRight className="h-5 w-5 text-gray-400" />
-                  </button>
-                  
-                  <Link
-                    to="/calculator"
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center">
-                      <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
-                        <BarChart3 className="h-5 w-5 text-[#3BAA75]" />
-                      </div>
-                      <span className="font-medium">Payment Calculator</span>
-                    </div>
-                    <ArrowUpRight className="h-5 w-5 text-gray-400" />
-                  </Link>
-                </div>
-              </motion.div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default Dashboard;
