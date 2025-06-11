@@ -12,6 +12,7 @@ const GetPrequalified = () => {
     tempUserId: string,
     formData: { email: string; [key: string]: any }
   ) => {
+    // Navigate to create-account page with necessary data
     navigate('/create-account', {
       state: {
         applicationId,
@@ -36,7 +37,7 @@ const GetPrequalified = () => {
             Complete this application to see your personalized financing options
           </p>
         </motion.div>
-
+        
         <div className="w-full flex">
           <div className="w-full lg:w-3/4 mx-auto">
             <PreQualificationForm onComplete={handleFormComplete} />
@@ -55,53 +56,69 @@ const GetPrequalified = () => {
                 Pre-qualification gives you a clear picture of what you can afford before you start shopping.
               </p>
               <ul className="space-y-4">
-                {[
-                  'Know your budget before shopping',
-                  'No impact on your credit score',
-                  'Stronger negotiating position',
-                  'Faster purchase process',
-                ].map((item) => (
-                  <li key={item} className="flex items-center gap-3">
-                    <div className="bg-[#3BAA75]/10 rounded-full p-2">
-                      <CheckCircle className="h-5 w-5 text-[#3BAA75]" />
-                    </div>
-                    <span>{item}</span>
-                  </li>
-                ))}
+                <li className="flex items-center gap-3">
+                  <div className="bg-[#3BAA75]/10 rounded-full p-2">
+                    <CheckCircle className="h-5 w-5 text-[#3BAA75]" />
+                  </div>
+                  <span>Know your budget before shopping</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <div className="bg-[#3BAA75]/10 rounded-full p-2">
+                    <CheckCircle className="h-5 w-5 text-[#3BAA75]" />
+                  </div>
+                  <span>No impact on your credit score</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <div className="bg-[#3BAA75]/10 rounded-full p-2">
+                    <CheckCircle className="h-5 w-5 text-[#3BAA75]" />
+                  </div>
+                  <span>Stronger negotiating position</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <div className="bg-[#3BAA75]/10 rounded-full p-2">
+                    <CheckCircle className="h-5 w-5 text-[#3BAA75]" />
+                  </div>
+                  <span>Faster purchase process</span>
+                </li>
               </ul>
             </div>
-
+            
             <div className="bg-white p-6 rounded-xl shadow-md">
               <div className="text-center mb-6">
                 <h3 className="text-xl font-semibold text-gray-900">Our Commitment to You</h3>
                 <p className="text-gray-600 mt-2">We prioritize your privacy and security</p>
               </div>
-
+              
               <div className="space-y-4">
-                {[
-                  {
-                    title: 'Bank-Level Security',
-                    description: 'Your data is encrypted with 256-bit SSL technology',
-                  },
-                  {
-                    title: 'Soft Credit Check',
-                    description: "We only perform a soft inquiry that won't affect your score",
-                  },
-                  {
-                    title: 'No Obligation',
-                    description: 'Get pre-qualified with no commitment to proceed',
-                  },
-                ].map(({ title, description }) => (
-                  <div key={title} className="flex items-start gap-3">
-                    <div className="bg-[#3BAA75]/10 rounded-full p-2 mt-1">
-                      <CheckCircle className="h-5 w-5 text-[#3BAA75]" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{title}</p>
-                      <p className="text-sm text-gray-600">{description}</p>
-                    </div>
+                <div className="flex items-start gap-3">
+                  <div className="bg-[#3BAA75]/10 rounded-full p-2 mt-1">
+                    <CheckCircle className="h-5 w-5 text-[#3BAA75]" />
                   </div>
-                ))}
+                  <div>
+                    <p className="font-medium text-gray-900">Bank-Level Security</p>
+                    <p className="text-sm text-gray-600">Your data is encrypted with 256-bit SSL technology</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3">
+                  <div className="bg-[#3BAA75]/10 rounded-full p-2 mt-1">
+                    <CheckCircle className="h-5 w-5 text-[#3BAA75]" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">Soft Credit Check</p>
+                    <p className="text-sm text-gray-600">We only perform a soft inquiry that won't affect your score</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3">
+                  <div className="bg-[#3BAA75]/10 rounded-full p-2 mt-1">
+                    <CheckCircle className="h-5 w-5 text-[#3BAA75]" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">No Obligation</p>
+                    <p className="text-sm text-gray-600">Get pre-qualified with no commitment to proceed</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

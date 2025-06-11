@@ -45,7 +45,7 @@ const CreateAccount = () => {
       }
 
       const { data, error: signUpError } = await signUp(formData.email, password);
-
+      
       if (signUpError) {
         if (
           signUpError.message === 'User already registered' ||
