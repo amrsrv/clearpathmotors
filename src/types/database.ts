@@ -10,7 +10,9 @@ export type ApplicationStatus =
 export type EmploymentStatus = 
   | 'employed'
   | 'self_employed'
-  | 'unemployed';
+  | 'unemployed'
+  | 'student'
+  | 'retired';
 
 export type MaritalStatusEnum = 
   | 'single'
@@ -29,18 +31,25 @@ export type HousingStatusEnum =
 export type DebtDischargeTypeEnum = 
   | 'bankruptcy'
   | 'consumer_proposal'
-  | 'informal_settlement'
+  | 'division_1_proposal'
   | 'other';
 
 export type DebtDischargeStatusEnum = 
   | 'active'
-  | 'discharged'
-  | 'not_sure';
+  | 'discharged';
 
 export type PreferredContactMethodEnum = 
   | 'email'
   | 'phone'
   | 'sms';
+
+export type GovernmentBenefitTypeEnum =
+  | 'ontario_works'
+  | 'odsp'
+  | 'cpp'
+  | 'ei'
+  | 'child_tax_benefit'
+  | 'other';
 
 export interface Application {
   id: string;
@@ -78,16 +87,19 @@ export interface Application {
   dependents: number | null;
   employer_name: string | null;
   occupation: string | null;
-  employment_duration: string | null;
+  employment_duration_years: number | null;
+  employment_duration_months: number | null;
   other_income: number | null;
   housing_status: HousingStatusEnum | null;
   housing_payment: number | null;
-  residence_duration: string | null;
+  residence_duration_years: number | null;
+  residence_duration_months: number | null;
   desired_loan_amount: number | null;
   down_payment_amount: number | null;
   has_driver_license: boolean | null;
   collects_government_benefits: boolean | null;
-  disability_programs: any | null;
+  government_benefit_types: any | null;
+  government_benefit_other: string | null;
   has_debt_discharge_history: boolean | null;
   debt_discharge_type: DebtDischargeTypeEnum | null;
   debt_discharge_year: number | null;
@@ -98,6 +110,8 @@ export interface Application {
   terms_accepted: boolean | null;
   internal_notes: string | null;
   assigned_to_admin_id: string | null;
+  amount_owed: number | null;
+  trustee_name: string | null;
 }
 
 export interface ApplicationStage {
@@ -127,4 +141,78 @@ export interface Notification {
   message: string;
   read: boolean;
   created_at: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  chat_id: string;
+  user_id: string | null;
+  anonymous_id: string | null;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
+  read: boolean;
+}
+
+export interface Chat {
+  id: string;
+  user_id: string | null;
+  anonymous_id: string | null;
+  created_at: string;
+}
+
+export interface UserProfile {
+  user_id: string;
+  created_at: string;
+  google_calendar_refresh_token: string | null;
+  google_calendar_connected: boolean | null;
+  google_calendar_email: string | null;
+  google_calendar_sync_enabled: boolean | null;
+  is_admin: boolean | null;
+}
+
+export interface AdminMessage {
+  id: string;
+  admin_id: string | null;
+  user_id: string | null;
+  application_id: string | null;
+  message: string;
+  is_admin: boolean;
+  read: boolean;
+  created_at: string;
+}
+
+export interface ApplicationFlag {
+  id: string;
+  application_id: string;
+  flag_type: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  description: string | null;
+  created_at: string;
+  resolved_at: string | null;
+  resolved_by: string | null;
+}
+
+export interface DocumentReview {
+  id: string;
+  document_id: string;
+  reviewer_id: string | null;
+  status: 'approved' | 'rejected' | 'needs_clarification';
+  notes: string | null;
+  created_at: string;
+}
+
+export interface ActivityLog {
+  id: string;
+  application_id: string | null;
+  user_id: string | null;
+  action: string;
+  details: any;
+  is_admin_action: boolean;
+  is_visible_to_user: boolean;
+  created_at: string;
+  application_first_name?: string;
+  application_last_name?: string;
+  application_email?: string;
+  user_email?: string;
 }
