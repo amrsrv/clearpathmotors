@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -30,8 +30,7 @@ import {
   BarChart3,
   Shield,
   Inbox,
-  ArrowRight,
-  MapPin
+  ArrowRight
 } from 'lucide-react';
 import type { Application, ApplicationStage, Document, Notification } from '../types/database';
 import { PreQualifiedBadge } from '../components/PreQualifiedBadge';
@@ -44,6 +43,7 @@ import toast from 'react-hot-toast';
 import { DocumentManager } from '../components/DocumentManager';
 import { UserMessageCenter } from '../components/UserMessageCenter';
 import { UserProfileSection } from '../components/UserProfileSection';
+import { ApplicationCard } from '../components/ApplicationCard';
 
 interface DashboardProps {
   activeSection?: string;
@@ -51,8 +51,8 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ 
-  activeSection = 'overview',
-  setActiveSection = () => {}
+  activeSection = 'overview', 
+  setActiveSection = () => {} 
 }) => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
@@ -66,6 +66,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [prequalificationData, setPrequalificationData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'upload' | 'manage'>('upload');
   const [showApplicationSelector, setShowApplicationSelector] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   
   // Summary stats
   const [summaryStats, setSummaryStats] = useState({
@@ -87,6 +88,15 @@ const Dashboard: React.FC<DashboardProps> = ({
       loadDashboardData();
     }
   }, [user, authLoading]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (!selectedApplication?.id || !user?.id) return;
@@ -567,14 +577,227 @@ const Dashboard: React.FC<DashboardProps> = ({
     );
   }
 
+  // Render different content based on active section
+  const renderContent = () => {
+    switch (activeSection) {
+      case 'overview':
+        return (
+          <>
+            {/* Prequalification Results */}
+            {prequalificationData && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-[#2A7A5B] rounded-xl p-4 sm:p-8 text-white shadow-xl mb-6"
+              >
+                <h2 className="text-xl sm:text-2xl font-semibold mb-4 sm:mb-6">Your Prequalification Results</h2>
+                <LoanRangeBar
+                  min={prequalificationData.loanRange.min}
+                  max={prequalificationData.loanRange.max}
+                  rate={prequalificationData.loanRange.rate}
+                />
+                <div className="grid grid-cols-3 gap-4 sm:gap-6 mt-6 sm:mt-8">
+                  <div className="text-center">
+                    <div className="text-white/80 text-xs sm:text-sm mb-1">Monthly Payment</div>
+                    <div className="text-lg sm:text-2xl font-bold">${prequalificationData.monthlyPayment}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-white/80 text-xs sm:text-sm mb-1">Term Length</div>
+                    <div className="text-lg sm:text-2xl font-bold">{prequalificationData.term} months</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-white/80 text-xs sm:text-sm mb-1">Rate</div>
+                    <div className="text-lg sm:text-2xl font-bold">{prequalificationData.loanRange.rate}%</div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Applications Hub */}
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-6">
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
+                <h2 className="text-xl sm:text-2xl font-semibold">Applications Hub</h2>
+                {applications.length > 1 && (
+                  <button
+                    onClick={() => setShowApplicationSelector(!showApplicationSelector)}
+                    className="flex items-center gap-2 text-[#3BAA75] hover:text-[#2D8259] font-medium"
+                  >
+                    Switch Application
+                    <ChevronRight className={`h-5 w-5 transition-transform ${showApplicationSelector ? 'rotate-90' : ''}`} />
+                  </button>
+                )}
+              </div>
+              
+              {/* Application Progress */}
+              <ApplicationTracker
+                application={selectedApplication}
+                stages={stages}
+              />
+            </div>
+
+            {/* All Applications Section */}
+            {applications.length > 1 && (
+              <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 mb-6">
+                <div className="flex items-center justify-between mb-4 sm:mb-6">
+                  <h2 className="text-xl sm:text-2xl font-semibold">Your Applications</h2>
+                  <Link
+                    to="/get-prequalified"
+                    className="flex items-center gap-2 text-[#3BAA75] hover:text-[#2D8259] font-medium"
+                  >
+                    <Plus className="h-5 w-5" />
+                    <span>Start New Application</span>
+                  </Link>
+                </div>
+                
+                <div className="space-y-4">
+                  {applications.map((app) => (
+                    <ApplicationCard
+                      key={app.id}
+                      application={app}
+                      isSelected={selectedApplication.id === app.id}
+                      onClick={() => handleApplicationSelect(app)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Appointment Scheduler */}
+            <div id="appointment-section" className="mb-6">
+              <AppointmentScheduler
+                onSchedule={async (date, type) => {
+                  try {
+                    const { error } = await supabase
+                      .from('applications')
+                      .update({ consultation_time: date.toISOString() })
+                      .eq('id', selectedApplication.id);
+
+                    if (error) throw error;
+                    
+                    setSelectedApplication(prev => prev ? {
+                      ...prev,
+                      consultation_time: date.toISOString()
+                    } : null);
+                    
+                    toast.success('Consultation scheduled successfully');
+                  } catch (error) {
+                    console.error('Error scheduling appointment:', error);
+                    toast.error('Failed to schedule consultation');
+                  }
+                }}
+              />
+            </div>
+          </>
+        );
+      case 'documents':
+        return (
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-6">
+            {/* Document Tabs */}
+            <div className="flex border-b border-gray-200">
+              <button
+                onClick={() => setActiveTab('upload')}
+                className={`flex-1 px-4 py-3 font-medium text-sm ${
+                  activeTab === 'upload'
+                    ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Upload Documents
+              </button>
+              <button
+                onClick={() => setActiveTab('manage')}
+                className={`flex-1 px-4 py-3 font-medium text-sm ${
+                  activeTab === 'manage'
+                    ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Manage Documents
+              </button>
+            </div>
+
+            {/* Document Content */}
+            <div className="p-4 sm:p-6">
+              <AnimatePresence mode="wait">
+                {activeTab === 'upload' ? (
+                  <motion.div
+                    key="upload"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <DocumentUpload
+                      applicationId={selectedApplication.id}
+                      documents={documents}
+                      onUpload={handleDocumentUpload}
+                      isUploading={uploading}
+                      uploadError={uploadError}
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="manage"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <DocumentManager
+                      applicationId={selectedApplication.id}
+                      documents={documents}
+                      onUpload={handleDocumentUpload}
+                      onDelete={handleDocumentDelete}
+                      isUploading={uploading}
+                      uploadError={uploadError}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+        );
+      case 'messages':
+        return (
+          <div className="mb-6">
+            <UserMessageCenter 
+              userId={user?.id || ''} 
+              applicationId={selectedApplication.id} 
+            />
+          </div>
+        );
+      case 'notifications':
+        return (
+          <div className="mb-6">
+            <NotificationCenter
+              notifications={notifications}
+              onMarkAsRead={handleMarkNotificationAsRead}
+              onNavigate={handleSectionChange}
+            />
+          </div>
+        );
+      case 'profile':
+        return (
+          <div className="mb-6">
+            <UserProfileSection 
+              application={selectedApplication}
+              onUpdate={loadDashboardData}
+            />
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="sticky top-0 bg-white border-b border-gray-200 z-40">
+      <div className="sticky top-0 bg-white border-b border-gray-200 z-40 pt-16 md:pt-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">
+              <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">
                 Welcome Back, {selectedApplication.first_name || user?.email?.split('@')[0]}
               </h1>
               <div className="flex items-center gap-2 mt-1">
@@ -653,578 +876,189 @@ const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* Desktop Navigation Tabs */}
-      <div className="hidden sm:block bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8">
-            <button
-              onClick={() => handleSectionChange('overview')}
-              className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                activeSection === 'overview'
-                  ? 'border-[#3BAA75] text-[#3BAA75]'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <User className="h-4 w-4" />
-              Overview
-            </button>
-            
-            <button
-              onClick={() => handleSectionChange('documents')}
-              className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                activeSection === 'documents'
-                  ? 'border-[#3BAA75] text-[#3BAA75]'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <FileText className="h-4 w-4" />
-              Documents
-            </button>
-            
-            <button
-              onClick={() => handleSectionChange('messages')}
-              className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                activeSection === 'messages'
-                  ? 'border-[#3BAA75] text-[#3BAA75]'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <MessageSquare className="h-4 w-4" />
-              Messages
-              {summaryStats.unreadMessages > 0 && (
-                <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  {summaryStats.unreadMessages}
-                </span>
-              )}
-            </button>
-            
-            <button
-              onClick={() => handleSectionChange('notifications')}
-              className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                activeSection === 'notifications'
-                  ? 'border-[#3BAA75] text-[#3BAA75]'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <Bell className="h-4 w-4" />
-              Notifications
-              {notifications.filter(n => !n.read).length > 0 && (
-                <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  {notifications.filter(n => !n.read).length}
-                </span>
-              )}
-            </button>
-            
-            <button
-              onClick={() => handleSectionChange('profile')}
-              className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                activeSection === 'profile'
-                  ? 'border-[#3BAA75] text-[#3BAA75]'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <User className="h-4 w-4" />
-              Profile
-            </button>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+        {/* Mobile Summary Stats */}
+        {isMobile && (
+          <div className="grid grid-cols-3 gap-3 mb-6 bg-white rounded-xl p-3 shadow-sm">
+            <div className="flex flex-col items-center justify-center p-2 rounded-lg bg-gray-50">
+              <div className="text-xs text-gray-500 mb-1">Applications</div>
+              <div className="text-xl font-semibold text-[#3BAA75]">{summaryStats.totalApplications}</div>
+            </div>
+            <div className="flex flex-col items-center justify-center p-2 rounded-lg bg-gray-50">
+              <div className="text-xs text-gray-500 mb-1">Approved</div>
+              <div className="text-xl font-semibold text-[#3BAA75]">{summaryStats.approvedApplications}</div>
+            </div>
+            <div className="flex flex-col items-center justify-center p-2 rounded-lg bg-gray-50">
+              <div className="text-xs text-gray-500 mb-1">Messages</div>
+              <div className="text-xl font-semibold text-[#3BAA75]">{summaryStats.unreadMessages}</div>
+            </div>
           </div>
-        </div>
-      </div>
+        )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Summary Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-xl p-6 shadow-sm"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Applications</p>
-                <p className="text-2xl font-semibold mt-1">{summaryStats.totalApplications}</p>
-              </div>
-              <div className="bg-blue-50 p-3 rounded-full">
-                <FileText className="h-6 w-6 text-blue-500" />
-              </div>
-            </div>
-          </motion.div>
-          
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-white rounded-xl p-6 shadow-sm"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Approved</p>
-                <p className="text-2xl font-semibold mt-1">{summaryStats.approvedApplications}</p>
-              </div>
-              <div className="bg-green-50 p-3 rounded-full">
-                <CheckCircle className="h-6 w-6 text-green-500" />
-              </div>
-            </div>
-          </motion.div>
-          
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-white rounded-xl p-6 shadow-sm"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Unread Messages</p>
-                <p className="text-2xl font-semibold mt-1">{summaryStats.unreadMessages}</p>
-              </div>
-              <div className="bg-amber-50 p-3 rounded-full">
-                <MessageSquare className="h-6 w-6 text-amber-500" />
-              </div>
-            </div>
-          </motion.div>
-        </div>
-
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Main Content - Left Side */}
-          <div className="lg:col-span-2 space-y-8">
-            <AnimatePresence mode="wait">
-              {activeSection === 'overview' && (
-                <motion.div
-                  key="overview"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="space-y-8"
-                >
-                  {/* Prequalification Results */}
-                  {prequalificationData && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="bg-[#2A7A5B] rounded-xl p-8 text-white shadow-xl"
-                    >
-                      <h2 className="text-2xl font-semibold mb-6">Your Prequalification Results</h2>
-                      <LoanRangeBar
-                        min={prequalificationData.loanRange.min}
-                        max={prequalificationData.loanRange.max}
-                        rate={prequalificationData.loanRange.rate}
-                      />
-                      <div className="grid grid-cols-3 gap-6 mt-8">
-                        <div className="text-center">
-                          <div className="text-white/80 text-sm mb-1">Monthly Payment</div>
-                          <div className="text-2xl font-bold">${prequalificationData.monthlyPayment}</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-white/80 text-sm mb-1">Term Length</div>
-                          <div className="text-2xl font-bold">{prequalificationData.term} months</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-white/80 text-sm mb-1">Interest Rate</div>
-                          <div className="text-2xl font-bold">{prequalificationData.loanRange.rate}%</div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {/* Applications Hub */}
-                  <div className="bg-white rounded-xl shadow-lg p-6">
-                    <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-2xl font-semibold">Applications Hub</h2>
-                      {applications.length > 1 && (
-                        <button
-                          onClick={() => setShowApplicationSelector(!showApplicationSelector)}
-                          className="flex items-center gap-2 text-[#3BAA75] hover:text-[#2D8259] font-medium"
-                        >
-                          Switch Application
-                          <ChevronRight className={`h-5 w-5 transition-transform ${showApplicationSelector ? 'rotate-90' : ''}`} />
-                        </button>
-                      )}
-                    </div>
-                    
-                    {/* Application Progress */}
-                    <ApplicationTracker
-                      application={selectedApplication}
-                      stages={stages}
-                    />
-                  </div>
-
-                  {/* All Applications Section */}
-                  {applications.length > 1 && (
-                    <div className="bg-white rounded-xl shadow-lg p-6">
-                      <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-2xl font-semibold">Your Applications</h2>
-                        <Link
-                          to="/get-prequalified"
-                          className="flex items-center gap-2 text-[#3BAA75] hover:text-[#2D8259] font-medium"
-                        >
-                          <Plus className="h-5 w-5" />
-                          <span>Start New Application</span>
-                        </Link>
-                      </div>
-                      
-                      <div className="space-y-4">
-                        {applications.map((app) => (
-                          <div 
-                            key={app.id}
-                            className={`border-2 rounded-lg p-4 transition-colors cursor-pointer ${
-                              selectedApplication.id === app.id 
-                                ? 'border-[#3BAA75] bg-[#3BAA75]/5' 
-                                : 'border-gray-200 hover:border-[#3BAA75]/50'
-                            }`}
-                            onClick={() => handleApplicationSelect(app)}
-                          >
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <Car className="h-5 w-5 text-gray-500" />
-                                <h3 className="font-medium text-gray-900">
-                                  {app.vehicle_type || 'Vehicle'} Application
-                                </h3>
-                              </div>
-                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                app.status === 'pre_approved' 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : app.status === 'pending_documents'
-                                  ? 'bg-orange-100 text-orange-800'
-                                  : 'bg-blue-100 text-blue-800'
-                              }`}>
-                                {formatStatus(app.status)}
-                              </span>
-                            </div>
-                            
-                            <div className="grid grid-cols-2 gap-3 mt-3">
-                              <div>
-                                <p className="text-xs text-gray-500">Created</p>
-                                <p className="text-sm font-medium">
-                                  {format(new Date(app.created_at), 'MMM d, yyyy')}
-                                </p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-500">Monthly Payment</p>
-                                <p className="text-sm font-medium">
-                                  ${app.desired_monthly_payment?.toLocaleString() || 'Not specified'}
-                                </p>
-                              </div>
-                            </div>
-                            
-                            {selectedApplication.id !== app.id && (
-                              <div className="mt-3 flex justify-end">
-                                <button className="flex items-center text-sm text-[#3BAA75] hover:text-[#2D8259] font-medium">
-                                  View Details
-                                  <ArrowRight className="ml-1 h-4 w-4" />
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* User Profile Section */}
-                  <UserProfileSection 
-                    application={selectedApplication}
-                    onUpdate={loadDashboardData}
-                  />
-
-                  {/* Appointment Scheduler */}
-                  <div id="appointment-section">
-                    <AppointmentScheduler
-                      onSchedule={async (date, type) => {
-                        try {
-                          const { error } = await supabase
-                            .from('applications')
-                            .update({ consultation_time: date.toISOString() })
-                            .eq('id', selectedApplication.id);
-
-                          if (error) throw error;
-                          
-                          setSelectedApplication(prev => prev ? {
-                            ...prev,
-                            consultation_time: date.toISOString()
-                          } : null);
-                          
-                          toast.success('Consultation scheduled successfully');
-                        } catch (error) {
-                          console.error('Error scheduling appointment:', error);
-                          toast.error('Failed to schedule consultation');
-                        }
-                      }}
-                    />
-                  </div>
-
-                  {/* Future Payments Block (Placeholder) */}
-                  <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200">
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-xl font-semibold flex items-center gap-2">
-                        <Wallet className="h-5 w-5 text-[#3BAA75]" />
-                        Future Payments
-                      </h2>
-                      <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-1 rounded">Coming Soon</span>
-                    </div>
-                    <p className="text-gray-600 mb-4">
-                      Once your loan is finalized, you'll be able to view and manage your payments here.
-                    </p>
-                    <div className="bg-gray-50 p-4 rounded-lg">
-                      <div className="flex items-center justify-between text-gray-500">
-                        <span>Next Payment</span>
-                        <span>--/--/----</span>
-                      </div>
-                      <div className="flex items-center justify-between text-gray-500 mt-2">
-                        <span>Amount</span>
-                        <span>$---</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Add-On Services Block (Placeholder) */}
-                  <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-dashed border-gray-200">
-                    <div className="flex items-center justify-between mb-4">
-                      <h2 className="text-xl font-semibold flex items-center gap-2">
-                        <Shield className="h-5 w-5 text-[#3BAA75]" />
-                        Add-On Services
-                      </h2>
-                      <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-1 rounded">Coming Soon</span>
-                    </div>
-                    <p className="text-gray-600 mb-4">
-                      Enhance your vehicle ownership experience with additional services and protection plans.
-                    </p>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-gray-50 p-4 rounded-lg text-center">
-                        <p className="font-medium text-gray-700">Extended Warranty</p>
-                        <p className="text-sm text-gray-500">Protect your investment</p>
-                      </div>
-                      <div className="bg-gray-50 p-4 rounded-lg text-center">
-                        <p className="font-medium text-gray-700">GAP Insurance</p>
-                        <p className="text-sm text-gray-500">Coverage for the unexpected</p>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {activeSection === 'documents' && (
-                <motion.div
-                  key="documents"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="space-y-8"
-                >
-                  {/* Document Tabs */}
-                  <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-                    <div className="flex border-b border-gray-200">
-                      <button
-                        onClick={() => setActiveTab('upload')}
-                        className={`flex-1 px-4 py-3 font-medium text-sm ${
-                          activeTab === 'upload'
-                            ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                            : 'text-gray-500 hover:text-gray-700'
-                        }`}
-                      >
-                        Upload Documents
-                      </button>
-                      <button
-                        onClick={() => setActiveTab('manage')}
-                        className={`flex-1 px-4 py-3 font-medium text-sm ${
-                          activeTab === 'manage'
-                            ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
-                            : 'text-gray-500 hover:text-gray-700'
-                        }`}
-                      >
-                        Manage Documents
-                      </button>
-                    </div>
-
-                    {/* Document Content */}
-                    <div className="p-6">
-                      <AnimatePresence mode="wait">
-                        {activeTab === 'upload' ? (
-                          <motion.div
-                            key="upload"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.2 }}
-                          >
-                            <DocumentUpload
-                              applicationId={selectedApplication.id}
-                              documents={documents}
-                              onUpload={handleDocumentUpload}
-                              isUploading={uploading}
-                              uploadError={uploadError}
-                            />
-                          </motion.div>
-                        ) : (
-                          <motion.div
-                            key="manage"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.2 }}
-                          >
-                            <DocumentManager
-                              applicationId={selectedApplication.id}
-                              documents={documents}
-                              onUpload={handleDocumentUpload}
-                              onDelete={handleDocumentDelete}
-                              isUploading={uploading}
-                              uploadError={uploadError}
-                            />
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {activeSection === 'messages' && (
-                <motion.div
-                  key="messages"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="space-y-8"
-                >
-                  <UserMessageCenter 
-                    userId={user?.id || ''} 
-                    applicationId={selectedApplication.id} 
-                  />
-                </motion.div>
-              )}
-
-              {activeSection === 'notifications' && (
-                <motion.div
-                  key="notifications"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="space-y-8"
-                >
-                  <NotificationCenter
-                    notifications={notifications}
-                    onMarkAsRead={handleMarkNotificationAsRead}
-                  />
-                </motion.div>
-              )}
-
-              {activeSection === 'profile' && (
-                <motion.div
-                  key="profile"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  className="space-y-8"
-                >
-                  <UserProfileSection 
-                    application={selectedApplication}
-                    onUpdate={loadDashboardData}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-
-          {/* Right Sidebar */}
-          <div className="space-y-8 hidden lg:block">
-            {/* Account Summary */}
+        {/* Desktop Summary Stats */}
+        {!isMobile && (
+          <div className="grid grid-cols-3 gap-4 mb-8">
             <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="bg-white rounded-xl p-6 shadow-lg"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-xl p-6 shadow-sm"
             >
-              <h2 className="text-xl font-semibold mb-6">Account Summary</h2>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Application Status</span>
-                  <span className="font-medium text-[#3BAA75]">
-                    {selectedApplication.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                  </span>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Applications</p>
+                  <p className="text-2xl font-semibold mt-1">{summaryStats.totalApplications}</p>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Documents Pending</span>
-                  <span className="font-medium">{documents.filter(d => d.status === 'pending').length}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">Next Appointment</span>
-                  <span className="font-medium">
-                    {selectedApplication.consultation_time
-                      ? format(new Date(selectedApplication.consultation_time), 'MMM d, h:mm a')
-                      : 'Not Scheduled'}
-                  </span>
+                <div className="bg-blue-50 p-3 rounded-full">
+                  <FileText className="h-6 w-6 text-blue-500" />
                 </div>
               </div>
             </motion.div>
-
-            {/* Notifications */}
-            <NotificationCenter
-              notifications={notifications}
-              onMarkAsRead={handleMarkNotificationAsRead}
-            />
-
-            {/* Quick Links */}
+            
             <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="bg-white rounded-xl p-6 shadow-sm"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Approved</p>
+                  <p className="text-2xl font-semibold mt-1">{summaryStats.approvedApplications}</p>
+                </div>
+                <div className="bg-green-50 p-3 rounded-full">
+                  <CheckCircle className="h-6 w-6 text-green-500" />
+                </div>
+              </div>
+            </motion.div>
+            
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="bg-white rounded-xl p-6 shadow-lg"
+              className="bg-white rounded-xl p-6 shadow-sm"
             >
-              <h2 className="text-xl font-semibold mb-4">Quick Links</h2>
-              <div className="space-y-3">
-                <a 
-                  href="#appointment-section" 
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center">
-                    <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
-                      <CalendarClock className="h-5 w-5 text-[#3BAA75]" />
-                    </div>
-                    <span className="font-medium">Schedule Consultation</span>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-gray-400" />
-                </a>
-                
-                <button 
-                  onClick={() => handleSectionChange('documents')}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors w-full text-left"
-                >
-                  <div className="flex items-center">
-                    <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
-                      <FileCheck className="h-5 w-5 text-[#3BAA75]" />
-                    </div>
-                    <span className="font-medium">Upload Documents</span>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-gray-400" />
-                </button>
-                
-                <button
-                  onClick={() => handleSectionChange('messages')}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors w-full text-left"
-                >
-                  <div className="flex items-center">
-                    <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
-                      <MessageSquare className="h-5 w-5 text-[#3BAA75]" />
-                    </div>
-                    <span className="font-medium">Message Support</span>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-gray-400" />
-                </button>
-                
-                <Link
-                  to="/calculator"
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center">
-                    <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
-                      <BarChart3 className="h-5 w-5 text-[#3BAA75]" />
-                    </div>
-                    <span className="font-medium">Payment Calculator</span>
-                  </div>
-                  <ArrowUpRight className="h-5 w-5 text-gray-400" />
-                </Link>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Unread Messages</p>
+                  <p className="text-2xl font-semibold mt-1">{summaryStats.unreadMessages}</p>
+                </div>
+                <div className="bg-amber-50 p-3 rounded-full">
+                  <MessageSquare className="h-6 w-6 text-amber-500" />
+                </div>
               </div>
             </motion.div>
           </div>
+        )}
+
+        <div className="grid lg:grid-cols-3 gap-6 sm:gap-8">
+          {/* Main Content - Left Side */}
+          <div className="lg:col-span-2">
+            {renderContent()}
+          </div>
+
+          {/* Right Sidebar - Only visible on desktop */}
+          {!isMobile && (
+            <div className="space-y-6 sm:space-y-8">
+              {/* Account Summary */}
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="bg-white rounded-xl p-6 shadow-lg"
+              >
+                <h2 className="text-xl font-semibold mb-6">Account Summary</h2>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Application Status</span>
+                    <span className="font-medium text-[#3BAA75]">
+                      {selectedApplication.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Documents Pending</span>
+                    <span className="font-medium">{documents.filter(d => d.status === 'pending').length}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Next Appointment</span>
+                    <span className="font-medium">
+                      {selectedApplication.consultation_time
+                        ? format(new Date(selectedApplication.consultation_time), 'MMM d, h:mm a')
+                        : 'Not Scheduled'}
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Notifications */}
+              <NotificationCenter
+                notifications={notifications.slice(0, 3)}
+                onMarkAsRead={handleMarkNotificationAsRead}
+                onNavigate={handleSectionChange}
+              />
+
+              {/* Quick Links */}
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.2 }}
+                className="bg-white rounded-xl p-6 shadow-lg"
+              >
+                <h2 className="text-xl font-semibold mb-4">Quick Links</h2>
+                <div className="space-y-3">
+                  <a 
+                    href="#appointment-section" 
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center">
+                      <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
+                        <CalendarClock className="h-5 w-5 text-[#3BAA75]" />
+                      </div>
+                      <span className="font-medium">Schedule Consultation</span>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-gray-400" />
+                  </a>
+                  
+                  <button 
+                    onClick={() => handleSectionChange('documents')}
+                    className="flex items-center justify-between w-full p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-left"
+                  >
+                    <div className="flex items-center">
+                      <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
+                        <FileCheck className="h-5 w-5 text-[#3BAA75]" />
+                      </div>
+                      <span className="font-medium">Upload Documents</span>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-gray-400" />
+                  </button>
+                  
+                  <button 
+                    onClick={() => handleSectionChange('messages')}
+                    className="flex items-center justify-between w-full p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-left"
+                  >
+                    <div className="flex items-center">
+                      <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
+                        <MessageSquare className="h-5 w-5 text-[#3BAA75]" />
+                      </div>
+                      <span className="font-medium">Message Support</span>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-gray-400" />
+                  </button>
+                  
+                  <Link
+                    to="/calculator"
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center">
+                      <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
+                        <BarChart3 className="h-5 w-5 text-[#3BAA75]" />
+                      </div>
+                      <span className="font-medium">Payment Calculator</span>
+                    </div>
+                    <ArrowUpRight className="h-5 w-5 text-gray-400" />
+                  </Link>
+                </div>
+              </motion.div>
+            </div>
+          )}
         </div>
       </div>
     </div>
