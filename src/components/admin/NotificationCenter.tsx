@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Bell, 
@@ -13,8 +13,12 @@ import {
   Users,
   FileText,
   Edit,
-  Clock,
-  MessageSquare
+  Trash2,
+  Upload,
+  MessageSquare,
+  User as UserIcon,
+  ArrowRight,
+  Calendar
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
@@ -403,7 +407,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                         : 'hover:bg-gray-100 text-gray-700'
                     }`}
                   >
-                    <User className="h-4 w-4 mr-2" />
+                    <UserIcon className="h-4 w-4 mr-2" />
                     <span className="truncate">{u.name || u.email}</span>
                   </button>
                 ))}

@@ -98,7 +98,7 @@ export interface Application {
   down_payment_amount: number | null;
   has_driver_license: boolean | null;
   collects_government_benefits: boolean | null;
-  government_benefit_types: any | null;
+  government_benefit_types: GovernmentBenefitTypeEnum[] | null;
   government_benefit_other: string | null;
   has_debt_discharge_history: boolean | null;
   debt_discharge_type: DebtDischargeTypeEnum | null;
