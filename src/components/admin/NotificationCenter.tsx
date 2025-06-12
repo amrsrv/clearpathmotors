@@ -13,7 +13,8 @@ import {
   Users,
   FileText,
   Edit,
-  Clock
+  Clock,
+  MessageSquare
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
