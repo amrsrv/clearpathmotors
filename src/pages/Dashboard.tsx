@@ -799,7 +799,8 @@ const Dashboard: React.FC<DashboardProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">
-                Welcome Back, {selectedApplication.first_name || user?.email?.split('@')[0]}
+                Welcome Back, {startCase((selectedApplication.first_name || user?.email?.split('@')[0] || '').toLowerCase())}
+
               </h1>
               <div className="flex items-center gap-2 mt-1">
                 <PreQualifiedBadge />
