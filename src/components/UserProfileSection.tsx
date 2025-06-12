@@ -406,7 +406,7 @@ export const UserProfileSection: React.FC<UserProfileSectionProps> = ({
 
               {/* Profile Sections */}
               <div className="space-y-6">
-                {/* Personal Information */}
+                {/* Personal Info */}
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
                   <button
                     onClick={() => setActiveSection(activeSection === 'personal' ? null : 'personal')}
