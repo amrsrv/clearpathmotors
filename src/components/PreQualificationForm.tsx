@@ -381,7 +381,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
               <p className="text-lg text-gray-600 mb-8">Select the type of vehicle you're interested in financing.</p>
             </div>
             
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 gap-6">
               {vehicles.map((vehicle) => (
                 <motion.div
                   key={vehicle.type}
@@ -397,11 +397,11 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                   `}
                   onClick={() => setFormData({ ...formData, vehicleType: vehicle.type })}
                 >
-                  <div className="w-24 h-24 mb-4 rounded-lg overflow-hidden">
+                  <div className="w-full h-32 mb-4 rounded-lg overflow-hidden">
                     <img 
                       src={vehicle.image} 
                       alt={vehicle.type} 
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain"
                     />
                   </div>
                   <h3 className="font-medium text-gray-800">{vehicle.type}</h3>
