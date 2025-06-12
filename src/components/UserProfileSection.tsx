@@ -37,7 +37,8 @@ import {
   Coins,
   BadgeCheck,
   BadgeX,
-  MessageSquare
+  MessageSquare,
+  Car
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
