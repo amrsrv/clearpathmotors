@@ -339,7 +339,7 @@ export const UserProfileSection: React.FC<UserProfileSectionProps> = ({
         >
           <div className="flex items-center justify-center gap-2">
             <User className="h-5 w-5" />
-            <span>Profile Information</span>
+            <span>Profile Info</span>
           </div>
         </button>
         <button
