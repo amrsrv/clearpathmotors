@@ -20,6 +20,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { toStartCase } from '../../utils/formatters';
 
 interface AuditLogEntry {
   id: string;
@@ -326,7 +327,7 @@ export const AuditLogViewer: React.FC = () => {
                           onClick={() => navigate(`/admin/applications/${log.application_id}`)}
                           className="text-sm text-[#3BAA75] hover:text-[#2D8259] font-medium flex items-center"
                         >
-                          {log.application_first_name} {log.application_last_name}
+                          {toStartCase(log.application_first_name)} {toStartCase(log.application_last_name)}
                           <ArrowRight className="ml-1 h-3 w-3" />
                         </button>
                       ) : (

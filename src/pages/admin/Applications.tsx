@@ -29,6 +29,7 @@ import { supabase } from '../../lib/supabaseClient';
 import type { Application } from '../../types/database';
 import toast from 'react-hot-toast';
 import { BulkActions } from '../../components/admin/BulkActions';
+import { toStartCase } from '../../utils/formatters';
 
 const AdminApplications = () => {
   const [applications, setApplications] = useState<Application[]>([]);
@@ -582,7 +583,7 @@ const AdminApplications = () => {
                       <div className="flex items-start justify-between">
                         <div>
                           <div className="text-base font-medium text-gray-900">
-                            {application.first_name} {application.last_name}
+                            {toStartCase(application.first_name)} {toStartCase(application.last_name)}
                           </div>
                           <div className="text-xs text-gray-500 mt-1">
                             ID: {application.id.slice(0, 8)}

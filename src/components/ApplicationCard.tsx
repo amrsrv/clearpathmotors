@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { Eye, ChevronRight, ChevronDown, ChevronUp, DollarSign, CreditCard, Car, Briefcase, MapPin, Calendar, Phone, Mail, User } from 'lucide-react';
 import { PreQualifiedBadge } from './PreQualifiedBadge';
 import type { Application } from '../types/database';
+import { toStartCase } from '../utils/formatters';
 
 interface ApplicationCardProps {
   application: Application;

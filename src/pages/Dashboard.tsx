@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useLayoutEffect, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -45,6 +45,7 @@ import { UserMessageCenter } from '../components/UserMessageCenter';
 import { UserProfileSection } from '../components/UserProfileSection';
 import { ApplicationCard } from '../components/ApplicationCard';
 import { DashboardNavBar } from '../components/DashboardNavBar';
+import { toStartCase } from '../utils/formatters';
 
 interface DashboardProps {
   activeSection?: string;
@@ -799,7 +800,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">
-                Welcome Back, {selectedApplication.first_name || user?.email?.split('@')[0]}
+                Welcome Back, {toStartCase(selectedApplication.first_name) || user?.email?.split('@')[0]}
               </h1>
               <div className="flex items-center gap-2 mt-1">
                 <PreQualifiedBadge />

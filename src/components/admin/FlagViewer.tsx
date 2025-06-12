@@ -16,6 +16,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { toStartCase } from '../../utils/formatters';
 
 interface ApplicationFlag {
   id: string;
@@ -308,7 +309,7 @@ export const FlagViewer: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
-                        {flag.application?.first_name} {flag.application?.last_name}
+                        {toStartCase(flag.application?.first_name)} {toStartCase(flag.application?.last_name)}
                       </div>
                       <div className="text-sm text-gray-500">{flag.application?.email}</div>
                     </td>
