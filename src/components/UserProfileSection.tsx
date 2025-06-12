@@ -406,7 +406,7 @@ export const UserProfileSection: React.FC<UserProfileSectionProps> = ({
 
               {/* Profile Sections */}
               <div className="space-y-6">
-                {/* Personal Info */}
+                {/* Personal Information */}
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
                   <button
                     onClick={() => setActiveSection(activeSection === 'personal' ? null : 'personal')}
@@ -414,7 +414,7 @@ export const UserProfileSection: React.FC<UserProfileSectionProps> = ({
                   >
                     <div className="flex items-center gap-2">
                       <User className="h-5 w-5 text-[#3BAA75]" />
-                      <h3 className="font-medium text-gray-900">Personal Information</h3>
+                      <h3 className="font-medium text-gray-900">Personal Info</h3>
                     </div>
                     {activeSection === 'personal' ? (
                       <ChevronUp className="h-5 w-5 text-gray-500" />
