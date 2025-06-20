@@ -61,11 +61,9 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
     city: '',
     province: '',
     postalCode: '',
-    dob: '',
-    housingStatus: '',
-    monthlyHousingPayment: '',
-    residenceYears: 0,
-    residenceMonths: 0,
+    date_of_birth: '',
+    residence_duration_years: 0,
+    residence_duration_months: 0,
     
     // Step 4: Additional Information
     collects_government_benefits: false,
@@ -109,21 +107,9 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
       city: z.string().min(1, 'City is required'),
       province: z.string().min(1, 'Province is required'),
       postalCode: z.string().regex(/^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/, 'Please enter a valid postal code'),
-      dob: z.string().min(1, 'Date of birth is required'),
-      housingStatus: z.string().min(1, 'Housing status is required'),
-      monthlyHousingPayment: z.string().optional(),
-      residenceYears: z.number().min(0, 'Years must be 0 or greater'),
-      residenceMonths: z.number().min(0, 'Months must be 0 or greater').max(11, 'Months must be less than 12')
-    }).superRefine((data, ctx) => {
-      // Conditional validation for monthlyHousingPayment
-      if ((data.housingStatus === 'Rent' || data.housingStatus === 'Mortgage') && 
-          (!data.monthlyHousingPayment || parseFloat(data.monthlyHousingPayment.replace(/[^0-9.]/g, '')) <= 0)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: 'Monthly housing payment is required',
-          path: ['monthlyHousingPayment']
-        });
-      }
+      date_of_birth: z.string().optional(),
+      residence_duration_years: z.number().optional(),
+      residence_duration_months: z.number().optional()
     }),
     4: z.object({
       consentToSoftCheck: z.boolean().refine(val => val === true, 'You must consent to a soft credit check'),
@@ -319,11 +305,9 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           loan_amount_max: loanMax,
           interest_rate: interestRate,
           loan_term: term,
-          date_of_birth: formData.dob,
-          housing_status: formData.housingStatus,
-          housing_payment: formData.monthlyHousingPayment ? parseFloat(formData.monthlyHousingPayment.replace(/[^0-9.]/g, '')) : null,
-          residence_duration_years: formData.residenceYears,
-          residence_duration_months: formData.residenceMonths,
+          date_of_birth: formData.date_of_birth || null,
+          residence_duration_years: formData.residence_duration_years || null,
+          residence_duration_months: formData.residence_duration_months || null,
           collects_government_benefits: formData.collects_government_benefits,
           government_benefit_types: formData.government_benefit_types.length > 0 ? formData.government_benefit_types : null,
           government_benefit_other: formData.government_benefit_other || null,
@@ -606,25 +590,6 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                 </div>
               </div>
               
-              <div>
-                <label htmlFor="dob" className="block text-sm font-medium text-gray-700 mb-2">
-                  Date of Birth
-                </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    id="dob"
-                    name="dob"
-                    value={formData.dob}
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                  />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <Calendar className="h-5 w-5 text-gray-400" />
-                  </div>
-                </div>
-              </div>
-              
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
@@ -661,6 +626,25 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                       <Phone className="h-5 w-5 text-gray-400" />
                     </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <label htmlFor="date_of_birth" className="block text-sm font-medium text-gray-700 mb-2">
+                  Date of Birth
+                </label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    id="date_of_birth"
+                    name="date_of_birth"
+                    value={formData.date_of_birth}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                  />
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <Calendar className="h-5 w-5 text-gray-400" />
                   </div>
                 </div>
               </div>
@@ -748,100 +732,38 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                 </div>
               </div>
               
-              <div className="border-t border-gray-200 pt-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Housing Information</h3>
-                
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div>
-                    <label htmlFor="housingStatus" className="block text-sm font-medium text-gray-700 mb-2">
-                      Housing Situation
-                    </label>
-                    <div className="relative">
-                      <select
-                        id="housingStatus"
-                        name="housingStatus"
-                        value={formData.housingStatus}
-                        onChange={(e) => {
-                          const newStatus = e.target.value;
-                          setFormData(prev => ({
-                            ...prev,
-                            housingStatus: newStatus,
-                            // Clear monthly payment if not Rent or Mortgage
-                            monthlyHousingPayment: (newStatus !== 'Rent' && newStatus !== 'Mortgage') ? '' : prev.monthlyHousingPayment
-                          }));
-                        }}
-                        className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                      >
-                        <option value="">Select Housing Situation</option>
-                        <option value="Rent">Rent</option>
-                        <option value="Mortgage">Mortgage</option>
-                        <option value="Living with Family">Living with Family</option>
-                        <option value="Other">Other</option>
-                      </select>
-                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                        <Building className="h-5 w-5 text-gray-400" />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {(formData.housingStatus === 'Rent' || formData.housingStatus === 'Mortgage') && (
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    How long have you lived at this address?
+                  </label>
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="monthlyHousingPayment" className="block text-sm font-medium text-gray-700 mb-2">
-                        Monthly Housing Payment
-                      </label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <DollarSign className="h-5 w-5 text-gray-400" />
-                        </div>
-                        <CurrencyInput
-                          id="monthlyHousingPayment"
-                          name="monthlyHousingPayment"
-                          value={formData.monthlyHousingPayment}
-                          onValueChange={(value) => handleCurrencyChange(value, 'monthlyHousingPayment')}
-                          placeholder="Enter monthly payment"
-                          prefix="$"
-                          groupSeparator=","
-                          decimalSeparator="."
-                          className="w-full p-3 pl-10 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                        />
-                      </div>
+                      <label htmlFor="residence_duration_years" className="block text-xs text-gray-500 mb-1">Years</label>
+                      <input
+                        type="number"
+                        id="residence_duration_years"
+                        name="residence_duration_years"
+                        min="0"
+                        max="99"
+                        value={formData.residence_duration_years}
+                        onChange={(e) => setFormData({ ...formData, residence_duration_years: parseInt(e.target.value) || 0 })}
+                        className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                      />
                     </div>
-                  )}
-                </div>
-                
-                <div className="grid md:grid-cols-2 gap-6 mt-4">
-                  <div>
-                    <label htmlFor="residenceYears" className="block text-sm font-medium text-gray-700 mb-2">
-                      Years at Current Residence
-                    </label>
-                    <input
-                      type="number"
-                      id="residenceYears"
-                      name="residenceYears"
-                      min="0"
-                      value={formData.residenceYears}
-                      onChange={(e) => setFormData({ ...formData, residenceYears: parseInt(e.target.value) || 0 })}
-                      className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label htmlFor="residenceMonths" className="block text-sm font-medium text-gray-700 mb-2">
-                      Months at Current Residence
-                    </label>
-                    <input
-                      type="number"
-                      id="residenceMonths"
-                      name="residenceMonths"
-                      min="0"
-                      max="11"
-                      value={formData.residenceMonths}
-                      onChange={(e) => {
-                        const value = parseInt(e.target.value) || 0;
-                        setFormData({ ...formData, residenceMonths: Math.min(value, 11) });
-                      }}
-                      className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    />
+                    <div>
+                      <label htmlFor="residence_duration_months" className="block text-xs text-gray-500 mb-1">Months</label>
+                      <input
+                        type="number"
+                        id="residence_duration_months"
+                        name="residence_duration_months"
+                        min="0"
+                        max="11"
+                        value={formData.residence_duration_months}
+                        onChange={(e) => setFormData({ ...formData, residence_duration_months: parseInt(e.target.value) || 0 })}
+                        className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1125,7 +1047,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       I accept the terms and conditions
                     </label>
                     <p className="text-gray-500">
-                      By checking this box, you agree to our <a href="/terms" className="text-[#3BAA75] hover:underline">Terms of Service</a> and <a href="/privacy" className=\"text-[#3BAA75] hover:underline">Privacy Policy</a>.
+                      By checking this box, you agree to our <a href="/terms" className="text-[#3BAA75] hover:underline">Terms of Service</a> and <a href="/privacy" className="text-[#3BAA75] hover:underline">Privacy Policy</a>.
                     </p>
                   </div>
                 </div>
