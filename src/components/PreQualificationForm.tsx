@@ -28,18 +28,10 @@ import {
 } from 'lucide-react';
 import CurrencyInput from 'react-currency-input-field';
 import { z } from 'zod';
+import { useForm, Controller, FormProvider, useFormContext } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import * as LabelPrimitive from "@radix-ui/react-label";
 import { Slot } from "@radix-ui/react-slot";
-import {
-  Controller,
-  ControllerProps,
-  FieldPath,
-  FieldValues,
-  FormProvider,
-  useFormContext,
-  useForm
-} from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { cn } from "@/lib/utils";
 import { Slider } from "@/components/ui/slider";
 
@@ -47,8 +39,8 @@ import { Slider } from "@/components/ui/slider";
 const Form = FormProvider;
 
 type FormFieldContextValue<
-  TFieldValues extends FieldValues = FieldValues,
-  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
+  TFieldValues extends Record<string, any> = Record<string, any>,
+  TName extends string = string
 > = {
   name: TName
 }
@@ -58,11 +50,11 @@ const FormFieldContext = React.createContext<FormFieldContextValue>(
 )
 
 const FormField = <
-  TFieldValues extends FieldValues = FieldValues,
-  TName extends FieldPath<TFieldValues> = FieldPath<TFieldValues>
+  TFieldValues extends Record<string, any> = Record<string, any>,
+  TName extends string = string
 >({
   ...props
-}: ControllerProps<TFieldValues, TName>) => {
+}: any) => {
   return (
     <FormFieldContext.Provider value={{ name: props.name }}>
       <Controller {...props} />
@@ -122,7 +114,7 @@ const FormLabel = React.forwardRef<
   const { error, formItemId } = useFormField()
 
   return (
-    <Label
+    <LabelPrimitive.Root
       ref={ref}
       className={cn(error && "text-destructive", className)}
       htmlFor={formItemId}
@@ -194,19 +186,6 @@ const FormMessage = React.forwardRef<
   )
 })
 FormMessage.displayName = "FormMessage"
-
-// Label component
-const Label = React.forwardRef<
-  React.ElementRef<typeof LabelPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root>
->(({ className, ...props }, ref) => (
-  <LabelPrimitive.Root
-    ref={ref}
-    className={cn("text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70", className)}
-    {...props}
-  />
-))
-Label.displayName = LabelPrimitive.Root.displayName;
 
 interface PreQualificationFormProps {
   onComplete: (applicationId: string, tempUserId: string, formData: any) => void;
@@ -543,6 +522,24 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
     }
   };
 
+  // Budget slider form
+  const budgetFormSchema = z.object({
+    budget: z.number().min(100, 'Monthly payment must be at least $100').max(2000, 'Monthly payment cannot exceed $2000'),
+  });
+
+  const budgetForm = useForm({
+    resolver: zodResolver(budgetFormSchema),
+    defaultValues: {
+      budget: formData.desiredMonthlyPayment,
+    },
+  });
+
+  const handleBudgetChange = (value: number[]) => {
+    const budget = value[0];
+    budgetForm.setValue("budget", budget, { shouldValidate: true });
+    setFormData(prev => ({ ...prev, desiredMonthlyPayment: budget }));
+  };
+
   // Render the current step
   const renderStep = () => {
     switch (currentStep) {
@@ -610,25 +607,37 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   What's your ideal monthly car payment?
                 </label>
-                <div className="space-y-4">
-                  <input
-                    type="range"
-                    min="100"
-                    max="2000"
-                    step="50"
-                    value={formData.desiredMonthlyPayment}
-                    onChange={(e) => setFormData({ ...formData, desiredMonthlyPayment: parseInt(e.target.value) })}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#3BAA75]"
-                  />
-                  <div className="flex justify-between text-sm text-gray-500">
-                    <span>$100</span>
-                    <span>$2000</span>
-                  </div>
-                  <div className="text-center">
-                    <span className="text-2xl font-bold text-[#3BAA75]">${formData.desiredMonthlyPayment}</span>
-                    <span className="text-gray-500 text-sm ml-1">per month</span>
-                  </div>
-                </div>
+                <Form {...budgetForm}>
+                  <form className="space-y-4">
+                    <FormField
+                      control={budgetForm.control}
+                      name="budget"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormControl>
+                            <Slider
+                              value={[formData.desiredMonthlyPayment]}
+                              onValueChange={handleBudgetChange}
+                              min={100}
+                              max={2000}
+                              step={50}
+                              className="py-4"
+                            />
+                          </FormControl>
+                          <div className="flex justify-between text-sm text-gray-500">
+                            <span>$100</span>
+                            <span>$2000</span>
+                          </div>
+                          <div className="text-center">
+                            <span className="text-2xl font-bold text-[#3BAA75]">${formData.desiredMonthlyPayment}</span>
+                            <span className="text-gray-500 text-sm ml-1">per month</span>
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </form>
+                </Form>
               </div>
               
               <div className="grid md:grid-cols-2 gap-6">
@@ -1162,7 +1171,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       I accept the terms and conditions
                     </label>
                     <p className="text-gray-500">
-                      By checking this box, you agree to our <a href="/terms" className="text-[#3BAA75] hover:underline">Terms of Service</a> and <a href="/privacy" className=\"text-[#3BAA75] hover:underline">Privacy Policy</a>.
+                      By checking this box, you agree to our <a href="/terms" className="text-[#3BAA75] hover:underline">Terms of Service</a> and <a href="/privacy" className="text-[#3BAA75] hover:underline">Privacy Policy</a>.
                     </p>
                   </div>
                 </div>
