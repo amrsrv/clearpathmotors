@@ -28,10 +28,67 @@ import {
 } from 'lucide-react';
 import CurrencyInput from 'react-currency-input-field';
 import { z } from 'zod';
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Slider } from "@/components/ui/slider";
 
 interface PreQualificationFormProps {
   onComplete: (applicationId: string, tempUserId: string, formData: any) => void;
 }
+
+// Define the form schema with Zod
+const formSchema = z.object({
+  // Step 1: Vehicle Type
+  vehicleType: z.string().min(1, 'Please select a vehicle type'),
+  
+  // Step 2: Financial Information
+  desiredMonthlyPayment: z.number().min(100, 'Monthly payment must be at least $100').max(2000, 'Monthly payment cannot exceed $2000'),
+  creditScore: z.string().refine(val => {
+    const num = parseInt(val);
+    return !isNaN(num) && num >= 300 && num <= 900;
+  }, 'Credit score must be between 300 and 900'),
+  employmentStatus: z.string().min(1, 'Please select your employment status'),
+  annualIncome: z.string().refine(val => {
+    const num = parseFloat(val.replace(/[^0-9.]/g, ''));
+    return !isNaN(num) && num > 0;
+  }, 'Please enter a valid annual income'),
+  
+  // Step 3: Personal Information
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().min(1, 'Last name is required'),
+  email: z.string().email('Please enter a valid email address'),
+  phone: z.string().min(10, 'Please enter a valid phone number'),
+  address: z.string().min(1, 'Address is required'),
+  city: z.string().min(1, 'City is required'),
+  province: z.string().min(1, 'Province is required'),
+  postalCode: z.string().regex(/^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/, 'Please enter a valid postal code'),
+  
+  // Step 4: Additional Information
+  collects_government_benefits: z.boolean().optional(),
+  government_benefit_types: z.array(z.string()).optional(),
+  government_benefit_other: z.string().optional(),
+  government_benefit_amount: z.string().optional(),
+  has_debt_discharge_history: z.boolean().optional(),
+  debt_discharge_type: z.string().optional(),
+  debt_discharge_status: z.string().optional(),
+  debt_discharge_year: z.string().optional(),
+  amount_owed: z.string().optional(),
+  
+  // Consent
+  consentToSoftCheck: z.boolean().refine(val => val === true, 'You must consent to a soft credit check'),
+  termsAccepted: z.boolean().refine(val => val === true, 'You must accept the terms and conditions')
+});
+
+type FormValues = z.infer<typeof formSchema>;
 
 export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete }) => {
   const navigate = useNavigate();
@@ -41,81 +98,45 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
   const [error, setError] = useState<string | null>(null);
   const [tempUserId] = useState(uuidv4());
   
-  // Form data state
-  const [formData, setFormData] = useState({
-    // Step 1: Vehicle Type
-    vehicleType: searchParams.get('vehicle') || '',
-    
-    // Step 2: Financial Information
-    desiredMonthlyPayment: searchParams.get('budget') ? parseInt(searchParams.get('budget')!) : 500,
-    creditScore: '',
-    employmentStatus: 'employed',
-    annualIncome: '',
-    
-    // Step 3: Personal Information
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    address: '',
-    city: '',
-    province: '',
-    postalCode: '',
-    date_of_birth: '',
-    residence_duration_years: 0,
-    residence_duration_months: 0,
-    
-    // Step 4: Additional Information
-    collects_government_benefits: false,
-    government_benefit_types: [] as string[],
-    government_benefit_other: '',
-    government_benefit_amount: '',
-    has_debt_discharge_history: false,
-    debt_discharge_type: '',
-    debt_discharge_status: '',
-    debt_discharge_year: '',
-    amount_owed: '',
-    
-    // Consent
-    consentToSoftCheck: false,
-    termsAccepted: false
+  // Initialize form with react-hook-form
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      // Step 1: Vehicle Type
+      vehicleType: searchParams.get('vehicle') || '',
+      
+      // Step 2: Financial Information
+      desiredMonthlyPayment: searchParams.get('budget') ? parseInt(searchParams.get('budget')!) : 500,
+      creditScore: '',
+      employmentStatus: 'employed',
+      annualIncome: '',
+      
+      // Step 3: Personal Information
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      address: '',
+      city: '',
+      province: '',
+      postalCode: '',
+      
+      // Step 4: Additional Information
+      collects_government_benefits: false,
+      government_benefit_types: [],
+      government_benefit_other: '',
+      government_benefit_amount: '',
+      has_debt_discharge_history: false,
+      debt_discharge_type: '',
+      debt_discharge_status: '',
+      debt_discharge_year: '',
+      amount_owed: '',
+      
+      // Consent
+      consentToSoftCheck: false,
+      termsAccepted: false
+    }
   });
-
-  // Validation schema for each step
-  const stepValidationSchema = {
-    1: z.object({
-      vehicleType: z.string().min(1, 'Please select a vehicle type')
-    }),
-    2: z.object({
-      desiredMonthlyPayment: z.number().min(100, 'Monthly payment must be at least $100').max(2000, 'Monthly payment cannot exceed $2000'),
-      creditScore: z.string().refine(val => {
-        const num = parseInt(val);
-        return !isNaN(num) && num >= 300 && num <= 900;
-      }, 'Credit score must be between 300 and 900'),
-      employmentStatus: z.string().min(1, 'Please select your employment status'),
-      annualIncome: z.string().refine(val => {
-        const num = parseFloat(val.replace(/[^0-9.]/g, ''));
-        return !isNaN(num) && num > 0;
-      }, 'Please enter a valid annual income')
-    }),
-    3: z.object({
-      firstName: z.string().min(1, 'First name is required'),
-      lastName: z.string().min(1, 'Last name is required'),
-      email: z.string().email('Please enter a valid email address'),
-      phone: z.string().min(10, 'Please enter a valid phone number'),
-      address: z.string().min(1, 'Address is required'),
-      city: z.string().min(1, 'City is required'),
-      province: z.string().min(1, 'Province is required'),
-      postalCode: z.string().regex(/^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/, 'Please enter a valid postal code'),
-      date_of_birth: z.string().optional(),
-      residence_duration_years: z.number().optional(),
-      residence_duration_months: z.number().optional()
-    }),
-    4: z.object({
-      consentToSoftCheck: z.boolean().refine(val => val === true, 'You must consent to a soft credit check'),
-      termsAccepted: z.boolean().refine(val => val === true, 'You must accept the terms and conditions')
-    })
-  };
 
   // Handle form field changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -123,9 +144,9 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
     
     if (type === 'checkbox') {
       const checked = (e.target as HTMLInputElement).checked;
-      setFormData(prev => ({ ...prev, [name]: checked }));
+      form.setValue(name as any, checked, { shouldValidate: true });
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      form.setValue(name as any, value, { shouldValidate: true });
     }
     
     setError(null);
@@ -133,35 +154,26 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
 
   // Handle currency input changes
   const handleCurrencyChange = (value: string | undefined, name: string) => {
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: value || '' 
-    }));
+    form.setValue(name as any, value || '', { shouldValidate: true });
     setError(null);
   };
 
   // Handle radio button changes
   const handleRadioChange = (name: string, value: boolean) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
+    form.setValue(name as any, value, { shouldValidate: true });
     
     // Reset related fields when changing radio buttons
     if (name === 'collects_government_benefits' && !value) {
-      setFormData(prev => ({ 
-        ...prev, 
-        government_benefit_types: [],
-        government_benefit_other: '',
-        government_benefit_amount: ''
-      }));
+      form.setValue('government_benefit_types', [], { shouldValidate: true });
+      form.setValue('government_benefit_other', '', { shouldValidate: true });
+      form.setValue('government_benefit_amount', '', { shouldValidate: true });
     }
     
     if (name === 'has_debt_discharge_history' && !value) {
-      setFormData(prev => ({ 
-        ...prev, 
-        debt_discharge_type: '',
-        debt_discharge_status: '',
-        debt_discharge_year: '',
-        amount_owed: ''
-      }));
+      form.setValue('debt_discharge_type', '', { shouldValidate: true });
+      form.setValue('debt_discharge_status', '', { shouldValidate: true });
+      form.setValue('debt_discharge_year', '', { shouldValidate: true });
+      form.setValue('amount_owed', '', { shouldValidate: true });
     }
     
     setError(null);
@@ -169,23 +181,23 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
 
   // Handle multi-select changes for government benefits
   const handleBenefitTypeChange = (type: string) => {
-    setFormData(prev => {
-      const currentTypes = [...prev.government_benefit_types];
-      
-      if (currentTypes.includes(type)) {
-        // Remove the type if it's already selected
-        return {
-          ...prev,
-          government_benefit_types: currentTypes.filter(t => t !== type)
-        };
-      } else {
-        // Add the type if it's not already selected
-        return {
-          ...prev,
-          government_benefit_types: [...currentTypes, type]
-        };
-      }
-    });
+    const currentTypes = form.getValues('government_benefit_types') || [];
+    
+    if (currentTypes.includes(type)) {
+      // Remove the type if it's already selected
+      form.setValue(
+        'government_benefit_types', 
+        currentTypes.filter(t => t !== type),
+        { shouldValidate: true }
+      );
+    } else {
+      // Add the type if it's not already selected
+      form.setValue(
+        'government_benefit_types', 
+        [...currentTypes, type],
+        { shouldValidate: true }
+      );
+    }
     
     setError(null);
   };
@@ -193,49 +205,64 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
   // Validate current step
   const validateStep = () => {
     try {
-      const schema = stepValidationSchema[currentStep as keyof typeof stepValidationSchema];
+      let fieldsToValidate: string[] = [];
       
-      // Create an object with only the fields for the current step
-      const stepData: any = {};
-      Object.keys(schema.shape).forEach(key => {
-        stepData[key] = formData[key as keyof typeof formData];
-      });
-      
-      // Additional validation for step 4
-      if (currentStep === 4) {
-        // Validate government benefits fields if selected
-        if (formData.collects_government_benefits) {
-          if (formData.government_benefit_types.length === 0) {
-            throw new Error('Please select at least one government benefit type');
+      // Determine which fields to validate based on current step
+      switch (currentStep) {
+        case 1:
+          fieldsToValidate = ['vehicleType'];
+          break;
+        case 2:
+          fieldsToValidate = ['desiredMonthlyPayment', 'creditScore', 'employmentStatus', 'annualIncome'];
+          break;
+        case 3:
+          fieldsToValidate = ['firstName', 'lastName', 'email', 'phone', 'address', 'city', 'province', 'postalCode'];
+          break;
+        case 4:
+          fieldsToValidate = ['consentToSoftCheck', 'termsAccepted'];
+          
+          // Additional validation for step 4
+          const values = form.getValues();
+          
+          // Validate government benefits fields if selected
+          if (values.collects_government_benefits) {
+            if (!values.government_benefit_types || values.government_benefit_types.length === 0) {
+              setError('Please select at least one government benefit type');
+              return false;
+            }
+            if (!values.government_benefit_amount) {
+              setError('Please enter the amount you receive from government benefits');
+              return false;
+            }
           }
-          if (!formData.government_benefit_amount) {
-            throw new Error('Please enter the amount you receive from government benefits');
+          
+          // Validate bankruptcy/consumer proposal fields if selected
+          if (values.has_debt_discharge_history) {
+            if (!values.debt_discharge_type) {
+              setError('Please select the type of debt discharge');
+              return false;
+            }
+            if (!values.debt_discharge_status) {
+              setError('Please select the status of your debt discharge');
+              return false;
+            }
+            if (!values.debt_discharge_year) {
+              setError('Please enter the year of your debt discharge');
+              return false;
+            }
+            if (values.debt_discharge_status === 'active' && !values.amount_owed) {
+              setError('Please enter the amount owed');
+              return false;
+            }
           }
-        }
-        
-        // Validate bankruptcy/consumer proposal fields if selected
-        if (formData.has_debt_discharge_history) {
-          if (!formData.debt_discharge_type) {
-            throw new Error('Please select the type of debt discharge');
-          }
-          if (!formData.debt_discharge_status) {
-            throw new Error('Please select the status of your debt discharge');
-          }
-          if (!formData.debt_discharge_year) {
-            throw new Error('Please enter the year of your debt discharge');
-          }
-          if (formData.debt_discharge_status === 'active' && !formData.amount_owed) {
-            throw new Error('Please enter the amount owed');
-          }
-        }
+          break;
       }
       
-      schema.parse(stepData);
-      return true;
+      // Trigger validation for the specified fields
+      const result = form.trigger(fieldsToValidate as any);
+      return result;
     } catch (err) {
-      if (err instanceof z.ZodError) {
-        setError(err.errors[0].message);
-      } else if (err instanceof Error) {
+      if (err instanceof Error) {
         setError(err.message);
       } else {
         setError('Validation failed. Please check your inputs.');
@@ -245,8 +272,9 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
   };
 
   // Handle next step
-  const handleNext = () => {
-    if (validateStep()) {
+  const handleNext = async () => {
+    const isValid = await validateStep();
+    if (isValid) {
       if (currentStep < 4) {
         setCurrentStep(currentStep + 1);
       } else {
@@ -267,8 +295,10 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
     try {
       setIsProcessing(true);
       
+      const formValues = form.getValues();
+      
       // Calculate loan amount range based on monthly payment
-      const monthlyPayment = formData.desiredMonthlyPayment;
+      const monthlyPayment = formValues.desiredMonthlyPayment;
       const interestRate = 5.99; // Default interest rate
       const term = 60; // Default term in months
       
@@ -287,37 +317,34 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           temp_user_id: tempUserId,
           status: 'pending_documents',
           current_stage: 1,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          email: formData.email,
-          phone: formData.phone,
-          address: formData.address,
-          city: formData.city,
-          province: formData.province,
-          postal_code: formData.postalCode,
-          employment_status: formData.employmentStatus,
-          annual_income: parseFloat(formData.annualIncome.replace(/[^0-9.]/g, '')),
-          monthly_income: parseFloat(formData.annualIncome.replace(/[^0-9.]/g, '')) / 12,
-          credit_score: parseInt(formData.creditScore),
-          vehicle_type: formData.vehicleType,
-          desired_monthly_payment: formData.desiredMonthlyPayment,
+          first_name: formValues.firstName,
+          last_name: formValues.lastName,
+          email: formValues.email,
+          phone: formValues.phone,
+          address: formValues.address,
+          city: formValues.city,
+          province: formValues.province,
+          postal_code: formValues.postalCode,
+          employment_status: formValues.employmentStatus,
+          annual_income: parseFloat(formValues.annualIncome.replace(/[^0-9.]/g, '')),
+          monthly_income: parseFloat(formValues.annualIncome.replace(/[^0-9.]/g, '')) / 12,
+          credit_score: parseInt(formValues.creditScore),
+          vehicle_type: formValues.vehicleType,
+          desired_monthly_payment: formValues.desiredMonthlyPayment,
           loan_amount_min: loanMin,
           loan_amount_max: loanMax,
           interest_rate: interestRate,
           loan_term: term,
-          date_of_birth: formData.date_of_birth || null,
-          residence_duration_years: formData.residence_duration_years || null,
-          residence_duration_months: formData.residence_duration_months || null,
-          collects_government_benefits: formData.collects_government_benefits,
-          government_benefit_types: formData.government_benefit_types.length > 0 ? formData.government_benefit_types : null,
-          government_benefit_other: formData.government_benefit_other || null,
-          has_debt_discharge_history: formData.has_debt_discharge_history,
-          debt_discharge_type: formData.debt_discharge_type || null,
-          debt_discharge_status: formData.debt_discharge_status || null,
-          debt_discharge_year: formData.debt_discharge_year ? parseInt(formData.debt_discharge_year) : null,
-          amount_owed: formData.amount_owed ? parseFloat(formData.amount_owed.replace(/[^0-9.]/g, '')) : null,
-          consent_soft_check: formData.consentToSoftCheck,
-          terms_accepted: formData.termsAccepted
+          collects_government_benefits: formValues.collects_government_benefits,
+          government_benefit_types: formValues.government_benefit_types?.length > 0 ? formValues.government_benefit_types : null,
+          government_benefit_other: formValues.government_benefit_other || null,
+          has_debt_discharge_history: formValues.has_debt_discharge_history,
+          debt_discharge_type: formValues.debt_discharge_type || null,
+          debt_discharge_status: formValues.debt_discharge_status || null,
+          debt_discharge_year: formValues.debt_discharge_year ? parseInt(formValues.debt_discharge_year) : null,
+          amount_owed: formValues.amount_owed ? parseFloat(formValues.amount_owed.replace(/[^0-9.]/g, '')) : null,
+          consent_soft_check: formValues.consentToSoftCheck,
+          terms_accepted: formValues.termsAccepted
         })
         .select()
         .single();
@@ -340,9 +367,9 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
         
         // Call the onComplete callback with the application ID and temp user ID
         onComplete(application.id, tempUserId, {
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email
+          firstName: formValues.firstName,
+          lastName: formValues.lastName,
+          email: formValues.email
         });
         
         // Navigate to results page
@@ -356,12 +383,12 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
               max: loanMax,
               rate: interestRate
             },
-            vehicleType: formData.vehicleType,
-            monthlyBudget: formData.desiredMonthlyPayment,
+            vehicleType: formValues.vehicleType,
+            monthlyBudget: formValues.desiredMonthlyPayment,
             originalFormData: {
-              firstName: formData.firstName,
-              lastName: formData.lastName,
-              email: formData.email
+              firstName: formValues.firstName,
+              lastName: formValues.lastName,
+              email: formValues.email
             }
           }
         });
@@ -399,12 +426,12 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                   className={`
                     border-2 rounded-xl p-4 cursor-pointer transition-all duration-300 hover:shadow-lg hover:border-[#3BAA75]
                     flex flex-col items-center text-center
-                    ${formData.vehicleType === vehicle.type 
+                    ${form.watch('vehicleType') === vehicle.type 
                       ? 'border-[#3BAA75] bg-[#3BAA75]/5 shadow-md' 
                       : 'border-gray-200'
                     }
                   `}
-                  onClick={() => setFormData({ ...formData, vehicleType: vehicle.type })}
+                  onClick={() => form.setValue('vehicleType', vehicle.type, { shouldValidate: true })}
                 >
                   <div className="w-full h-32 mb-4 rounded-lg overflow-hidden">
                     <img 
@@ -418,6 +445,9 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                 </motion.div>
               ))}
             </div>
+            {form.formState.errors.vehicleType && (
+              <p className="text-red-500 text-sm">{form.formState.errors.vehicleType.message}</p>
+            )}
           </motion.div>
         );
       
@@ -436,30 +466,40 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
             </div>
             
             <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  What's your ideal monthly car payment?
-                </label>
-                <div className="space-y-4">
-                  <input
-                    type="range"
-                    min="100"
-                    max="2000"
-                    step="50"
-                    value={formData.desiredMonthlyPayment}
-                    onChange={(e) => setFormData({ ...formData, desiredMonthlyPayment: parseInt(e.target.value) })}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#3BAA75]"
-                  />
-                  <div className="flex justify-between text-sm text-gray-500">
-                    <span>$100</span>
-                    <span>$2000</span>
-                  </div>
-                  <div className="text-center">
-                    <span className="text-2xl font-bold text-[#3BAA75]">${formData.desiredMonthlyPayment}</span>
-                    <span className="text-gray-500 text-sm ml-1">per month</span>
-                  </div>
-                </div>
-              </div>
+              <FormField
+                control={form.control}
+                name="desiredMonthlyPayment"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="block text-sm font-medium text-gray-700 mb-2">
+                      What's your ideal monthly car payment?
+                    </FormLabel>
+                    <div className="space-y-4">
+                      <FormControl>
+                        <Slider
+                          value={[field.value]}
+                          onValueChange={(values) => field.onChange(values[0])}
+                          min={100}
+                          max={2000}
+                          step={50}
+                          className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#3BAA75]"
+                          showTooltip
+                          tooltipContent={(value) => `$${value}`}
+                        />
+                      </FormControl>
+                      <div className="flex justify-between text-sm text-gray-500">
+                        <span>$100</span>
+                        <span>$2000</span>
+                      </div>
+                      <div className="text-center">
+                        <span className="text-2xl font-bold text-[#3BAA75]">${field.value}</span>
+                        <span className="text-gray-500 text-sm ml-1">per month</span>
+                      </div>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
@@ -473,7 +513,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       name="creditScore"
                       min="300"
                       max="900"
-                      value={formData.creditScore}
+                      value={form.watch('creditScore')}
                       onChange={handleChange}
                       placeholder="Enter your credit score (300-900)"
                       className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
@@ -483,6 +523,9 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     </div>
                   </div>
                   <p className="mt-1 text-xs text-gray-500">Don't know your score? Enter your best estimate.</p>
+                  {form.formState.errors.creditScore && (
+                    <p className="text-red-500 text-sm">{form.formState.errors.creditScore.message}</p>
+                  )}
                 </div>
                 
                 <div>
@@ -493,7 +536,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     <select
                       id="employmentStatus"
                       name="employmentStatus"
-                      value={formData.employmentStatus}
+                      value={form.watch('employmentStatus')}
                       onChange={handleChange}
                       className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                     >
@@ -507,6 +550,9 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       <Briefcase className="h-5 w-5 text-gray-400" />
                     </div>
                   </div>
+                  {form.formState.errors.employmentStatus && (
+                    <p className="text-red-500 text-sm">{form.formState.errors.employmentStatus.message}</p>
+                  )}
                 </div>
               </div>
               
@@ -521,7 +567,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                   <CurrencyInput
                     id="annualIncome"
                     name="annualIncome"
-                    value={formData.annualIncome}
+                    value={form.watch('annualIncome')}
                     onValueChange={(value) => handleCurrencyChange(value, 'annualIncome')}
                     placeholder="Enter your annual income"
                     prefix="$"
@@ -530,6 +576,9 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     className="w-full p-3 pl-10 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                   />
                 </div>
+                {form.formState.errors.annualIncome && (
+                  <p className="text-red-500 text-sm">{form.formState.errors.annualIncome.message}</p>
+                )}
               </div>
             </div>
           </motion.div>
@@ -560,7 +609,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       type="text"
                       id="firstName"
                       name="firstName"
-                      value={formData.firstName}
+                      value={form.watch('firstName')}
                       onChange={handleChange}
                       className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                     />
@@ -568,6 +617,9 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       <User className="h-5 w-5 text-gray-400" />
                     </div>
                   </div>
+                  {form.formState.errors.firstName && (
+                    <p className="text-red-500 text-sm">{form.formState.errors.firstName.message}</p>
+                  )}
                 </div>
                 
                 <div>
@@ -579,7 +631,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       type="text"
                       id="lastName"
                       name="lastName"
-                      value={formData.lastName}
+                      value={form.watch('lastName')}
                       onChange={handleChange}
                       className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                     />
@@ -587,6 +639,9 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       <User className="h-5 w-5 text-gray-400" />
                     </div>
                   </div>
+                  {form.formState.errors.lastName && (
+                    <p className="text-red-500 text-sm">{form.formState.errors.lastName.message}</p>
+                  )}
                 </div>
               </div>
               
@@ -600,7 +655,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       type="email"
                       id="email"
                       name="email"
-                      value={formData.email}
+                      value={form.watch('email')}
                       onChange={handleChange}
                       className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                     />
@@ -608,6 +663,9 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       <Mail className="h-5 w-5 text-gray-400" />
                     </div>
                   </div>
+                  {form.formState.errors.email && (
+                    <p className="text-red-500 text-sm">{form.formState.errors.email.message}</p>
+                  )}
                 </div>
                 
                 <div>
@@ -619,7 +677,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       type="tel"
                       id="phone"
                       name="phone"
-                      value={formData.phone}
+                      value={form.watch('phone')}
                       onChange={handleChange}
                       className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                     />
@@ -627,25 +685,9 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       <Phone className="h-5 w-5 text-gray-400" />
                     </div>
                   </div>
-                </div>
-              </div>
-              
-              <div>
-                <label htmlFor="date_of_birth" className="block text-sm font-medium text-gray-700 mb-2">
-                  Date of Birth
-                </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    id="date_of_birth"
-                    name="date_of_birth"
-                    value={formData.date_of_birth}
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                  />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <Calendar className="h-5 w-5 text-gray-400" />
-                  </div>
+                  {form.formState.errors.phone && (
+                    <p className="text-red-500 text-sm">{form.formState.errors.phone.message}</p>
+                  )}
                 </div>
               </div>
               
@@ -658,7 +700,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     type="text"
                     id="address"
                     name="address"
-                    value={formData.address}
+                    value={form.watch('address')}
                     onChange={handleChange}
                     className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                   />
@@ -666,6 +708,9 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     <Home className="h-5 w-5 text-gray-400" />
                   </div>
                 </div>
+                {form.formState.errors.address && (
+                  <p className="text-red-500 text-sm">{form.formState.errors.address.message}</p>
+                )}
               </div>
               
               <div className="grid md:grid-cols-3 gap-6">
@@ -677,10 +722,13 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     type="text"
                     id="city"
                     name="city"
-                    value={formData.city}
+                    value={form.watch('city')}
                     onChange={handleChange}
                     className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                   />
+                  {form.formState.errors.city && (
+                    <p className="text-red-500 text-sm">{form.formState.errors.city.message}</p>
+                  )}
                 </div>
                 
                 <div>
@@ -690,7 +738,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                   <select
                     id="province"
                     name="province"
-                    value={formData.province}
+                    value={form.watch('province')}
                     onChange={handleChange}
                     className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                   >
@@ -709,6 +757,9 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     <option value="SK">Saskatchewan</option>
                     <option value="YT">Yukon</option>
                   </select>
+                  {form.formState.errors.province && (
+                    <p className="text-red-500 text-sm">{form.formState.errors.province.message}</p>
+                  )}
                 </div>
                 
                 <div>
@@ -720,7 +771,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       type="text"
                       id="postalCode"
                       name="postalCode"
-                      value={formData.postalCode}
+                      value={form.watch('postalCode')}
                       onChange={handleChange}
                       placeholder="A1A 1A1"
                       className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
@@ -729,42 +780,9 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       <MapPin className="h-5 w-5 text-gray-400" />
                     </div>
                   </div>
-                </div>
-              </div>
-              
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    How long have you lived at this address?
-                  </label>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="residence_duration_years" className="block text-xs text-gray-500 mb-1">Years</label>
-                      <input
-                        type="number"
-                        id="residence_duration_years"
-                        name="residence_duration_years"
-                        min="0"
-                        max="99"
-                        value={formData.residence_duration_years}
-                        onChange={(e) => setFormData({ ...formData, residence_duration_years: parseInt(e.target.value) || 0 })}
-                        className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="residence_duration_months" className="block text-xs text-gray-500 mb-1">Months</label>
-                      <input
-                        type="number"
-                        id="residence_duration_months"
-                        name="residence_duration_months"
-                        min="0"
-                        max="11"
-                        value={formData.residence_duration_months}
-                        onChange={(e) => setFormData({ ...formData, residence_duration_months: parseInt(e.target.value) || 0 })}
-                        className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                      />
-                    </div>
-                  </div>
+                  {form.formState.errors.postalCode && (
+                    <p className="text-red-500 text-sm">{form.formState.errors.postalCode.message}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -796,7 +814,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     <label className="flex items-center">
                       <input
                         type="radio"
-                        checked={formData.collects_government_benefits === true}
+                        checked={form.watch('collects_government_benefits') === true}
                         onChange={() => handleRadioChange('collects_government_benefits', true)}
                         className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300"
                       />
@@ -805,7 +823,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     <label className="flex items-center">
                       <input
                         type="radio"
-                        checked={formData.collects_government_benefits === false}
+                        checked={form.watch('collects_government_benefits') === false}
                         onChange={() => handleRadioChange('collects_government_benefits', false)}
                         className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300"
                       />
@@ -814,7 +832,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                   </div>
                   
                   <AnimatePresence>
-                    {formData.collects_government_benefits && (
+                    {form.watch('collects_government_benefits') && (
                       <motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
@@ -839,7 +857,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                                 <label key={benefit.id} className="flex items-center">
                                   <input
                                     type="checkbox"
-                                    checked={formData.government_benefit_types.includes(benefit.id)}
+                                    checked={form.watch('government_benefit_types')?.includes(benefit.id) || false}
                                     onChange={() => handleBenefitTypeChange(benefit.id)}
                                     className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
                                   />
@@ -849,7 +867,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                             </div>
                           </div>
                           
-                          {formData.government_benefit_types.includes('other') && (
+                          {form.watch('government_benefit_types')?.includes('other') && (
                             <div>
                               <label htmlFor="government_benefit_other" className="block text-sm font-medium text-gray-700 mb-2">
                                 Please specify:
@@ -858,7 +876,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                                 type="text"
                                 id="government_benefit_other"
                                 name="government_benefit_other"
-                                value={formData.government_benefit_other}
+                                value={form.watch('government_benefit_other') || ''}
                                 onChange={handleChange}
                                 className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                               />
@@ -876,7 +894,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                               <CurrencyInput
                                 id="government_benefit_amount"
                                 name="government_benefit_amount"
-                                value={formData.government_benefit_amount}
+                                value={form.watch('government_benefit_amount') || ''}
                                 onValueChange={(value) => handleCurrencyChange(value, 'government_benefit_amount')}
                                 placeholder="Enter monthly amount"
                                 prefix="$"
@@ -899,7 +917,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     <label className="flex items-center">
                       <input
                         type="radio"
-                        checked={formData.has_debt_discharge_history === true}
+                        checked={form.watch('has_debt_discharge_history') === true}
                         onChange={() => handleRadioChange('has_debt_discharge_history', true)}
                         className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300"
                       />
@@ -908,7 +926,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     <label className="flex items-center">
                       <input
                         type="radio"
-                        checked={formData.has_debt_discharge_history === false}
+                        checked={form.watch('has_debt_discharge_history') === false}
                         onChange={() => handleRadioChange('has_debt_discharge_history', false)}
                         className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300"
                       />
@@ -917,7 +935,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                   </div>
                   
                   <AnimatePresence>
-                    {formData.has_debt_discharge_history && (
+                    {form.watch('has_debt_discharge_history') && (
                       <motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
@@ -933,7 +951,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                             <select
                               id="debt_discharge_type"
                               name="debt_discharge_type"
-                              value={formData.debt_discharge_type}
+                              value={form.watch('debt_discharge_type') || ''}
                               onChange={handleChange}
                               className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                             >
@@ -952,7 +970,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                             <select
                               id="debt_discharge_status"
                               name="debt_discharge_status"
-                              value={formData.debt_discharge_status}
+                              value={form.watch('debt_discharge_status') || ''}
                               onChange={handleChange}
                               className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                             >
@@ -970,7 +988,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                               type="number"
                               id="debt_discharge_year"
                               name="debt_discharge_year"
-                              value={formData.debt_discharge_year}
+                              value={form.watch('debt_discharge_year') || ''}
                               onChange={handleChange}
                               min="1980"
                               max={new Date().getFullYear()}
@@ -979,7 +997,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                             />
                           </div>
                           
-                          {formData.debt_discharge_status === 'active' && (
+                          {form.watch('debt_discharge_status') === 'active' && (
                             <div>
                               <label htmlFor="amount_owed" className="block text-sm font-medium text-gray-700 mb-2">
                                 Amount Owed:
@@ -991,7 +1009,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                                 <CurrencyInput
                                   id="amount_owed"
                                   name="amount_owed"
-                                  value={formData.amount_owed}
+                                  value={form.watch('amount_owed') || ''}
                                   onValueChange={(value) => handleCurrencyChange(value, 'amount_owed')}
                                   placeholder="Enter amount owed"
                                   prefix="$"
@@ -1016,8 +1034,8 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       id="consentToSoftCheck"
                       name="consentToSoftCheck"
                       type="checkbox"
-                      checked={formData.consentToSoftCheck}
-                      onChange={(e) => setFormData({ ...formData, consentToSoftCheck: e.target.checked })}
+                      checked={form.watch('consentToSoftCheck')}
+                      onChange={(e) => form.setValue('consentToSoftCheck', e.target.checked, { shouldValidate: true })}
                       className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
                     />
                   </div>
@@ -1030,6 +1048,9 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     </p>
                   </div>
                 </div>
+                {form.formState.errors.consentToSoftCheck && (
+                  <p className="text-red-500 text-sm">{form.formState.errors.consentToSoftCheck.message}</p>
+                )}
                 
                 <div className="flex items-start">
                   <div className="flex items-center h-5">
@@ -1037,8 +1058,8 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       id="termsAccepted"
                       name="termsAccepted"
                       type="checkbox"
-                      checked={formData.termsAccepted}
-                      onChange={(e) => setFormData({ ...formData, termsAccepted: e.target.checked })}
+                      checked={form.watch('termsAccepted')}
+                      onChange={(e) => form.setValue('termsAccepted', e.target.checked, { shouldValidate: true })}
                       className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
                     />
                   </div>
@@ -1047,10 +1068,13 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       I accept the terms and conditions
                     </label>
                     <p className="text-gray-500">
-                      By checking this box, you agree to our <a href="/terms" className="text-[#3BAA75] hover:underline">Terms of Service</a> and <a href="/privacy" className=\"text-[#3BAA75] hover:underline">Privacy Policy</a>.
+                      By checking this box, you agree to our <a href="/terms" className="text-[#3BAA75] hover:underline">Terms of Service</a> and <a href="/privacy" className="text-[#3BAA75] hover:underline">Privacy Policy</a>.
                     </p>
                   </div>
                 </div>
+                {form.formState.errors.termsAccepted && (
+                  <p className="text-red-500 text-sm">{form.formState.errors.termsAccepted.message}</p>
+                )}
               </div>
             </div>
           </motion.div>
@@ -1090,49 +1114,51 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
       )}
       
       {/* Form Steps */}
-      <div className="min-h-[400px]">
-        <AnimatePresence mode="wait">
-          {renderStep()}
-        </AnimatePresence>
-      </div>
-      
-      {/* Navigation Buttons */}
-      <div className="flex justify-between mt-8">
-        {currentStep > 1 ? (
+      <Form {...form}>
+        <div className="min-h-[400px]">
+          <AnimatePresence mode="wait">
+            {renderStep()}
+          </AnimatePresence>
+        </div>
+        
+        {/* Navigation Buttons */}
+        <div className="flex justify-between mt-8">
+          {currentStep > 1 ? (
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              type="button"
+              onClick={handlePrevious}
+              className="flex items-center justify-center px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-colors duration-200"
+            >
+              <ChevronLeft className="h-5 w-5 mr-2" />
+              Back
+            </motion.button>
+          ) : (
+            <div></div> // Empty div to maintain layout
+          )}
+          
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             type="button"
-            onClick={handlePrevious}
-            className="flex items-center justify-center px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-colors duration-200"
+            onClick={handleNext}
+            className="w-full md:w-auto flex items-center justify-center px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-[#3BAA75] to-[#2D8259] hover:from-[#2D8259] hover:to-[#1F5F3F] shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <ChevronLeft className="h-5 w-5 mr-2" />
-            Back
+            {currentStep < 4 ? (
+              <>
+                Next
+                <ChevronRight className="h-5 w-5 ml-2" />
+              </>
+            ) : (
+              <>
+                Get Pre-Qualified
+                <CheckCircle className="h-5 w-5 ml-2" />
+              </>
+            )}
           </motion.button>
-        ) : (
-          <div></div> // Empty div to maintain layout
-        )}
-        
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          type="button"
-          onClick={handleNext}
-          className="w-full md:w-auto flex items-center justify-center px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-[#3BAA75] to-[#2D8259] hover:from-[#2D8259] hover:to-[#1F5F3F] shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {currentStep < 4 ? (
-            <>
-              Next
-              <ChevronRight className="h-5 w-5 ml-2" />
-            </>
-          ) : (
-            <>
-              Get Pre-Qualified
-              <CheckCircle className="h-5 w-5 ml-2" />
-            </>
-          )}
-        </motion.button>
-      </div>
+        </div>
+      </Form>
       
       {/* Processing Animation */}
       {isProcessing && (
