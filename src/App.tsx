@@ -92,6 +92,9 @@ const App = () => {
     }
   };
 
+  // Check if we should show the footer (hide on dashboard and admin pages)
+  const shouldShowFooter = !location.pathname.startsWith('/admin') && location.pathname !== '/dashboard';
+
   return (
     <div className="min-h-screen bg-secondary-50 text-gray-900 font-sans">
       {!location.pathname.startsWith('/admin') && <Navbar />}
@@ -177,7 +180,7 @@ const App = () => {
           </Routes>
         </AnimatePresence>
       </main>
-      {!location.pathname.startsWith('/admin') && <Footer />}
+      {shouldShowFooter && <Footer />}
       {!location.pathname.startsWith('/admin') && user && location.pathname === '/dashboard' && (
         <MobileNavBar onNavigate={handleMobileNav} activeSection={activeDashboardSection} />
       )}
