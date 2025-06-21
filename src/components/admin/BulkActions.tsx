@@ -352,7 +352,7 @@ export const BulkActions: React.FC<BulkActionsProps> = ({
               className="bg-white rounded-sm p-6 max-w-md w-full max-h-[100vh] overflow-y-auto"
             >
               <div className="flex items-center gap-3 text-red-600 mb-4">
-                <AlertCircle className="h-6 w-6" />
+                <AlertCircle className="h-4 w-6" />
                 <h3 className="text-lg font-semibold">Confirm Deletion</h3>
               </div>
               
