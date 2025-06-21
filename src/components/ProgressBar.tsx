@@ -28,7 +28,7 @@ export const ProgressBar = ({ currentStep, totalSteps, onStepClick }: ProgressBa
                     backgroundColor: currentStep >= index + 1 ? '#3BAA75' : '#E5E7EB'
                   }}
                   className={`
-                    w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center
+                    w-6 h-6 sm:w-8 sm:h-8 rounded-md flex items-center justify-center
                     transition-colors duration-300
                     ${currentStep >= index + 1 ? 'text-white' : 'text-gray-500'}
                     ${index + 1 < currentStep ? 'cursor-pointer hover:bg-[#2D8259]' : 'cursor-default'}

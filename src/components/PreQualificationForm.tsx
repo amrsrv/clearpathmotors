@@ -132,6 +132,17 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
     setError(null);
   };
 
+  // Handle slider change for monthly payment
+  const handleSliderChange = (value: number[]) => {
+    if (value && value.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        desiredMonthlyPayment: value[0]
+      }));
+    }
+    setError(null);
+  };
+
   // Handle currency input changes
   const handleCurrencyChange = (value: string | undefined, name: string) => {
     setFormData(prev => ({ 
@@ -165,17 +176,6 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
       }));
     }
     
-    setError(null);
-  };
-
-  // Handle slider change for monthly payment
-  const handleSliderChange = (value: number[]) => {
-    if (value && value.length > 0) {
-      setFormData(prev => ({
-        ...prev,
-        desiredMonthlyPayment: value[0]
-      }));
-    }
     setError(null);
   };
 
@@ -407,7 +407,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.98 }}
                   className={`
-                    border-2 rounded-xl p-4 cursor-pointer transition-all duration-300 hover:shadow-lg hover:border-[#3BAA75]
+                    border-2 rounded-md p-4 cursor-pointer transition-all duration-300 hover:shadow-lg hover:border-[#3BAA75]
                     flex flex-col items-center text-center
                     ${formData.vehicleType === vehicle.type 
                       ? 'border-[#3BAA75] bg-[#3BAA75]/5 shadow-md' 
@@ -416,7 +416,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                   `}
                   onClick={() => setFormData({ ...formData, vehicleType: vehicle.type })}
                 >
-                  <div className="w-full h-32 mb-4 rounded-lg overflow-hidden">
+                  <div className="w-full h-32 mb-4 rounded-md overflow-hidden">
                     <img 
                       src={vehicle.image} 
                       alt={vehicle.type} 
@@ -486,7 +486,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     value={formData.creditScore}
                     onChange={handleChange}
                     placeholder="Enter your credit score (300-900)"
-                    className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                   />
                   <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                     <CreditCard className="h-5 w-5 text-gray-400" />
@@ -523,7 +523,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     name="employmentStatus"
                     value={formData.employmentStatus}
                     onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                   >
                     <option value="employed">Employed</option>
                     <option value="self_employed">Self-Employed</option>
@@ -554,7 +554,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     prefix="$"
                     groupSeparator=","
                     decimalSeparator="."
-                    className="w-full p-3 pl-10 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                    className="w-full p-3 pl-10 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                   />
                 </div>
               </div>
@@ -589,7 +589,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       name="firstName"
                       value={formData.firstName}
                       onChange={handleChange}
-                      className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                     />
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                       <User className="h-5 w-5 text-gray-400" />
@@ -608,7 +608,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       name="lastName"
                       value={formData.lastName}
                       onChange={handleChange}
-                      className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                     />
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                       <User className="h-5 w-5 text-gray-400" />
@@ -629,7 +629,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       name="email"
                       value={formData.email}
                       onChange={handleChange}
-                      className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                     />
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                       <Mail className="h-5 w-5 text-gray-400" />
@@ -648,7 +648,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       name="phone"
                       value={formData.phone}
                       onChange={handleChange}
-                      className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                     />
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                       <Phone className="h-5 w-5 text-gray-400" />
@@ -668,7 +668,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     name="dateOfBirth"
                     value={formData.dateOfBirth}
                     onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                   />
                   <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                     <Calendar className="h-5 w-5 text-gray-400" />
@@ -687,7 +687,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     name="address"
                     value={formData.address}
                     onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                   />
                   <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                     <Home className="h-5 w-5 text-gray-400" />
@@ -706,7 +706,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     name="city"
                     value={formData.city}
                     onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                   />
                 </div>
                 
@@ -719,7 +719,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     name="province"
                     value={formData.province}
                     onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                   >
                     <option value="">Select Province</option>
                     <option value="AB">Alberta</option>
@@ -750,7 +750,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       value={formData.postalCode}
                       onChange={handleChange}
                       placeholder="A1A 1A1"
-                      className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                     />
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                       <MapPin className="h-5 w-5 text-gray-400" />
@@ -777,7 +777,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
             </div>
             
             <div className="space-y-8">
-              <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
+              <div className="bg-gray-50 p-6 rounded-md border border-gray-200">
                 <h3 className="text-xl font-semibold text-gray-800 mb-4">Please answer the following questions</h3>
                 
                 {/* Government Benefits Section */}
@@ -851,7 +851,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                                 name="government_benefit_other"
                                 value={formData.government_benefit_other}
                                 onChange={handleChange}
-                                className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                                className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                               />
                             </div>
                           )}
@@ -873,7 +873,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                                 prefix="$"
                                 groupSeparator=","
                                 decimalSeparator="."
-                                className="w-full p-3 pl-10 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                                className="w-full p-3 pl-10 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                               />
                             </div>
                           </div>
@@ -926,7 +926,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                               name="debt_discharge_type"
                               value={formData.debt_discharge_type}
                               onChange={handleChange}
-                              className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                              className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                             >
                               <option value="">Select Type</option>
                               <option value="bankruptcy">Bankruptcy</option>
@@ -945,7 +945,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                               name="debt_discharge_status"
                               value={formData.debt_discharge_status}
                               onChange={handleChange}
-                              className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                              className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                             >
                               <option value="">Select Status</option>
                               <option value="active">Active</option>
@@ -966,7 +966,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                               min="1980"
                               max={new Date().getFullYear()}
                               placeholder="YYYY"
-                              className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                              className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                             />
                           </div>
                           
@@ -988,7 +988,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                                   prefix="$"
                                   groupSeparator=","
                                   decimalSeparator="."
-                                  className="w-full p-3 pl-10 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                                  className="w-full p-3 pl-10 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                                 />
                               </div>
                             </div>
@@ -1053,7 +1053,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
   };
 
   return (
-    <div className="bg-white rounded-3xl shadow-2xl shadow-emerald-300/30 p-8 lg:p-12 border border-gray-100">
+    <div className="bg-white rounded-md shadow-2xl shadow-emerald-300/30 p-8 lg:p-12 border border-gray-100">
       {/* Progress Bar */}
       <div className="w-full max-w-md mx-auto mb-8">
         <ProgressBar 
@@ -1073,7 +1073,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6 p-4 bg-red-50 text-red-600 rounded-lg flex items-center"
+          className="mb-6 p-4 bg-red-50 text-red-600 rounded-md flex items-center"
         >
           <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
           <span>{error}</span>
@@ -1095,7 +1095,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
             whileTap={{ scale: 0.98 }}
             type="button"
             onClick={handlePrevious}
-            className="flex items-center justify-center px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-colors duration-200"
+            className="flex items-center justify-center px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 transition-colors duration-200"
           >
             <ChevronLeft className="h-5 w-5 mr-2" />
             Back
@@ -1109,7 +1109,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           whileTap={{ scale: 0.98 }}
           type="button"
           onClick={handleNext}
-          className="w-full md:w-auto flex items-center justify-center px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-[#3BAA75] to-[#2D8259] hover:from-[#2D8259] hover:to-[#1F5F3F] shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full md:w-auto flex items-center justify-center px-6 py-3 rounded-md font-semibold text-white bg-gradient-to-r from-[#3BAA75] to-[#2D8259] hover:from-[#2D8259] hover:to-[#1F5F3F] shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {currentStep < 5 ? (
             <>
