@@ -285,7 +285,7 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({ userId, ap
       </div>
       
       {/* Message List - Scrollable */}
-      <div className="flex-1 overflow-y-auto p-4 bg-gray-50 min-h-[400px]">
+      <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="flex flex-col items-center">
@@ -406,7 +406,7 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({ userId, ap
             onChange={(e) => setMessageText(e.target.value)}
             placeholder="Type your message here..."
             className="flex-1 border rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent text-base resize-none"
-            rows={2}
+            rows={1}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();

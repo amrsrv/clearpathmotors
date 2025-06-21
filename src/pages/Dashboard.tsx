@@ -760,7 +760,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         );
       case 'messages':
         return (
-          <div className="mb-6">
+          <div className="mb-6 h-full">
             <UserMessageCenter 
               userId={user?.id || ''} 
               applicationId={selectedApplication.id} 
@@ -792,7 +792,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 z-40 pt-2 md:pt-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -885,7 +885,7 @@ const Dashboard: React.FC<DashboardProps> = ({
         />
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 flex-1 overflow-hidden">
         {/* Desktop Summary Stats */}
         {!isMobile && (
           <div className="grid grid-cols-3 gap-4 mb-8">
@@ -941,9 +941,9 @@ const Dashboard: React.FC<DashboardProps> = ({
           </div>
         )}
 
-        <div className="grid lg:grid-cols-3 gap-6 sm:gap-8">
+        <div className="grid lg:grid-cols-3 gap-6 sm:gap-8 h-full">
           {/* Main Content - Left Side */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 h-full">
             {renderContent()}
           </div>
 
