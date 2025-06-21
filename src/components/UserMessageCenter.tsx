@@ -34,6 +34,22 @@ interface UserMessageCenterProps {
   applicationId: string;
 }
 
+// Format date for display - moved to top level to avoid hoisting issues
+const formatDate = (dateStr: string) => {
+  const date = new Date(dateStr);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  
+  if (date.toDateString() === today.toDateString()) {
+    return 'Today';
+  } else if (date.toDateString() === yesterday.toDateString()) {
+    return 'Yesterday';
+  } else {
+    return format(date, 'MMMM d, yyyy');
+  }
+};
+
 export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({ userId, applicationId }) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -232,22 +248,6 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({ userId, ap
     }
     groupedMessages[date].push(message);
   });
-
-  // Format date for display
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    if (date.toDateString() === today.toDateString()) {
-      return 'Today';
-    } else if (date.toDateString() === yesterday.toDateString()) {
-      return 'Yesterday';
-    } else {
-      return format(date, 'MMMM d, yyyy');
-    }
-  };
 
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col h-full">

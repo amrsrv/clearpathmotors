@@ -148,9 +148,14 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
     const loadDocumentUrls = async () => {
       const urls: Record<string, string> = {};
       for (const doc of documents) {
-        const url = await getFileUrl(doc.filename);
-        if (url) {
-          urls[doc.id] = url;
+        try {
+          const url = await getFileUrl(doc.filename);
+          if (url) {
+            urls[doc.id] = url;
+          }
+        } catch (error) {
+          console.error(`Failed to load URL for document ${doc.id}:`, error);
+          // Don't add URL for this document, but continue with others
         }
       }
       setDocumentUrls(urls);
@@ -169,9 +174,15 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
       // Get or use cached URL
       let url = documentUrls[document.id];
       if (!url) {
-        url = await getFileUrl(document.filename) || '';
-        if (url) {
-          setDocumentUrls(prev => ({ ...prev, [document.id]: url }));
+        try {
+          url = await getFileUrl(document.filename) || '';
+          if (url) {
+            setDocumentUrls(prev => ({ ...prev, [document.id]: url }));
+          }
+        } catch (error) {
+          console.error('Error getting file URL:', error);
+          toast.error('Document file not found. It may have been deleted from storage.');
+          return;
         }
       }
       
