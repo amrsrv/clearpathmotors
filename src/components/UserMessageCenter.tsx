@@ -9,16 +9,18 @@ import {
   User,
   ArrowLeft,
   Paperclip,
-  Image
+  Image,
+  HelpCircle
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import { Link } from 'react-router-dom';
 
 interface Message {
   id: string;
-  user_id: string;
+  user_id: string | null;
   admin_id: string | null;
   application_id: string | null;
   message: string;
@@ -41,6 +43,7 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({ userId, ap
   const [showAttachmentOptions, setShowAttachmentOptions] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     loadMessages();
@@ -64,12 +67,13 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({ userId, ap
             // If it's an admin message, mark it as read when we're viewing it
             if ((payload.new as Message).is_admin) {
               markMessageAsRead(payload.new.id);
+              
+              // Show toast notification for new message
+              toast.success('New message from support team');
             }
             
             // Scroll to bottom
-            if (messagesEndRef.current) {
-              messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-            }
+            scrollToBottom();
           }
         }
       )
@@ -82,10 +86,20 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({ userId, ap
 
   // Scroll to bottom when messages change
   useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Count unread messages
+  useEffect(() => {
+    const unreadMessages = messages.filter(m => m.is_admin && !m.read);
+    setUnreadCount(unreadMessages.length);
+  }, [messages]);
+
+  const scrollToBottom = () => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages]);
+  };
 
   const loadMessages = async () => {
     try {
@@ -212,7 +226,7 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({ userId, ap
   // Group messages by date
   const groupedMessages: Record<string, Message[]> = {};
   messages.forEach(message => {
-    const date = format(new Date(message.created_at), 'yyyy-MM-dd');
+    const date = formatDate(message.created_at);
     if (!groupedMessages[date]) {
       groupedMessages[date] = [];
     }
@@ -238,163 +252,195 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({ userId, ap
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col h-full">
       {/* Header - Sticky */}
-      <div className="p-4 border-b border-gray-200 sticky top-0 bg-white z-10">
-        <h2 className="text-lg font-semibold">Message Center</h2>
-        <p className="text-sm text-gray-600">
-          Communicate with our support team about your application
-        </p>
-      </div>
-      
-      <div className="flex flex-col flex-grow">
-        {/* Message List - Scrollable */}
-        <div className="flex-1 overflow-y-auto p-4 bg-gray-50 min-h-[400px]">
-          {loading ? (
-            <div className="flex items-center justify-center h-full">
-              <RefreshCw className="h-8 w-8 text-[#3BAA75] animate-spin" />
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-gray-500">
-              <MessageSquare className="h-12 w-12 mb-2 opacity-20" />
-              <p className="text-sm">No messages yet</p>
-              <p className="text-xs mt-1">Start a conversation with our team</p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {Object.entries(groupedMessages).map(([date, dateMessages]) => (
-                <div key={date} className="space-y-4">
-                  <div className="flex justify-center mb-2">
-                    <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full">
-                      {formatDate(date)}
-                    </span>
-                  </div>
-                  
-                  {dateMessages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`flex ${message.is_admin ? 'justify-start' : 'justify-end'}`}
-                    >
-                      <div
-                        className={`
-                          rounded-lg p-3 max-w-[80%] shadow-sm
-                          ${message.is_admin 
-                            ? 'bg-white border border-gray-200 text-gray-700' 
-                            : 'bg-[#3BAA75] text-white'
-                          }
-                        `}
-                      >
-                        {message.is_admin && (
-                          <div className="flex items-center mb-1">
-                            <div className="bg-[#3BAA75]/10 rounded-full p-1 mr-2">
-                              <User className="h-3 w-3 text-[#3BAA75]" />
-                            </div>
-                            <span className="text-xs font-medium text-[#3BAA75]">Support Team</span>
-                          </div>
-                        )}
-                        <p className="whitespace-pre-wrap text-sm">{message.message}</p>
-                        <div className={`flex items-center justify-end mt-1 text-xs ${
-                          message.is_admin ? 'text-gray-400' : 'text-white/70'
-                        }`}>
-                          <span>{format(new Date(message.created_at), 'h:mm a')}</span>
-                          {!message.is_admin && (
-                            <span className="ml-1">
-                              {message.read ? (
-                                <div className="relative">
-                                  <Check className="h-3 w-3 absolute" />
-                                  <Check className="h-3 w-3 ml-0.5" />
-                                </div>
-                              ) : (
-                                <Check className="h-3 w-3" />
-                              )}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ))}
-              <div ref={messagesEndRef} />
-            </div>
-          )}
+      <div className="p-4 border-b border-gray-200 sticky top-0 bg-white z-10 flex items-center">
+        <Link 
+          to="/dashboard" 
+          className="mr-3 flex items-center text-gray-600 hover:text-[#3BAA75] transition-colors"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          <span className="ml-1 hidden sm:inline">Back to Dashboard</span>
+        </Link>
+        
+        <div>
+          <h2 className="text-xl font-semibold">Message Center</h2>
+          <p className="text-sm text-gray-600">
+            Communicate with our support team about your application
+          </p>
         </div>
         
-        {/* Message Input - Sticky */}
-        <div className="border-t border-gray-200 p-4 sticky bottom-0 bg-white">
-          <AnimatePresence>
-            {showAttachmentOptions && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="mb-3 overflow-hidden"
-              >
-                <div className="grid grid-cols-2 gap-2 p-2 bg-gray-50 rounded-lg">
-                  <button 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex flex-col items-center justify-center p-3 rounded-lg hover:bg-gray-100"
-                  >
-                    <Image className="h-6 w-6 text-[#3BAA75] mb-1" />
-                    <span className="text-xs">Photo</span>
-                  </button>
-                  <button 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex flex-col items-center justify-center p-3 rounded-lg hover:bg-gray-100"
-                  >
-                    <Paperclip className="h-6 w-6 text-[#3BAA75] mb-1" />
-                    <span className="text-xs">Document</span>
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-          
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleAttachmentClick}
-              className="p-2 text-gray-500 hover:text-[#3BAA75] hover:bg-gray-100 rounded-full transition-colors"
-              aria-label="Attach file"
-            >
-              <Paperclip className="h-5 w-5" />
-            </button>
-            
-            <input
-              type="text"
-              value={messageText}
-              onChange={(e) => setMessageText(e.target.value)}
-              placeholder="Type your message..."
-              className="flex-1 border rounded-full px-4 py-2 focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent text-sm"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
-                }
-              }}
-            />
-            
-            <button
-              type="button"
-              onClick={handleSendMessage}
-              disabled={sendingMessage || !messageText.trim()}
-              className="p-2 bg-[#3BAA75] text-white rounded-full hover:bg-[#2D8259] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              aria-label="Send message"
-            >
-              {sendingMessage ? (
-                <RefreshCw className="h-5 w-5 animate-spin" />
-              ) : (
-                <Send className="h-5 w-5" />
-              )}
-            </button>
-            
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileSelect}
-              className="hidden"
-              accept="image/*,.pdf,.doc,.docx"
-            />
+        {unreadCount > 0 && (
+          <div className="ml-auto bg-[#3BAA75] text-white px-2 py-1 rounded-full text-sm">
+            {unreadCount} new
           </div>
+        )}
+      </div>
+      
+      {/* Help Banner */}
+      <div className="bg-blue-50 p-3 border-b border-blue-100 flex items-start gap-3">
+        <HelpCircle className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+        <div className="text-sm text-blue-700">
+          <p className="font-medium">Need help?</p>
+          <p>Type your message below and our support team will respond as soon as possible.</p>
         </div>
+      </div>
+      
+      {/* Message List - Scrollable */}
+      <div className="flex-1 overflow-y-auto p-4 bg-gray-50 min-h-[400px]">
+        {loading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="flex flex-col items-center">
+              <RefreshCw className="h-8 w-8 text-[#3BAA75] animate-spin mb-3" />
+              <p className="text-gray-500">Loading messages...</p>
+            </div>
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center p-6">
+            <MessageSquare className="h-16 w-16 mb-4 text-gray-300" />
+            <h3 className="text-xl font-medium text-gray-700 mb-2">No messages yet</h3>
+            <p className="text-gray-600 max-w-md">
+              Start a conversation with our support team. We're here to help with any questions about your application.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {Object.entries(groupedMessages).map(([date, dateMessages]) => (
+              <div key={date} className="space-y-4">
+                <div className="flex justify-center mb-4 sticky top-0 z-10">
+                  <span className="text-sm font-medium bg-gray-200 text-gray-700 px-3 py-1 rounded-full">
+                    {date}
+                  </span>
+                </div>
+                
+                {dateMessages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex ${message.is_admin ? 'justify-start' : 'justify-end'} mb-4`}
+                  >
+                    <div
+                      className={`
+                        rounded-lg p-4 max-w-[85%] shadow-sm
+                        ${message.is_admin 
+                          ? 'bg-white border border-gray-200 text-gray-700' 
+                          : 'bg-[#3BAA75] text-white'
+                        }
+                      `}
+                    >
+                      {message.is_admin && (
+                        <div className="flex items-center mb-2">
+                          <div className="bg-[#3BAA75]/10 rounded-full p-1.5 mr-2">
+                            <User className="h-4 w-4 text-[#3BAA75]" />
+                          </div>
+                          <span className="text-sm font-medium text-[#3BAA75]">Support Team</span>
+                        </div>
+                      )}
+                      <p className="whitespace-pre-wrap text-base">{message.message}</p>
+                      <div className={`flex items-center justify-end mt-2 text-sm ${
+                        message.is_admin ? 'text-gray-400' : 'text-white/70'
+                      }`}>
+                        <span>{format(new Date(message.created_at), 'h:mm a')}</span>
+                        {!message.is_admin && (
+                          <span className="ml-1">
+                            {message.read ? (
+                              <div className="relative">
+                                <Check className="h-4 w-4 absolute" />
+                                <Check className="h-4 w-4 ml-0.5" />
+                              </div>
+                            ) : (
+                              <Check className="h-4 w-4" />
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+        )}
+      </div>
+      
+      {/* Message Input - Sticky */}
+      <div className="border-t border-gray-200 p-4 sticky bottom-0 bg-white">
+        <AnimatePresence>
+          {showAttachmentOptions && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="mb-3 overflow-hidden"
+            >
+              <div className="grid grid-cols-2 gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex flex-col items-center justify-center p-3 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <Image className="h-6 w-6 text-[#3BAA75] mb-1" />
+                  <span className="text-sm">Photo</span>
+                </button>
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex flex-col items-center justify-center p-3 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <Paperclip className="h-6 w-6 text-[#3BAA75] mb-1" />
+                  <span className="text-sm">Document</span>
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleAttachmentClick}
+            className="p-3 text-gray-500 hover:text-[#3BAA75] hover:bg-gray-100 rounded-full transition-colors"
+            aria-label="Attach file"
+          >
+            <Paperclip className="h-6 w-6" />
+          </button>
+          
+          <textarea
+            value={messageText}
+            onChange={(e) => setMessageText(e.target.value)}
+            placeholder="Type your message here..."
+            className="flex-1 border rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent text-base resize-none"
+            rows={2}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+              }
+            }}
+          />
+          
+          <button
+            type="button"
+            onClick={handleSendMessage}
+            disabled={sendingMessage || !messageText.trim()}
+            className="p-3 bg-[#3BAA75] text-white rounded-full hover:bg-[#2D8259] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Send message"
+          >
+            {sendingMessage ? (
+              <RefreshCw className="h-6 w-6 animate-spin" />
+            ) : (
+              <Send className="h-6 w-6" />
+            )}
+          </button>
+          
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            className="hidden"
+            accept="image/*,.pdf,.doc,.docx"
+          />
+        </div>
+        
+        <p className="text-xs text-gray-500 mt-2 text-center">
+          Press Enter to send, Shift+Enter for a new line
+        </p>
       </div>
     </div>
   );
