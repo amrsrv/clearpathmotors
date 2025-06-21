@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   CheckSquare, 
@@ -344,15 +344,28 @@ export const BulkActions: React.FC<BulkActionsProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => {
+              // Close modal when clicking outside
+              if (e.target === e.currentTarget) {
+                setShowDeleteConfirm(false);
+              }
+            }}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-sm p-6 max-w-md w-full max-h-[100vh] overflow-y-auto"
+              className="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto relative"
             >
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-500 p-1"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              
               <div className="flex items-center gap-3 text-red-600 mb-4">
-                <AlertCircle className="h-4 w-6" />
+                <AlertCircle className="h-6 w-6" />
                 <h3 className="text-lg font-semibold">Confirm Deletion</h3>
               </div>
               
@@ -394,13 +407,26 @@ export const BulkActions: React.FC<BulkActionsProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => {
+              // Close modal when clicking outside
+              if (e.target === e.currentTarget) {
+                setShowStatusConfirm(false);
+              }
+            }}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto"
+              className="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto relative"
             >
+              <button
+                onClick={() => setShowStatusConfirm(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-500 p-1"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              
               <div className="flex items-center gap-3 text-[#3BAA75] mb-4">
                 <FileText className="h-6 w-6" />
                 <h3 className="text-lg font-semibold">Update Status</h3>
@@ -462,13 +488,26 @@ export const BulkActions: React.FC<BulkActionsProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={(e) => {
+              // Close modal when clicking outside
+              if (e.target === e.currentTarget) {
+                setShowNotifyConfirm(false);
+              }
+            }}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto"
+              className="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto relative"
             >
+              <button
+                onClick={() => setShowNotifyConfirm(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-500 p-1"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              
               <div className="flex items-center gap-3 text-[#3BAA75] mb-4">
                 <Bell className="h-6 w-6" />
                 <h3 className="text-lg font-semibold">Send Notification</h3>
