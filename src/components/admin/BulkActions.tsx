@@ -349,7 +349,7 @@ export const BulkActions: React.FC<BulkActionsProps> = ({
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto"
+              className="bg-white rounded-lg p-6 max-w-md w-full max-h-[100vh] overflow-y-auto"
             >
               <div className="flex items-center gap-3 text-red-600 mb-4">
                 <AlertCircle className="h-6 w-6" />
