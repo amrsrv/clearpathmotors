@@ -244,9 +244,9 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({ userId, ap
         </p>
       </div>
       
-      <div className="h-[400px] sm:h-[500px] flex flex-col">
+      <div className="flex flex-col">
         {/* Message List */}
-        <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
+        <div className="flex-1 overflow-y-auto p-4 bg-gray-50 min-h-[400px]">
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <RefreshCw className="h-8 w-8 text-[#3BAA75] animate-spin" />
