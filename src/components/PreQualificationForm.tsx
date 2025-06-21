@@ -769,7 +769,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                         type="radio"
                         checked={formData.collects_government_benefits === true}
                         onChange={() => handleRadioChange('collects_government_benefits', true)}
-                        className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300"
+                        className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded-full"
                       />
                       <span className="ml-2">Yes</span>
                     </label>
@@ -778,7 +778,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                         type="radio"
                         checked={formData.collects_government_benefits === false}
                         onChange={() => handleRadioChange('collects_government_benefits', false)}
-                        className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300"
+                        className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded-full"
                       />
                       <span className="ml-2">No</span>
                     </label>
@@ -872,7 +872,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                         type="radio"
                         checked={formData.has_debt_discharge_history === true}
                         onChange={() => handleRadioChange('has_debt_discharge_history', true)}
-                        className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300"
+                        className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded-full"
                       />
                       <span className="ml-2">Yes</span>
                     </label>
@@ -881,7 +881,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                         type="radio"
                         checked={formData.has_debt_discharge_history === false}
                         onChange={() => handleRadioChange('has_debt_discharge_history', false)}
-                        className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300"
+                        className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded-full"
                       />
                       <span className="ml-2">No</span>
                     </label>
