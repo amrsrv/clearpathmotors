@@ -31,6 +31,7 @@ import AdminSettings from './pages/admin/Settings';
 import ApplicationView from './pages/admin/ApplicationView';
 import AdminLayout from './components/admin/AdminLayout';
 import { MobileNavBar } from './components/MobileNavBar'; // Import MobileNavBar
+import HelpCenter from './pages/HelpCenter';
 
 declare global {
   interface Window {
@@ -124,6 +125,14 @@ const App = () => {
               element={
                 <PrivateRoute>
                   <Dashboard activeSection={activeDashboardSection} setActiveSection={setActiveDashboardSection} /> {/* Pass activeSection state */}
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="/help"
+              element={
+                <PrivateRoute>
+                  <HelpCenter />
                 </PrivateRoute>
               }
             />

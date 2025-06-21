@@ -1,5 +1,6 @@
 import React from 'react';
-import { Home, FileText, Bell, User, MessageSquare } from 'lucide-react';
+import { Home, FileText, Bell, User, MessageSquare, HelpCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface DashboardNavBarProps {
   onNavigate: (section: string) => void;
@@ -34,6 +35,14 @@ export const DashboardNavBar: React.FC<DashboardNavBarProps> = ({ onNavigate, ac
               {item.name}
             </button>
           ))}
+          
+          <Link
+            to="/help"
+            className="flex items-center px-4 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <HelpCircle className="h-5 w-5 mr-2" />
+            Help
+          </Link>
         </nav>
       </div>
     </div>
