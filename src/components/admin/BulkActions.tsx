@@ -9,7 +9,8 @@ import {
   AlertCircle,
   X,
   Download,
-  Mail
+  Mail,
+  Bell
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
