@@ -36,6 +36,13 @@ export const ProgressBar = ({ currentStep, totalSteps, onStepClick }: ProgressBa
                   aria-current={currentStep === index + 1 ? 'step' : undefined}
                   aria-label={`Step ${index + 1}`}
                 />
+                <span className="text-xs text-gray-500 mt-1 hidden sm:block">
+                  {index === 0 && "Vehicle"}
+                  {index === 1 && "Budget"}
+                  {index === 2 && "Employment"}
+                  {index === 3 && "Personal"}
+                  {index === 4 && "Additional"}
+                </span>
               </div>
 
               {index < totalSteps - 1 && (

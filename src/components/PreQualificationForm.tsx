@@ -50,10 +50,12 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
     // Step 2: Financial Information
     desiredMonthlyPayment: searchParams.get('budget') ? parseInt(searchParams.get('budget')!) : 500,
     creditScore: '',
+    
+    // Step 3: Employment Information
     employmentStatus: 'employed',
     annualIncome: '',
     
-    // Step 3: Personal Information
+    // Step 4: Personal Information
     firstName: '',
     lastName: '',
     email: '',
@@ -64,7 +66,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
     postalCode: '',
     dateOfBirth: '',
     
-    // Step 4: Additional Information
+    // Step 5: Additional Information
     collects_government_benefits: false,
     government_benefit_types: [] as string[],
     government_benefit_other: '',
@@ -90,14 +92,16 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
       creditScore: z.string().refine(val => {
         const num = parseInt(val);
         return !isNaN(num) && num >= 300 && num <= 900;
-      }, 'Credit score must be between 300 and 900'),
+      }, 'Credit score must be between 300 and 900')
+    }),
+    3: z.object({
       employmentStatus: z.string().min(1, 'Please select your employment status'),
       annualIncome: z.string().refine(val => {
         const num = parseFloat(val.replace(/[^0-9.]/g, ''));
         return !isNaN(num) && num > 0;
       }, 'Please enter a valid annual income')
     }),
-    3: z.object({
+    4: z.object({
       firstName: z.string().min(1, 'First name is required'),
       lastName: z.string().min(1, 'Last name is required'),
       email: z.string().email('Please enter a valid email address'),
@@ -108,7 +112,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
       postalCode: z.string().regex(/^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/, 'Please enter a valid postal code'),
       dateOfBirth: z.string().min(1, 'Date of birth is required')
     }),
-    4: z.object({
+    5: z.object({
       consentToSoftCheck: z.boolean().refine(val => val === true, 'You must consent to a soft credit check'),
       termsAccepted: z.boolean().refine(val => val === true, 'You must accept the terms and conditions')
     })
@@ -164,6 +168,17 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
     setError(null);
   };
 
+  // Handle slider change for monthly payment
+  const handleSliderChange = (value: number[]) => {
+    if (value && value.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        desiredMonthlyPayment: value[0]
+      }));
+    }
+    setError(null);
+  };
+
   // Handle multi-select changes for government benefits
   const handleBenefitTypeChange = (type: string) => {
     setFormData(prev => {
@@ -187,17 +202,6 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
     setError(null);
   };
 
-  // Handle slider change for monthly payment
-  const handleSliderChange = (value: number[]) => {
-    if (value && value.length > 0) {
-      setFormData(prev => ({
-        ...prev,
-        desiredMonthlyPayment: value[0]
-      }));
-    }
-    setError(null);
-  };
-
   // Validate current step
   const validateStep = () => {
     try {
@@ -209,8 +213,8 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
         stepData[key] = formData[key as keyof typeof formData];
       });
       
-      // Additional validation for step 4
-      if (currentStep === 4) {
+      // Additional validation for step 5
+      if (currentStep === 5) {
         // Validate government benefits fields if selected
         if (formData.collects_government_benefits) {
           if (formData.government_benefit_types.length === 0) {
@@ -255,7 +259,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
   // Handle next step
   const handleNext = () => {
     if (validateStep()) {
-      if (currentStep < 4) {
+      if (currentStep < 5) {
         setCurrentStep(currentStep + 1);
       } else {
         handleSubmit();
@@ -438,7 +442,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           >
             <div className="text-center">
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">Financial Information</h2>
-              <p className="text-lg text-gray-600 mb-8">Help us understand your financial situation to find the best options for you.</p>
+              <p className="text-lg text-gray-600 mb-8">Help us understand your budget and credit situation.</p>
             </div>
             
             <div className="space-y-6">
@@ -468,51 +472,67 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                 </div>
               </div>
               
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="creditScore" className="block text-sm font-medium text-gray-700 mb-2">
-                    What's your credit score?
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      id="creditScore"
-                      name="creditScore"
-                      min="300"
-                      max="900"
-                      value={formData.creditScore}
-                      onChange={handleChange}
-                      placeholder="Enter your credit score (300-900)"
-                      className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    />
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <CreditCard className="h-5 w-5 text-gray-400" />
-                    </div>
+              <div>
+                <label htmlFor="creditScore" className="block text-sm font-medium text-gray-700 mb-2">
+                  What's your credit score?
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    id="creditScore"
+                    name="creditScore"
+                    min="300"
+                    max="900"
+                    value={formData.creditScore}
+                    onChange={handleChange}
+                    placeholder="Enter your credit score (300-900)"
+                    className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                  />
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <CreditCard className="h-5 w-5 text-gray-400" />
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">Don't know your score? Enter your best estimate.</p>
                 </div>
-                
-                <div>
-                  <label htmlFor="employmentStatus" className="block text-sm font-medium text-gray-700 mb-2">
-                    What's your employment status?
-                  </label>
-                  <div className="relative">
-                    <select
-                      id="employmentStatus"
-                      name="employmentStatus"
-                      value={formData.employmentStatus}
-                      onChange={handleChange}
-                      className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    >
-                      <option value="employed">Employed</option>
-                      <option value="self_employed">Self-Employed</option>
-                      <option value="unemployed">Unemployed</option>
-                      <option value="student">Student</option>
-                      <option value="retired">Retired</option>
-                    </select>
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <Briefcase className="h-5 w-5 text-gray-400" />
-                    </div>
+                <p className="mt-1 text-xs text-gray-500">Don't know your score? Enter your best estimate.</p>
+              </div>
+            </div>
+          </motion.div>
+        );
+      
+      case 3:
+        return (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-8"
+          >
+            <div className="text-center">
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">Employment Information</h2>
+              <p className="text-lg text-gray-600 mb-8">Tell us about your employment situation.</p>
+            </div>
+            
+            <div className="space-y-6">
+              <div>
+                <label htmlFor="employmentStatus" className="block text-sm font-medium text-gray-700 mb-2">
+                  What's your employment status?
+                </label>
+                <div className="relative">
+                  <select
+                    id="employmentStatus"
+                    name="employmentStatus"
+                    value={formData.employmentStatus}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                  >
+                    <option value="employed">Employed</option>
+                    <option value="self_employed">Self-Employed</option>
+                    <option value="unemployed">Unemployed</option>
+                    <option value="student">Student</option>
+                    <option value="retired">Retired</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <Briefcase className="h-5 w-5 text-gray-400" />
                   </div>
                 </div>
               </div>
@@ -542,7 +562,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           </motion.div>
         );
       
-      case 3:
+      case 4:
         return (
           <motion.div
             initial={{ opacity: 0, x: 20 }}
@@ -742,7 +762,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           </motion.div>
         );
       
-      case 4:
+      case 5:
         return (
           <motion.div
             initial={{ opacity: 0, x: 20 }}
@@ -1038,7 +1058,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
       <div className="w-full max-w-md mx-auto mb-8">
         <ProgressBar 
           currentStep={currentStep} 
-          totalSteps={4} 
+          totalSteps={5} 
           onStepClick={(step) => {
             // Only allow going back to previous steps
             if (step < currentStep) {
@@ -1091,7 +1111,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           onClick={handleNext}
           className="w-full md:w-auto flex items-center justify-center px-6 py-3 rounded-lg font-semibold text-white bg-gradient-to-r from-[#3BAA75] to-[#2D8259] hover:from-[#2D8259] hover:to-[#1F5F3F] shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {currentStep < 4 ? (
+          {currentStep < 5 ? (
             <>
               Next
               <ChevronRight className="h-5 w-5 ml-2" />
