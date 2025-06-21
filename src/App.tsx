@@ -1,6 +1,7 @@
 import React, { useLayoutEffect, useEffect, useState } from 'react';
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
+import { Toaster } from 'react-hot-toast';
 import { useAuth } from './hooks/useAuth';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -60,7 +61,7 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, requiresAdmin }) 
 
   // Check for admin role if required
   if (requiresAdmin && !user.app_metadata?.is_admin) {
-    return <Navigate to="/dashboard\" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;
@@ -102,7 +103,7 @@ const App = () => {
             <Route path="/calculator" element={<Calculator />} />
             <Route path="/faq" element={<FAQ />} />
             <Route path="/contact" element={<Contact />} />
-            <Route path="/get-approved" element={<Navigate to="/get-prequalified\" replace />} />
+            <Route path="/get-approved" element={<Navigate to="/get-prequalified" replace />} />
             <Route path="/get-prequalified" element={<GetPrequalified />} />
             <Route path="/create-account" element={<CreateAccount />} />
             <Route path="/qualification-results" element={<QualificationResults />} />
@@ -180,6 +181,7 @@ const App = () => {
       {!location.pathname.startsWith('/admin') && user && location.pathname === '/dashboard' && (
         <MobileNavBar onNavigate={handleMobileNav} activeSection={activeDashboardSection} />
       )}
+      <Toaster position="top-right" />
     </div>
   );
 };
