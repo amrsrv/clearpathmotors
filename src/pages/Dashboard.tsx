@@ -36,7 +36,6 @@ import type { Application, ApplicationStage, Document, Notification } from '../t
 import { PreQualifiedBadge } from '../components/PreQualifiedBadge';
 import { LoanRangeBar } from '../components/LoanRangeBar';
 import { ApplicationTracker } from '../components/ApplicationTracker';
-import { DocumentUpload } from '../components/DocumentUpload';
 import { NotificationCenter } from '../components/NotificationCenter';
 import { AppointmentScheduler } from '../components/AppointmentScheduler';
 import toast from 'react-hot-toast';
@@ -46,6 +45,7 @@ import { UserProfileSection } from '../components/UserProfileSection';
 import { ApplicationCard } from '../components/ApplicationCard';
 import { DashboardNavBar } from '../components/DashboardNavBar';
 import { toStartCase } from '../utils/formatters';
+import { UnifiedDocumentUploader } from '../components/UnifiedDocumentUploader';
 
 interface DashboardProps {
   activeSection?: string;
@@ -729,9 +729,8 @@ const Dashboard: React.FC<DashboardProps> = ({
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <DocumentUpload
+                    <UnifiedDocumentUploader
                       applicationId={selectedApplication.id}
-                      documents={documents}
                       onUpload={handleDocumentUpload}
                       isUploading={uploading}
                       uploadError={uploadError}
