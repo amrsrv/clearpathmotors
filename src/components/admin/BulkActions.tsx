@@ -10,15 +10,7 @@ import {
   X,
   Download,
   Mail,
-  Phone,
-  Clock,
-  FileCheck,
-  Edit,
-  Upload,
-  MessageSquare,
-  User,
-  ArrowRight,
-  Calendar
+  Bell
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
