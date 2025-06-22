@@ -11,9 +11,12 @@ import {
   AlertCircle,
   Trash2,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Download,
+  Eye
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import type { Document } from '../types/database';
 
 const documentTypes = [
   { value: 'drivers_license', label: 'Government-issued ID' },
@@ -223,6 +226,129 @@ export const UnifiedDocumentUploader = ({ applicationId, onUpload, isUploading =
           )}
         </AnimatePresence>
       </div>
+    </div>
+  );
+};
+
+interface DocumentManagerProps {
+  applicationId: string;
+  documents: Document[];
+  onUpload: (file: File, category: string) => Promise<void>;
+  onDelete: (documentId: string) => Promise<void>;
+  isUploading: boolean;
+  uploadError: string | null;
+}
+
+export const DocumentManager: React.FC<DocumentManagerProps> = ({
+  applicationId,
+  documents,
+  onUpload,
+  onDelete,
+  isUploading,
+  uploadError
+}) => {
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return 'bg-green-100 text-green-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
+      case 'pending':
+      default:
+        return 'bg-yellow-100 text-yellow-800';
+    }
+  };
+
+  const getDocumentIcon = (filename: string) => {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    if (['jpg', 'jpeg', 'png', 'gif', 'heic'].includes(ext || '')) {
+      return <ImageIcon className="h-5 w-5 text-blue-500" />;
+    }
+    if (ext === 'pdf') {
+      return <FileText className="h-5 w-5 text-red-500" />;
+    }
+    return <FileIcon className="h-5 w-5 text-gray-500" />;
+  };
+
+  const formatCategory = (category: string) => {
+    return category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
+  const handleDelete = async (documentId: string) => {
+    if (window.confirm('Are you sure you want to delete this document?')) {
+      try {
+        await onDelete(documentId);
+      } catch (error) {
+        console.error('Error deleting document:', error);
+        toast.error('Failed to delete document');
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-semibold mb-4">Document Manager</h2>
+        <p className="text-gray-600 mb-6">
+          View and manage your uploaded documents. You can delete documents that need to be replaced.
+        </p>
+      </div>
+
+      {documents.length === 0 ? (
+        <div className="text-center py-12">
+          <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No documents uploaded</h3>
+          <p className="text-gray-500">Upload your first document using the upload tab.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {documents.map((document) => (
+            <motion.div
+              key={document.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4 flex-1 min-w-0">
+                  {getDocumentIcon(document.filename)}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-medium text-gray-900 truncate">
+                        {document.filename.split('/').pop()}
+                      </h3>
+                      <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(document.status)}`}>
+                        {document.status}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-500">
+                      {formatCategory(document.category)}
+                    </p>
+                    {document.review_notes && (
+                      <p className="text-sm text-red-600 mt-1">
+                        Note: {document.review_notes}
+                      </p>
+                    )}
+                    <p className="text-xs text-gray-400 mt-1">
+                      Uploaded {new Date(document.uploaded_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-2 ml-4">
+                  <button
+                    onClick={() => handleDelete(document.id)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Delete document"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
