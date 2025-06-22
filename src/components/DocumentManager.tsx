@@ -1,853 +1,228 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
+import { useDropzone } from 'react-dropzone';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  FileText, 
-  Image, 
-  FileSpreadsheet, 
-  File, 
-  Download, 
-  RefreshCw, 
-  Trash2, 
-  AlertCircle, 
-  CheckCircle, 
-  Clock, 
-  Eye, 
+import {
   Upload,
   X,
+  FileText,
+  Image as ImageIcon,
+  File as FileIcon,
+  CheckCircle,
+  AlertCircle,
+  Trash2,
   ChevronDown,
-  ChevronUp,
-  Filter,
-  ArrowLeft,
-  MoreVertical
+  ChevronUp
 } from 'lucide-react';
-import { format } from 'date-fns';
-import { useDocumentUpload } from '../hooks/useDocumentUpload';
-import { useAuth } from '../hooks/useAuth';
-import type { Document } from '../types/database';
-import { supabase } from '../lib/supabaseClient';
 import toast from 'react-hot-toast';
 
-interface DocumentManagerProps {
-  applicationId: string;
-  documents: Document[];
-  onUpload: (file: File, category: string) => Promise<void>;
-  onDelete?: (documentId: string) => Promise<void>;
-  isUploading?: boolean;
-  uploadError?: string | null;
-}
+const documentTypes = [
+  { value: 'drivers_license', label: 'Government-issued ID' },
+  { value: 'pay_stubs', label: 'Proof of Income' },
+  { value: 'bank_statements', label: 'Bank Statement' },
+  { value: 'proof_of_residence', label: 'Proof of Address' }
+];
 
-export const DocumentManager: React.FC<DocumentManagerProps> = ({
-  applicationId,
-  documents,
-  onUpload,
-  onDelete,
-  isUploading = false,
-  uploadError = null
-}) => {
-  const { user } = useAuth();
-  const [documentUrls, setDocumentUrls] = useState<Record<string, string>>({});
-  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [showPreview, setShowPreview] = useState(false);
-  const [showReplaceConfirm, setShowReplaceConfirm] = useState<string | null>(null);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
-  const [loadingDocumentId, setLoadingDocumentId] = useState<string | null>(null);
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<number>(0);
-  const [showReviewModal, setShowReviewModal] = useState(false);
-  const [reviewStatus, setReviewStatus] = useState<'approved' | 'rejected'>('approved');
-  const [reviewNotes, setReviewNotes] = useState('');
-  const [submittingReview, setSubmittingReview] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [filterStatus, setFilterStatus] = useState<string | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
-  const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
-  const [showNotes, setShowNotes] = useState<string | null>(null);
-  const { getFileUrl, deleteDocument } = useDocumentUpload(applicationId);
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf', 'image/heic'];
 
-  // Check if current user is an admin
-  const isAdmin = user?.app_metadata?.is_admin === true;
+export const UnifiedDocumentUploader = ({ applicationId, onUpload, isUploading = false, uploadError = null }) => {
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [validationError, setValidationError] = useState(null);
+  const [currentlyUploading, setCurrentlyUploading] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [expandedFile, setExpandedFile] = useState(null);
 
-  // Simulate upload progress when replacing a document
   useEffect(() => {
-    let progressInterval: NodeJS.Timeout;
-    
-    if (isUploading && loadingDocumentId) {
+    let progressInterval;
+    if (isUploading && currentlyUploading) {
       setUploadProgress(0);
-      
-      // Simulate progress up to 90% (the last 10% will be when the server confirms completion)
       progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + Math.random() * 10;
-        });
+        setUploadProgress(prev => (prev >= 90 ? 90 : prev + Math.random() * 10));
       }, 300);
     } else if (!isUploading && uploadProgress > 0) {
-      // When upload completes, jump to 100%
       setUploadProgress(100);
-      
-      // Reset progress after showing 100% for a moment
       const resetTimeout = setTimeout(() => {
         setUploadProgress(0);
+        setCurrentlyUploading(null);
       }, 1000);
-      
       return () => clearTimeout(resetTimeout);
     }
-    
-    return () => {
-      if (progressInterval) clearInterval(progressInterval);
-    };
-  }, [isUploading, loadingDocumentId, uploadProgress]);
+    return () => clearInterval(progressInterval);
+  }, [isUploading, currentlyUploading, uploadProgress]);
 
-  // Document categories for grouping
-  const documentCategories = {
-    'drivers_license': 'Government ID',
-    'pay_stubs': 'Proof of Income',
-    'notice_of_assessment': 'Tax Documents',
-    'bank_statements': 'Bank Statements',
-    'proof_of_residence': 'Proof of Address',
-    'insurance': 'Insurance Documents'
+  const validateFile = file => {
+    if (!ALLOWED_TYPES.includes(file.type)) return 'Invalid file type.';
+    if (file.size > MAX_FILE_SIZE) return 'File too large (max 10MB).';
+    return null;
   };
 
-  // File type icons
-  const getFileIcon = (filename: string) => {
-    const extension = filename.split('.').pop()?.toLowerCase();
-    
-    if (['jpg', 'jpeg', 'png', 'gif', 'heic'].includes(extension || '')) {
-      return <Image className="h-5 w-5 text-blue-500" />;
-    } else if (['pdf'].includes(extension || '')) {
-      return <FileText className="h-5 w-5 text-red-500" />;
-    } else if (['xls', 'xlsx', 'csv'].includes(extension || '')) {
-      return <FileSpreadsheet className="h-5 w-5 text-green-500" />;
-    } else {
-      return <File className="h-5 w-5 text-gray-500" />;
-    }
-  };
-
-  // Status badge styling
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return (
-          <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full flex items-center">
-            <CheckCircle className="h-3 w-3 mr-1" />
-            Approved
-          </span>
-        );
-      case 'rejected':
-        return (
-          <span className="px-2 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full flex items-center">
-            <AlertCircle className="h-3 w-3 mr-1" />
-            Rejected
-          </span>
-        );
-      default:
-        return (
-          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full flex items-center">
-            <Clock className="h-3 w-3 mr-1" />
-            Pending
-          </span>
-        );
-    }
-  };
-
-  useEffect(() => {
-    const loadDocumentUrls = async () => {
-      const urls: Record<string, string> = {};
-      for (const doc of documents) {
-        try {
-          const url = await getFileUrl(doc.filename);
-          if (url) {
-            urls[doc.id] = url;
-          }
-        } catch (error) {
-          console.error(`Failed to load URL for document ${doc.id}:`, error);
-          // Don't add URL for this document, but continue with others
-        }
-      }
-      setDocumentUrls(urls);
-    };
-
-    if (documents.length > 0) {
-      loadDocumentUrls();
-    }
-  }, [documents, getFileUrl]);
-
-  const handleViewDocument = async (document: Document) => {
-    setSelectedDocument(document);
-    setLoadingDocumentId(document.id);
-    
-    try {
-      // Get or use cached URL
-      let url = documentUrls[document.id];
-      if (!url) {
-        try {
-          url = await getFileUrl(document.filename) || '';
-          if (url) {
-            setDocumentUrls(prev => ({ ...prev, [document.id]: url }));
-          }
-        } catch (error) {
-          console.error('Error getting file URL:', error);
-          toast.error('Document file not found. It may have been deleted from storage.');
-          return;
-        }
-      }
-      
-      if (url) {
-        setPreviewUrl(url);
-        setShowPreview(true);
-      } else {
-        toast.error('Could not load document preview');
-      }
-    } catch (error) {
-      console.error('Error viewing document:', error);
-      toast.error('Failed to load document');
-    } finally {
-      setLoadingDocumentId(null);
-    }
-  };
-
-  const handleReplaceDocument = async (document: Document, file: File) => {
+  const onDrop = useCallback(acceptedFiles => {
     setValidationError(null);
-    
-    // Validate file
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', 'image/heic'];
-    
-    if (!allowedTypes.includes(file.type)) {
-      setValidationError('Invalid file type. Please upload a JPG, PNG, PDF, or HEIC file.');
-      return;
-    }
-    
-    if (file.size > maxSize) {
-      setValidationError('File is too large. Maximum size is 10MB.');
-      return;
-    }
-    
-    setLoadingDocumentId(document.id);
-    try {
-      // Delete the old document first
-      if (onDelete) {
-        await onDelete(document.id);
-      } else {
-        await deleteDocument(document.id);
+    const newFiles = [];
+    let hasError = false;
+    acceptedFiles.forEach(file => {
+      const error = validateFile(file);
+      if (error) {
+        setValidationError(error);
+        hasError = true;
+        return;
       }
-      
-      // Upload the new document with the same category
-      await onUpload(file, document.category);
-      
-      setShowReplaceConfirm(null);
-      toast.success('Document replaced successfully');
-    } catch (error) {
-      console.error('Error replacing document:', error);
-      toast.error('Failed to replace document');
-    } finally {
-      setLoadingDocumentId(null);
+      newFiles.push({ file, type: documentTypes[0].value, id: `${file.name}-${Date.now()}` });
+    });
+    if (!hasError) setSelectedFiles(prev => [...prev, ...newFiles]);
+  }, []);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'image/jpeg': [],
+      'image/png': [],
+      'application/pdf': [],
+      'image/heic': []
+    },
+    maxSize: MAX_FILE_SIZE,
+    multiple: false
+  });
+
+  const handleRemoveFile = id => setSelectedFiles(prev => prev.filter(file => file.id !== id));
+  const handleTypeChange = (id, newType) => setSelectedFiles(prev => prev.map(file => file.id === id ? { ...file, type: newType } : file));
+
+  const handleSubmitAll = async () => {
+    if (selectedFiles.length === 0) return toast.error('Select at least one file');
+    for (const docFile of selectedFiles) {
+      try {
+        setCurrentlyUploading(docFile.id);
+        await onUpload(docFile.file, docFile.type);
+      } catch (e) {
+        console.error(e);
+        break;
+      }
     }
+    setSelectedFiles([]);
   };
 
-  const handleDeleteDocument = async (documentId: string) => {
-    setLoadingDocumentId(documentId);
-    try {
-      if (onDelete) {
-        await onDelete(documentId);
-      } else {
-        await deleteDocument(documentId);
-      }
-      
-      setShowDeleteConfirm(null);
-      toast.success('Document deleted successfully');
-    } catch (error) {
-      console.error('Error deleting document:', error);
-      toast.error('Failed to delete document');
-    } finally {
-      setLoadingDocumentId(null);
-    }
+  const getFileIcon = file => {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (['jpg', 'jpeg', 'png', 'gif', 'heic'].includes(ext)) return <ImageIcon className="h-5 w-5 text-blue-500" />;
+    if (ext === 'pdf') return <FileText className="h-5 w-5 text-red-500" />;
+    return <FileIcon className="h-5 w-5 text-gray-500" />;
   };
 
-  const handleReviewDocument = async () => {
-    if (!selectedDocument) return;
-    
-    setSubmittingReview(true);
-    
-    try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
-      
-      // Create document review - the database trigger will automatically update the document status
-      const { error: reviewError } = await supabase
-        .from('document_reviews')
-        .insert({
-          document_id: selectedDocument.id,
-          reviewer_id: user.id,
-          status: reviewStatus,
-          notes: reviewNotes
-        });
-      
-      if (reviewError) throw reviewError;
-      
-      // Create notification for user
-      if (selectedDocument.application_id) {
-        const { data: application } = await supabase
-          .from('applications')
-          .select('user_id')
-          .eq('id', selectedDocument.application_id)
-          .single();
-          
-        if (application?.user_id) {
-          await supabase
-            .from('notifications')
-            .insert({
-              user_id: application.user_id,
-              title: `Document ${reviewStatus === 'approved' ? 'Approved' : 'Needs Attention'}`,
-              message: reviewStatus === 'approved' 
-                ? `Your ${selectedDocument.category.replace(/_/g, ' ')} document has been approved.` 
-                : `Your ${selectedDocument.category.replace(/_/g, ' ')} document needs attention. ${reviewNotes}`,
-              read: false
-            });
-        }
-      }
-      
-      setShowReviewModal(false);
-      setReviewStatus('approved');
-      setReviewNotes('');
-      
-      toast.success(`Document review submitted successfully. Status will be updated automatically.`);
-      
-    } catch (error: any) {
-      console.error('Error reviewing document:', error);
-      toast.error('Failed to review document');
-    } finally {
-      setSubmittingReview(false);
-    }
-  };
-
-  // Group documents by category
-  const documentsByCategory = documents.reduce((acc, doc) => {
-    const category = doc.category;
-    if (!acc[category]) {
-      acc[category] = [];
-    }
-    acc[category].push(doc);
-    return acc;
-  }, {} as Record<string, Document[]>);
-
-  // Filter documents based on status if filter is active
-  const filteredDocumentsByCategory = Object.entries(documentsByCategory).reduce((acc, [category, docs]) => {
-    if (filterStatus) {
-      const filteredDocs = docs.filter(doc => doc.status === filterStatus);
-      if (filteredDocs.length > 0) {
-        acc[category] = filteredDocs;
-      }
-    } else {
-      acc[category] = docs;
-    }
-    return acc;
-  }, {} as Record<string, Document[]>);
-
-  // Get document counts by status
-  const documentCounts = {
-    all: documents.length,
-    pending: documents.filter(doc => doc.status === 'pending').length,
-    approved: documents.filter(doc => doc.status === 'approved').length,
-    rejected: documents.filter(doc => doc.status === 'rejected').length
-  };
+  const toggleFileExpand = id => setExpandedFile(expandedFile === id ? null : id);
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 w-full">
-      <h2 className="text-2xl font-semibold mb-4">Document Management</h2>
-      
-      {(uploadError || validationError) && (
-        <div className="mb-4 p-3 bg-red-50 text-red-600 rounded-lg flex items-center gap-2">
-          <AlertCircle className="h-5 w-5 flex-shrink-0" />
-          <span>{uploadError || validationError}</span>
-        </div>
-      )}
+    <div className="w-full max-w-full overflow-hidden px-4">
+      <div className="bg-white rounded-xl shadow-lg p-4 sm:p-5 lg:p-6">
+        <h2 className="text-2xl font-semibold mb-6">Upload Documents</h2>
 
-      {/* Mobile Filter Bar */}
-      <div className="mb-4">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 px-3 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors text-sm"
-          >
-            <Filter className="h-4 w-4" />
-            <span>Filter</span>
-            {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </button>
-          
-          <div className="flex gap-1">
-            <span 
-              className={`px-2 py-1 text-xs rounded-full ${!filterStatus ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-700'} cursor-pointer`} 
-              onClick={() => setFilterStatus(null)}
-            >
-              All ({documentCounts.all})
-            </span>
-            <span 
-              className={`px-2 py-1 text-xs rounded-full ${filterStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-700'} cursor-pointer`} 
-              onClick={() => setFilterStatus('pending')}
-            >
-              Pending ({documentCounts.pending})
-            </span>
-            <span 
-              className={`px-2 py-1 text-xs rounded-full ${filterStatus === 'approved' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'} cursor-pointer`} 
-              onClick={() => setFilterStatus('approved')}
-            >
-              Approved ({documentCounts.approved})
-            </span>
-            <span 
-              className={`px-2 py-1 text-xs rounded-full ${filterStatus === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-700'} cursor-pointer`} 
-              onClick={() => setFilterStatus('rejected')}
-            >
-              Rejected ({documentCounts.rejected})
-            </span>
+        {(uploadError || validationError) && (
+          <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-lg flex items-center gap-2">
+            <AlertCircle className="h-5 w-5" />
+            <span>{uploadError || validationError}</span>
+          </div>
+        )}
+
+        <div {...getRootProps()} className={`border-2 border-dashed rounded-lg p-6 cursor-pointer mb-6 ${isDragActive ? 'border-[#3BAA75] bg-[#3BAA75]/5' : 'border-gray-300 hover:border-[#3BAA75]'}`}>
+          <input {...getInputProps()} />
+          <div className="text-center">
+            <Upload className="mx-auto h-12 w-12 text-gray-400" />
+            <p className="mt-2 text-sm text-gray-600">{isDragActive ? 'Drop the file here...' : 'Tap to select a file or take a photo'}</p>
+            <p className="text-xs text-gray-500">PDF, JPG, PNG or HEIC up to 10MB</p>
           </div>
         </div>
-        
-        <AnimatePresence>
-          {showFilters && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden mt-2"
-            >
-              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                <h3 className="font-medium text-sm mb-2">Document Categories</h3>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(documentCategories).map(([key, label]) => (
-                    <span 
-                      key={key}
-                      className={`px-2 py-1 text-xs rounded-full cursor-pointer ${
-                        activeCategory === key 
-                          ? 'bg-[#3BAA75] text-white' 
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
-                      onClick={() => setActiveCategory(activeCategory === key ? null : key)}
-                    >
-                      {label}
-                    </span>
-                  ))}
+
+        {selectedFiles.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold mb-3">Selected Documents</h3>
+            <div className="space-y-3">
+              {selectedFiles.map(docFile => (
+                <div key={docFile.id} className={`border rounded-lg overflow-hidden ${currentlyUploading === docFile.id ? 'bg-[#3BAA75]/5 border-[#3BAA75]/20' : 'border-gray-200'}`}>
+                  <div className="p-3 flex items-center justify-between overflow-hidden">
+                    <div className="flex items-center space-x-3 overflow-hidden max-w-[80%]">
+                      {getFileIcon(docFile.file)}
+                      <div className="overflow-hidden max-w-full">
+                        <p className="font-medium text-gray-900 truncate whitespace-nowrap max-w-[180px]">{docFile.file.name}</p>
+                        <p className="text-xs text-gray-500">{(docFile.file.size / 1024 / 1024).toFixed(2)} MB</p>
+                      </div>
+                    </div>
+                    {expandedFile === docFile.id ? <ChevronUp className="h-5 w-5 text-gray-400" /> : <ChevronDown className="h-5 w-5 text-gray-400" />}
+                  </div>
+
+                  <AnimatePresence>
+                    {expandedFile === docFile.id && (
+                      <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden border-t border-gray-200">
+                        <div className="p-3">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Document Type</label>
+                          <select
+                            value={docFile.type}
+                            onChange={e => handleTypeChange(docFile.id, e.target.value)}
+                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            disabled={isUploading}
+                          >
+                            {documentTypes.map(type => (
+                              <option key={type.value} value={type.value}>{type.label}</option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={e => { e.stopPropagation(); handleRemoveFile(docFile.id); }}
+                            className="mt-3 px-3 py-1.5 text-sm text-red-600 bg-red-50 rounded-lg hover:bg-red-100"
+                            disabled={isUploading}
+                          >
+                            <Trash2 className="h-4 w-4 inline mr-1" /> Remove
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {currentlyUploading === docFile.id && (
+                    <div className="p-3 pt-0 space-y-2">
+                      <div className="flex justify-between text-xs text-gray-600">
+                        <span>Uploading...</span>
+                        <span>{Math.round(uploadProgress)}%</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <motion.div className="h-full bg-[#3BAA75]" initial={{ width: 0 }} animate={{ width: `${uploadProgress}%` }} transition={{ duration: 0.3 }} />
+                      </div>
+                    </div>
+                  )}
                 </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {selectedFiles.length > 0 && (
+          <button
+            onClick={handleSubmitAll}
+            disabled={isUploading}
+            className="w-full bg-[#3BAA75] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#2D8259] disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {isUploading ? (
+              <>
+                <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
+                <span>Uploading...</span>
+              </>
+            ) : (
+              <>
+                <Upload className="h-5 w-5" />
+                <span>Upload {selectedFiles.length > 1 ? `${selectedFiles.length} Documents` : 'Document'}</span>
+              </>
+            )}
+          </button>
+        )}
+
+        <AnimatePresence>
+          {uploadProgress === 100 && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="mt-4 p-4 bg-green-50 rounded-lg">
+              <div className="flex items-center gap-3">
+                <CheckCircle className="h-5 w-5 text-green-500" />
+                <span className="text-sm text-green-600">Document uploaded successfully!</span>
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
-      
-      {/* Document List */}
-      <div className="space-y-4">
-        {Object.entries(filteredDocumentsByCategory).length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <FileText className="h-12 w-12 mx-auto mb-3 opacity-20" />
-            <p>No documents found</p>
-            {filterStatus && (
-              <p className="text-sm mt-2">Try changing your filter settings</p>
-            )}
-          </div>
-        ) : (
-          Object.entries(filteredDocumentsByCategory).map(([category, docs]) => (
-            <div 
-              key={category} 
-              className={`border border-gray-200 rounded-lg overflow-hidden ${
-                activeCategory && activeCategory !== category ? 'hidden' : ''
-              }`}
-            >
-              <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-                <h3 className="font-medium text-gray-900">
-                  {documentCategories[category as keyof typeof documentCategories] || category.replace(/_/g, ' ')}
-                </h3>
-                <span className="text-xs text-gray-500">{docs.length} file{docs.length !== 1 ? 's' : ''}</span>
-              </div>
-              
-              <div className="divide-y divide-gray-200">
-                {docs.map((doc) => (
-                  <div key={doc.id} className="p-4 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center overflow-hidden">
-                        {getFileIcon(doc.filename)}
-                        <span className="ml-2 font-medium text-gray-900 truncate max-w-[180px]">
-                          {doc.filename.split('/').pop()}
-                        </span>
-                      </div>
-                      {getStatusBadge(doc.status)}
-                    </div>
-                    
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-                      <span>{format(new Date(doc.uploaded_at), 'MMM d, yyyy')}</span>
-                    </div>
-                    
-                    {/* Review Notes - Collapsible */}
-                    {doc.review_notes && (
-                      <>
-                        {showNotes === doc.id ? (
-                          <div className="mb-3 p-2 bg-gray-50 rounded text-sm text-gray-600 border-l-2 border-gray-300">
-                            <div className="flex justify-between items-center mb-1">
-                              <span className="text-xs font-medium text-gray-700">Notes:</span>
-                              <button 
-                                onClick={() => setShowNotes(null)}
-                                className="text-xs text-gray-500"
-                              >
-                                Hide
-                              </button>
-                            </div>
-                            {doc.review_notes}
-                          </div>
-                        ) : (
-                          <button 
-                            onClick={() => setShowNotes(doc.id)}
-                            className="mb-3 text-xs text-[#3BAA75] font-medium"
-                          >
-                            Show review notes
-                          </button>
-                        )}
-                      </>
-                    )}
-                    
-                    <div className="flex items-center justify-between">
-                      {loadingDocumentId === doc.id ? (
-                        <div className="p-2 bg-gray-100 rounded-lg flex items-center justify-center w-full">
-                          <RefreshCw className="h-5 w-5 text-gray-400 animate-spin" />
-                        </div>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => handleViewDocument(doc)}
-                            className="flex-1 py-2 px-3 bg-blue-50 text-blue-600 rounded-lg text-sm font-medium flex items-center justify-center"
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </button>
-                          
-                          <div className="relative ml-2">
-                            <button
-                              onClick={() => setShowActionMenu(showActionMenu === doc.id ? null : doc.id)}
-                              className="p-2 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200"
-                            >
-                              <MoreVertical className="h-5 w-5" />
-                            </button>
-                            
-                            {showActionMenu === doc.id && (
-                              <div className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
-                                <button
-                                  onClick={() => {
-                                    setShowActionMenu(null);
-                                    setShowReplaceConfirm(doc.id);
-                                  }}
-                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center"
-                                >
-                                  <Upload className="h-4 w-4 mr-2 text-amber-600" />
-                                  Replace
-                                </button>
-                                
-                                {onDelete && (
-                                  <button
-                                    onClick={() => {
-                                      setShowActionMenu(null);
-                                      setShowDeleteConfirm(doc.id);
-                                    }}
-                                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center"
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-2 text-red-600" />
-                                    Delete
-                                  </button>
-                                )}
-                                
-                                {isAdmin && (
-                                  <button
-                                    onClick={() => {
-                                      setShowActionMenu(null);
-                                      setSelectedDocument(doc);
-                                      setShowReviewModal(true);
-                                    }}
-                                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center"
-                                  >
-                                    <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
-                                    Review
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                    
-                    {/* Replace Document Confirmation */}
-                    <AnimatePresence>
-                      {showReplaceConfirm === doc.id && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          className="mt-4 overflow-hidden"
-                        >
-                          <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
-                            <p className="text-sm text-amber-800 mb-3">
-                              Replace this document? The current file will be permanently deleted.
-                            </p>
-                            
-                            {uploadProgress > 0 && (
-                              <div className="mb-3 space-y-2">
-                                <div className="flex justify-between text-xs text-amber-800">
-                                  <span>Uploading new document...</span>
-                                  <span>{Math.round(uploadProgress)}%</span>
-                                </div>
-                                <div className="w-full h-1.5 bg-amber-200 rounded-full overflow-hidden">
-                                  <motion.div 
-                                    className="h-full bg-amber-500"
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${uploadProgress}%` }}
-                                    transition={{ duration: 0.3 }}
-                                  />
-                                </div>
-                              </div>
-                            )}
-                            
-                            <div className="flex items-center justify-between">
-                              <input
-                                type="file"
-                                id={`replace-file-${doc.id}`}
-                                className="hidden"
-                                onChange={(e) => {
-                                  if (e.target.files && e.target.files[0]) {
-                                    handleReplaceDocument(doc, e.target.files[0]);
-                                  }
-                                }}
-                                accept=".jpg,.jpeg,.png,.pdf,.heic"
-                              />
-                              
-                              <div className="flex space-x-3">
-                                <button
-                                  onClick={() => setShowReplaceConfirm(null)}
-                                  className="px-3 py-1 text-sm text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                                >
-                                  Cancel
-                                </button>
-                                
-                                <label
-                                  htmlFor={`replace-file-${doc.id}`}
-                                  className="px-3 py-1 text-sm text-white bg-amber-600 rounded-md hover:bg-amber-700 cursor-pointer"
-                                >
-                                  Select New File
-                                </label>
-                              </div>
-                            </div>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                    
-                    {/* Delete Document Confirmation */}
-                    <AnimatePresence>
-                      {showDeleteConfirm === doc.id && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          className="mt-4 overflow-hidden"
-                        >
-                          <div className="p-3 bg-red-50 rounded-lg border border-red-200">
-                            <p className="text-sm text-red-800 mb-3">
-                              Are you sure you want to delete this document? This action cannot be undone.
-                            </p>
-                            
-                            <div className="flex justify-end space-x-3">
-                              <button
-                                onClick={() => setShowDeleteConfirm(null)}
-                                className="px-3 py-1 text-sm text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-                              >
-                                Cancel
-                              </button>
-                              
-                              <button
-                                onClick={() => handleDeleteDocument(doc.id)}
-                                className="px-3 py-1 text-sm text-white bg-red-600 rounded-md hover:bg-red-700"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-      
-      {/* Document Preview Modal */}
-      {showPreview && previewUrl && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-0">
-          <div className="bg-white w-full h-full flex flex-col">
-            <div className="p-3 border-b border-gray-200 flex items-center justify-between">
-              <div className="flex items-center">
-                <button
-                  onClick={() => setShowPreview(false)}
-                  className="mr-3 text-gray-500 hover:text-gray-700"
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                </button>
-                <h3 className="font-semibold text-base truncate max-w-[200px]">
-                  {selectedDocument?.filename.split('/').pop()}
-                </h3>
-              </div>
-              <div className="flex items-center space-x-2">
-                <a
-                  href={previewUrl}
-                  download
-                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                  title="Download"
-                >
-                  <Download className="h-5 w-5" />
-                </a>
-              </div>
-            </div>
-            
-            <div className="flex-1 overflow-auto bg-gray-100">
-              {selectedDocument?.filename.toLowerCase().endsWith('.pdf') ? (
-                <iframe
-                  src={`${previewUrl}#toolbar=0`}
-                  className="w-full h-full"
-                  title="PDF Preview"
-                />
-              ) : (
-                <div className="flex items-center justify-center h-full p-4">
-                  <img
-                    src={previewUrl}
-                    alt="Document Preview"
-                    className="max-w-full max-h-full object-contain"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Document Review Modal - Only visible to admins */}
-      {showReviewModal && selectedDocument && isAdmin && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="font-semibold text-lg">Review Document</h3>
-              <button
-                onClick={() => {
-                  setShowReviewModal(false);
-                  setReviewStatus('approved');
-                  setReviewNotes('');
-                }}
-                className="text-gray-400 hover:text-gray-500"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            
-            <div className="p-4">
-              <div className="mb-4">
-                <h4 className="font-medium text-gray-900 mb-1">
-                  {selectedDocument.category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                </h4>
-                <p className="text-sm text-gray-500">
-                  {selectedDocument.filename.split('/').pop()}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Current Status: 
-                  <span className={`ml-1 px-2 py-0.5 text-xs font-medium rounded-full ${
-                    selectedDocument.status === 'approved' ? 'bg-green-100 text-green-800' :
-                    selectedDocument.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                    'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {selectedDocument.status.charAt(0).toUpperCase() + selectedDocument.status.slice(1)}
-                  </span>
-                </p>
-              </div>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Review Status
-                </label>
-                <div className="flex gap-4">
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="reviewStatus"
-                      value="approved"
-                      checked={reviewStatus === 'approved'}
-                      onChange={() => setReviewStatus('approved')}
-                      className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300"
-                    />
-                    <span className="ml-2 text-gray-700">Approve</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="reviewStatus"
-                      value="rejected"
-                      checked={reviewStatus === 'rejected'}
-                      onChange={() => setReviewStatus('rejected')}
-                      className="h-4 w-4 text-red-600 focus:ring-red-600 border-gray-300"
-                    />
-                    <span className="ml-2 text-gray-700">Reject</span>
-                  </label>
-                </div>
-              </div>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Review Notes {reviewStatus === 'rejected' && <span className="text-red-500">*</span>}
-                </label>
-                <textarea
-                  value={reviewNotes}
-                  onChange={(e) => setReviewNotes(e.target.value)}
-                  className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                  rows={3}
-                  placeholder={reviewStatus === 'rejected' 
-                    ? "Please explain why this document is being rejected" 
-                    : "Optional notes for approved documents"}
-                  required={reviewStatus === 'rejected'}
-                />
-                {reviewStatus === 'rejected' && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    * Required for rejected documents. This will be visible to the customer.
-                  </p>
-                )}
-              </div>
-              
-              <div className="flex justify-end gap-3">
-                <button
-                  onClick={() => {
-                    setShowReviewModal(false);
-                    setReviewStatus('approved');
-                    setReviewNotes('');
-                  }}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleReviewDocument}
-                  disabled={submittingReview || (reviewStatus === 'rejected' && !reviewNotes.trim())}
-                  className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {submittingReview ? (
-                    <RefreshCw className="h-5 w-5 animate-spin" />
-                  ) : (
-                    'Submit Review'
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
