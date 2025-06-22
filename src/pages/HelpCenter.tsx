@@ -8,7 +8,8 @@ import {
   FileText, 
   Image as ImageIcon, 
   File as FileIcon,
-  HelpCircle
+  HelpCircle,
+  X
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
@@ -147,7 +148,7 @@ const HelpCenter = () => {
       }
       
       // Create a new support ticket
-      const { error: ticketError } = await supabase
+      const { data: ticketData, error: ticketError } = await supabase
         .from('support_tickets')
         .insert({
           user_id: user.id,
@@ -156,10 +157,28 @@ const HelpCenter = () => {
           message,
           file_url: fileUrl,
           status: 'open'
-        });
+        })
+        .select()
+        .single();
       
       if (ticketError) {
         throw new Error(`Error creating ticket: ${ticketError.message}`);
+      }
+      
+      // Create a corresponding admin message
+      const { error: messageError } = await supabase
+        .from('admin_messages')
+        .insert({
+          user_id: user.id,
+          admin_id: null,
+          message: `[Support Ticket: ${subject}]\n\nCategory: ${category}\n\n${message}${fileUrl ? `\n\nAttachment: ${fileUrl}` : ''}`,
+          is_admin: false,
+          read: false
+        });
+      
+      if (messageError) {
+        console.error('Error creating admin message:', messageError);
+        // Continue even if admin message creation fails
       }
       
       // Show success message
@@ -263,6 +282,7 @@ const HelpCenter = () => {
                   <option value="Technical Issue">Technical Issue</option>
                   <option value="Billing">Billing</option>
                   <option value="Document Upload">Document Upload</option>
+                  <option value="Application Status">Application Status</option>
                   <option value="Other">Other</option>
                 </select>
               </div>
