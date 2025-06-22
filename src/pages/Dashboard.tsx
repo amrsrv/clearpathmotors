@@ -30,7 +30,8 @@ import {
   BarChart3,
   Shield,
   Inbox,
-  ArrowRight
+  ArrowRight,
+  HelpCircle
 } from 'lucide-react';
 import type { Application, ApplicationStage, Document, Notification } from '../types/database';
 import { PreQualifiedBadge } from '../components/PreQualifiedBadge';
@@ -40,8 +41,6 @@ import { NotificationCenter } from '../components/NotificationCenter';
 import { AppointmentScheduler } from '../components/AppointmentScheduler';
 import toast from 'react-hot-toast';
 import { DocumentManager } from '../components/DocumentManager';
-import { UserMessageCenter } from '../components/UserMessageCenter';
-import { UserProfileSection } from '../components/UserProfileSection';
 import { ApplicationCard } from '../components/ApplicationCard';
 import { DashboardNavBar } from '../components/DashboardNavBar';
 import { toStartCase } from '../utils/formatters';
@@ -758,15 +757,6 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
           </div>
         );
-      case 'messages':
-        return (
-          <div className="mb-6 h-full">
-            <UserMessageCenter 
-              userId={user?.id || ''} 
-              applicationId={selectedApplication.id} 
-            />
-          </div>
-        );
       case 'notifications':
         return (
           <div className="mb-6">
@@ -865,13 +855,13 @@ const Dashboard: React.FC<DashboardProps> = ({
             </div>
             
             <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate('/contact')}
+              <Link
+                to="/help"
                 className="flex items-center gap-2 text-gray-600 hover:text-[#3BAA75] transition-colors"
               >
-                <Phone className="h-5 w-5" />
-                <span className="hidden md:inline">Contact Support</span>
-              </button>
+                <HelpCircle className="h-5 w-5" />
+                <span className="hidden md:inline">Get Help</span>
+              </Link>
             </div>
           </div>
         </div>
@@ -930,11 +920,14 @@ const Dashboard: React.FC<DashboardProps> = ({
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Unread Messages</p>
-                  <p className="text-2xl font-semibold mt-1">{summaryStats.unreadMessages}</p>
+                  <p className="text-sm text-gray-500">Support Tickets</p>
+                  <Link to="/help" className="text-2xl font-semibold mt-1 flex items-center group">
+                    <span>Create</span>
+                    <ArrowRight className="h-5 w-5 ml-1 group-hover:translate-x-1 transition-transform" />
+                  </Link>
                 </div>
                 <div className="bg-amber-50 p-3 rounded-full">
-                  <MessageSquare className="h-6 w-6 text-amber-500" />
+                  <HelpCircle className="h-6 w-6 text-amber-500" />
                 </div>
               </div>
             </motion.div>
@@ -1021,18 +1014,18 @@ const Dashboard: React.FC<DashboardProps> = ({
                     <ChevronRight className="h-5 w-5 text-gray-400" />
                   </button>
                   
-                  <button 
-                    onClick={() => handleSectionChange('messages')}
-                    className="flex items-center justify-between w-full p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors text-left"
+                  <Link
+                    to="/help"
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                   >
                     <div className="flex items-center">
                       <div className="bg-[#3BAA75]/10 p-2 rounded-full mr-3">
-                        <MessageSquare className="h-5 w-5 text-[#3BAA75]" />
+                        <HelpCircle className="h-5 w-5 text-[#3BAA75]" />
                       </div>
-                      <span className="font-medium">Message Support</span>
+                      <span className="font-medium">Contact Support</span>
                     </div>
-                    <ChevronRight className="h-5 w-5 text-gray-400" />
-                  </button>
+                    <ArrowUpRight className="h-5 w-5 text-gray-400" />
+                  </Link>
                   
                   <Link
                     to="/calculator"

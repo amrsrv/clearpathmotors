@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, FileText, Bell, User, MessageSquare, HelpCircle } from 'lucide-react';
+import { Home, FileText, Bell, User, HelpCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface DashboardNavBarProps {
@@ -11,7 +11,6 @@ export const DashboardNavBar: React.FC<DashboardNavBarProps> = ({ onNavigate, ac
   const navItems = [
     { name: 'Overview', icon: Home, section: 'overview' },
     { name: 'Documents', icon: FileText, section: 'documents' },
-    { name: 'Messages', icon: MessageSquare, section: 'messages' },
     { name: 'Notifications', icon: Bell, section: 'notifications' },
     { name: 'Profile', icon: User, section: 'profile' },
   ];

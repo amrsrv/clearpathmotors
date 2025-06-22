@@ -9,11 +9,13 @@ import {
   Image as ImageIcon, 
   File as FileIcon,
   HelpCircle,
-  X
+  X,
+  ArrowLeft
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
 import toast from 'react-hot-toast';
+import { Link } from 'react-router-dom';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
@@ -206,9 +208,15 @@ const HelpCenter = () => {
 
   return (
     <div className="max-w-2xl mx-auto mt-12 px-4 pb-20">
+      <div className="flex items-center mb-6">
+        <Link to="/dashboard" className="text-gray-600 hover:text-[#3BAA75] transition-colors mr-3">
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+        <h1 className="text-2xl font-bold">Help & Support</h1>
+      </div>
+      
       <div className="text-center mb-8">
         <HelpCircle className="h-12 w-12 text-[#3BAA75] mx-auto mb-4" />
-        <h1 className="text-3xl font-bold mb-2">Help & Support</h1>
         <p className="text-gray-600">
           Have a question or ran into an issue? Submit a ticket and we'll get back to you.
         </p>
@@ -234,6 +242,14 @@ const HelpCenter = () => {
             <p className="text-sm text-gray-500">
               You'll receive a notification when we respond to your ticket.
             </p>
+            <div className="mt-6">
+              <Link
+                to="/dashboard"
+                className="inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#3BAA75] hover:bg-[#2D8259]"
+              >
+                Return to Dashboard
+              </Link>
+            </div>
           </motion.div>
         ) : (
           <motion.form

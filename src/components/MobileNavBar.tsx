@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, FileText, Bell, User, MessageSquare, HelpCircle } from 'lucide-react';
+import { Home, FileText, Bell, User, HelpCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface MobileNavBarProps {
@@ -11,8 +11,8 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({ onNavigate, activeSe
   const navItems = [
     { name: 'Home', icon: Home, section: 'overview' },
     { name: 'Documents', icon: FileText, section: 'documents' },
-    { name: 'Messages', icon: MessageSquare, section: 'messages' },
     { name: 'Notifications', icon: Bell, section: 'notifications' },
+    { name: 'Profile', icon: User, section: 'profile' },
   ];
 
   return (
