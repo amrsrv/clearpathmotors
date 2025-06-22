@@ -17,7 +17,8 @@ import {
   ChevronDown,
   ChevronUp,
   Filter,
-  ArrowLeft
+  ArrowLeft,
+  MoreVertical
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useDocumentUpload } from '../hooks/useDocumentUpload';
@@ -60,6 +61,8 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
+  const [showNotes, setShowNotes] = useState<string | null>(null);
   const { getFileUrl, deleteDocument } = useDocumentUpload(applicationId);
 
   // Check if current user is an admin
@@ -378,16 +381,28 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
           </button>
           
           <div className="flex gap-1">
-            <span className={`px-2 py-1 text-xs rounded-full ${!filterStatus ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-700'} cursor-pointer`} onClick={() => setFilterStatus(null)}>
+            <span 
+              className={`px-2 py-1 text-xs rounded-full ${!filterStatus ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-700'} cursor-pointer`} 
+              onClick={() => setFilterStatus(null)}
+            >
               All ({documentCounts.all})
             </span>
-            <span className={`px-2 py-1 text-xs rounded-full ${filterStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-700'} cursor-pointer`} onClick={() => setFilterStatus('pending')}>
+            <span 
+              className={`px-2 py-1 text-xs rounded-full ${filterStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-700'} cursor-pointer`} 
+              onClick={() => setFilterStatus('pending')}
+            >
               Pending ({documentCounts.pending})
             </span>
-            <span className={`px-2 py-1 text-xs rounded-full ${filterStatus === 'approved' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'} cursor-pointer`} onClick={() => setFilterStatus('approved')}>
+            <span 
+              className={`px-2 py-1 text-xs rounded-full ${filterStatus === 'approved' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'} cursor-pointer`} 
+              onClick={() => setFilterStatus('approved')}
+            >
               Approved ({documentCounts.approved})
             </span>
-            <span className={`px-2 py-1 text-xs rounded-full ${filterStatus === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-700'} cursor-pointer`} onClick={() => setFilterStatus('rejected')}>
+            <span 
+              className={`px-2 py-1 text-xs rounded-full ${filterStatus === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-700'} cursor-pointer`} 
+              onClick={() => setFilterStatus('rejected')}
+            >
               Rejected ({documentCounts.rejected})
             </span>
           </div>
@@ -453,11 +468,10 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
                 {docs.map((doc) => (
                   <div key={doc.id} className="p-4 hover:bg-gray-50 transition-colors">
                     <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center">
+                      <div className="flex items-center overflow-hidden">
                         {getFileIcon(doc.filename)}
-                        <span className="ml-2 font-medium text-gray-900 truncate max-w-[150px]">
-                          {doc.filename.split('/').pop()?.substring(0, 20)}
-                          {(doc.filename.split('/').pop()?.length || 0) > 20 ? '...' : ''}
+                        <span className="ml-2 font-medium text-gray-900 truncate max-w-[180px]">
+                          {doc.filename.split('/').pop()}
                         </span>
                       </div>
                       {getStatusBadge(doc.status)}
@@ -467,13 +481,34 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
                       <span>{format(new Date(doc.uploaded_at), 'MMM d, yyyy')}</span>
                     </div>
                     
+                    {/* Review Notes - Collapsible */}
                     {doc.review_notes && (
-                      <div className="mb-3 p-2 bg-gray-50 rounded text-sm text-gray-600 border-l-2 border-gray-300">
-                        {doc.review_notes}
-                      </div>
+                      <>
+                        {showNotes === doc.id ? (
+                          <div className="mb-3 p-2 bg-gray-50 rounded text-sm text-gray-600 border-l-2 border-gray-300">
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="text-xs font-medium text-gray-700">Notes:</span>
+                              <button 
+                                onClick={() => setShowNotes(null)}
+                                className="text-xs text-gray-500"
+                              >
+                                Hide
+                              </button>
+                            </div>
+                            {doc.review_notes}
+                          </div>
+                        ) : (
+                          <button 
+                            onClick={() => setShowNotes(doc.id)}
+                            className="mb-3 text-xs text-[#3BAA75] font-medium"
+                          >
+                            Show review notes
+                          </button>
+                        )}
+                      </>
                     )}
                     
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex items-center justify-between">
                       {loadingDocumentId === doc.id ? (
                         <div className="p-2 bg-gray-100 rounded-lg flex items-center justify-center w-full">
                           <RefreshCw className="h-5 w-5 text-gray-400 animate-spin" />
@@ -488,37 +523,56 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
                             View
                           </button>
                           
-                          <button
-                            onClick={() => setShowReplaceConfirm(doc.id)}
-                            className="flex-1 py-2 px-3 bg-amber-50 text-amber-600 rounded-lg text-sm font-medium flex items-center justify-center"
-                          >
-                            <Upload className="h-4 w-4 mr-1" />
-                            Replace
-                          </button>
-                          
-                          {onDelete && (
+                          <div className="relative ml-2">
                             <button
-                              onClick={() => setShowDeleteConfirm(doc.id)}
-                              className="flex-1 py-2 px-3 bg-red-50 text-red-600 rounded-lg text-sm font-medium flex items-center justify-center"
+                              onClick={() => setShowActionMenu(showActionMenu === doc.id ? null : doc.id)}
+                              className="p-2 bg-gray-100 rounded-lg text-gray-600 hover:bg-gray-200"
                             >
-                              <Trash2 className="h-4 w-4 mr-1" />
-                              Delete
+                              <MoreVertical className="h-5 w-5" />
                             </button>
-                          )}
-                          
-                          {/* Only show review button for admins */}
-                          {isAdmin && (
-                            <button
-                              onClick={() => {
-                                setSelectedDocument(doc);
-                                setShowReviewModal(true);
-                              }}
-                              className="flex-1 py-2 px-3 bg-green-50 text-green-600 rounded-lg text-sm font-medium flex items-center justify-center"
-                            >
-                              <CheckCircle className="h-4 w-4 mr-1" />
-                              Review
-                            </button>
-                          )}
+                            
+                            {showActionMenu === doc.id && (
+                              <div className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                                <button
+                                  onClick={() => {
+                                    setShowActionMenu(null);
+                                    setShowReplaceConfirm(doc.id);
+                                  }}
+                                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center"
+                                >
+                                  <Upload className="h-4 w-4 mr-2 text-amber-600" />
+                                  Replace
+                                </button>
+                                
+                                {onDelete && (
+                                  <button
+                                    onClick={() => {
+                                      setShowActionMenu(null);
+                                      setShowDeleteConfirm(doc.id);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2 text-red-600" />
+                                    Delete
+                                  </button>
+                                )}
+                                
+                                {isAdmin && (
+                                  <button
+                                    onClick={() => {
+                                      setShowActionMenu(null);
+                                      setSelectedDocument(doc);
+                                      setShowReviewModal(true);
+                                    }}
+                                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center"
+                                  >
+                                    <CheckCircle className="h-4 w-4 mr-2 text-green-600" />
+                                    Review
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </>
                       )}
                     </div>
@@ -631,9 +685,9 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
       
       {/* Document Preview Modal */}
       {showPreview && previewUrl && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] flex flex-col relative">
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-0">
+          <div className="bg-white w-full h-full flex flex-col">
+            <div className="p-3 border-b border-gray-200 flex items-center justify-between">
               <div className="flex items-center">
                 <button
                   onClick={() => setShowPreview(false)}
@@ -641,7 +695,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
                 >
                   <ArrowLeft className="h-5 w-5" />
                 </button>
-                <h3 className="font-semibold text-lg truncate max-w-[200px]">
+                <h3 className="font-semibold text-base truncate max-w-[200px]">
                   {selectedDocument?.filename.split('/').pop()}
                 </h3>
               </div>
@@ -654,28 +708,22 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
                 >
                   <Download className="h-5 w-5" />
                 </a>
-                <button
-                  onClick={() => setShowPreview(false)}
-                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <X className="h-5 w-5" />
-                </button>
               </div>
             </div>
             
-            <div className="flex-1 overflow-auto p-4">
+            <div className="flex-1 overflow-auto bg-gray-100">
               {selectedDocument?.filename.toLowerCase().endsWith('.pdf') ? (
                 <iframe
                   src={`${previewUrl}#toolbar=0`}
-                  className="w-full h-full min-h-[60vh]"
+                  className="w-full h-full"
                   title="PDF Preview"
                 />
               ) : (
-                <div className="flex items-center justify-center h-full">
+                <div className="flex items-center justify-center h-full p-4">
                   <img
                     src={previewUrl}
                     alt="Document Preview"
-                    className="max-w-full max-h-[70vh] object-contain"
+                    className="max-w-full max-h-full object-contain"
                   />
                 </div>
               )}
