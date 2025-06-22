@@ -185,7 +185,7 @@ export const UnifiedDocumentUploader: React.FC<UnifiedDocumentUploaderProps> = (
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6">
+    <div className="bg-white rounded-xl shadow-lg p-6 w-full">
       <h2 className="text-2xl font-semibold mb-6">Upload Documents</h2>
       
       {(uploadError || validationError) && (
@@ -238,7 +238,7 @@ export const UnifiedDocumentUploader: React.FC<UnifiedDocumentUploaderProps> = (
                     </div>
                     
                     <div>
-                      <p className="font-medium text-gray-900 truncate max-w-xs">
+                      <p className="font-medium text-gray-900 truncate">
                         {docFile.file.name}
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
