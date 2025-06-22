@@ -43,6 +43,7 @@ import toast from 'react-hot-toast';
 import { DocumentManager } from '../components/DocumentManager';
 import { ApplicationCard } from '../components/ApplicationCard';
 import { DashboardNavBar } from '../components/DashboardNavBar';
+import { UserProfileSection } from '../components/UserProfileSection';
 import { toStartCase } from '../utils/formatters';
 import { UnifiedDocumentUploader } from '../components/UnifiedDocumentUploader';
 
