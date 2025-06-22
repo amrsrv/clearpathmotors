@@ -3,19 +3,40 @@ import { motion } from 'framer-motion';
 import { PreQualificationForm } from '../components/PreQualificationForm';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle } from 'lucide-react';
+import { makeClient } from '../lib/makeClient';
 
 const GetPrequalified = () => {
   const navigate = useNavigate();
 
-  const handleFormComplete = (applicationId: string, tempUserId: string, formData: any) => {
-    // Navigate to create account page with the necessary data
-    navigate('/create-account', {
-      state: {
+  const handleFormComplete = async (applicationId: string, tempUserId: string, formData: any) => {
+    try {
+      // Send the form data to the webhook
+      await makeClient.submitApplication({
         applicationId,
         tempUserId,
-        formData
-      }
-    });
+        formData,
+        source: 'web_prequalification'
+      });
+      
+      // Navigate to create account page with the necessary data
+      navigate('/create-account', {
+        state: {
+          applicationId,
+          tempUserId,
+          formData
+        }
+      });
+    } catch (error) {
+      console.error('Error submitting application to webhook:', error);
+      // Continue with navigation even if webhook fails
+      navigate('/create-account', {
+        state: {
+          applicationId,
+          tempUserId,
+          formData
+        }
+      });
+    }
   };
 
   return (

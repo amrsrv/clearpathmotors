@@ -7,6 +7,7 @@ import { ProgressBar } from './ProgressBar';
 import { ProcessingAnimation } from './ProcessingAnimation';
 import { vehicles } from '../pages/Vehicles';
 import { Slider } from '@/components/ui/slider';
+import { makeClient } from '../lib/makeClient';
 import { 
   Car, 
   DollarSign, 
@@ -343,6 +344,41 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           status: 'completed',
           notes: 'Application submitted successfully'
         });
+      
+      // Send the form data to the webhook
+      try {
+        await makeClient.submitApplication({
+          applicationId: application.id,
+          tempUserId,
+          formData: {
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            email: formData.email,
+            phone: formData.phone,
+            vehicleType: formData.vehicleType,
+            creditScore: formData.creditScore,
+            employmentStatus: formData.employmentStatus,
+            annualIncome: formData.annualIncome,
+            desiredMonthlyPayment: formData.desiredMonthlyPayment,
+            address: formData.address,
+            city: formData.city,
+            province: formData.province,
+            postalCode: formData.postalCode,
+            dateOfBirth: formData.dateOfBirth,
+            collects_government_benefits: formData.collects_government_benefits,
+            government_benefit_types: formData.government_benefit_types,
+            has_debt_discharge_history: formData.has_debt_discharge_history,
+            debt_discharge_type: formData.debt_discharge_type,
+            debt_discharge_status: formData.debt_discharge_status,
+            debt_discharge_year: formData.debt_discharge_year,
+            amount_owed: formData.amount_owed
+          },
+          source: 'web_prequalification'
+        });
+      } catch (webhookError) {
+        console.error('Error sending to webhook:', webhookError);
+        // Continue even if webhook fails
+      }
       
       // Wait a moment to simulate processing
       setTimeout(() => {
