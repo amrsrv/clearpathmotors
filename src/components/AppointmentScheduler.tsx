@@ -11,7 +11,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({ onSc
 
   const handleSchedule = () => {
     // Open Calendly in a new tab
-    window.open('https://calendly.com/amirsaravi92/30min', '_blank');
+    window.open('https://calendar.app.google/b9nPZVtmvta31Ec77', '_blank');
   };
 
   return (
@@ -56,7 +56,7 @@ export const AppointmentScheduler: React.FC<AppointmentSchedulerProps> = ({ onSc
       {/* Schedule Button */}
       <button
         onClick={handleSchedule}
-        className="w-full bg-[#3BAA75] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#2D8259] transition-colors flex items-center justify-center gap-2"
+        className="w-full bg-[#3BAA75] text-white px-4 py-3 rounded-lg font-semibold hover:bg-[#2D8259] transition-colors flex items-center justify-center gap-2 shadow-sm"
       >
         <Calendar className="h-5 w-5" />
         Schedule Consultation
