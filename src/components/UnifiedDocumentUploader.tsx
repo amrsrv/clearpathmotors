@@ -9,7 +9,9 @@ import {
   File as FileIcon, 
   CheckCircle, 
   AlertCircle,
-  Trash2
+  Trash2,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -46,6 +48,7 @@ export const UnifiedDocumentUploader: React.FC<UnifiedDocumentUploaderProps> = (
   const [validationError, setValidationError] = useState<string | null>(null);
   const [currentlyUploading, setCurrentlyUploading] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [expandedFile, setExpandedFile] = useState<string | null>(null);
 
   // Simulate upload progress when uploading
   useEffect(() => {
@@ -129,7 +132,8 @@ export const UnifiedDocumentUploader: React.FC<UnifiedDocumentUploaderProps> = (
       'application/pdf': [],
       'image/heic': []
     },
-    maxSize: MAX_FILE_SIZE
+    maxSize: MAX_FILE_SIZE,
+    multiple: false
   });
 
   const handleRemoveFile = (id: string) => {
@@ -176,12 +180,16 @@ export const UnifiedDocumentUploader: React.FC<UnifiedDocumentUploaderProps> = (
     const extension = file.name.split('.').pop()?.toLowerCase();
     
     if (['jpg', 'jpeg', 'png', 'gif', 'heic'].includes(extension || '')) {
-      return <ImageIcon className="h-6 w-6 text-blue-500" />;
+      return <ImageIcon className="h-5 w-5 text-blue-500" />;
     } else if (['pdf'].includes(extension || '')) {
-      return <FileText className="h-6 w-6 text-red-500" />;
+      return <FileText className="h-5 w-5 text-red-500" />;
     } else {
-      return <FileIcon className="h-6 w-6 text-gray-500" />;
+      return <FileIcon className="h-5 w-5 text-gray-500" />;
     }
+  };
+
+  const toggleFileExpand = (id: string) => {
+    setExpandedFile(expandedFile === id ? null : id);
   };
 
   return (
@@ -209,8 +217,8 @@ export const UnifiedDocumentUploader: React.FC<UnifiedDocumentUploaderProps> = (
           <Upload className="mx-auto h-12 w-12 text-gray-400" />
           <p className="mt-2 text-sm text-gray-600">
             {isDragActive
-              ? "Drop the files here..."
-              : "Drag and drop files here, or click to select"}
+              ? "Drop the file here..."
+              : "Tap here to select a file or take a photo"}
           </p>
           <p className="mt-1 text-xs text-gray-500">
             PDF, JPG, PNG or HEIC up to 10MB
@@ -222,62 +230,89 @@ export const UnifiedDocumentUploader: React.FC<UnifiedDocumentUploaderProps> = (
       {selectedFiles.length > 0 && (
         <div className="mb-6">
           <h3 className="text-lg font-semibold mb-3">Selected Documents</h3>
-          <div className="space-y-4">
+          <div className="space-y-3">
             {selectedFiles.map((docFile) => (
               <div 
                 key={docFile.id} 
                 className={`
-                  border rounded-lg p-4 relative
+                  border rounded-lg overflow-hidden
                   ${currentlyUploading === docFile.id ? 'bg-[#3BAA75]/5 border-[#3BAA75]/20' : 'border-gray-200'}
                 `}
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start space-x-3">
-                    <div className="flex-shrink-0 mt-1">
-                      {getFileIcon(docFile.file)}
-                    </div>
-                    
-                    <div>
+                <div 
+                  className="p-3 flex items-center justify-between cursor-pointer"
+                  onClick={() => toggleFileExpand(docFile.id)}
+                >
+                  <div className="flex items-center space-x-3 overflow-hidden">
+                    {getFileIcon(docFile.file)}
+                    <div className="overflow-hidden">
                       <p className="font-medium text-gray-900 truncate">
                         {docFile.file.name}
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-gray-500">
                         {(docFile.file.size / 1024 / 1024).toFixed(2)} MB
                       </p>
                     </div>
                   </div>
                   
-                  <button
-                    onClick={() => handleRemoveFile(docFile.id)}
-                    className="text-gray-400 hover:text-red-500 transition-colors"
-                    disabled={isUploading}
-                  >
-                    <Trash2 className="h-5 w-5" />
-                  </button>
+                  <div className="flex items-center">
+                    {expandedFile === docFile.id ? (
+                      <ChevronUp className="h-5 w-5 text-gray-400" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 text-gray-400" />
+                    )}
+                  </div>
                 </div>
                 
-                {/* Document Type Selector */}
-                <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Document Type
-                  </label>
-                  <select
-                    value={docFile.type}
-                    onChange={(e) => handleTypeChange(docFile.id, e.target.value)}
-                    className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                    disabled={isUploading}
-                  >
-                    {documentTypes.map((type) => (
-                      <option key={type.value} value={type.value}>
-                        {type.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <AnimatePresence>
+                  {expandedFile === docFile.id && (
+                    <motion.div
+                      initial={{ height: 0 }}
+                      animate={{ height: 'auto' }}
+                      exit={{ height: 0 }}
+                      className="overflow-hidden border-t border-gray-200"
+                    >
+                      <div className="p-3">
+                        {/* Document Type Selector */}
+                        <div className="mb-3">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Document Type
+                          </label>
+                          <select
+                            value={docFile.type}
+                            onChange={(e) => handleTypeChange(docFile.id, e.target.value)}
+                            className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                            disabled={isUploading}
+                          >
+                            {documentTypes.map((type) => (
+                              <option key={type.value} value={type.value}>
+                                {type.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        
+                        <div className="flex justify-between">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRemoveFile(docFile.id);
+                            }}
+                            className="px-3 py-1.5 text-sm text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                            disabled={isUploading}
+                          >
+                            <Trash2 className="h-4 w-4 inline mr-1" />
+                            Remove
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
                 
                 {/* Upload Progress */}
                 {currentlyUploading === docFile.id && (
-                  <div className="mt-4 space-y-2">
+                  <div className="p-3 pt-0 space-y-2">
                     <div className="flex justify-between text-xs text-gray-600">
                       <span>Uploading...</span>
                       <span>{Math.round(uploadProgress)}%</span>
@@ -313,7 +348,7 @@ export const UnifiedDocumentUploader: React.FC<UnifiedDocumentUploaderProps> = (
           ) : (
             <>
               <Upload className="h-5 w-5" />
-              <span>Upload All Documents</span>
+              <span>Upload {selectedFiles.length > 1 ? `${selectedFiles.length} Documents` : 'Document'}</span>
             </>
           )}
         </button>
