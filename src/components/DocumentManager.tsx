@@ -327,7 +327,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
   }, {} as Record<string, Document[]>);
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 w-full">
+    <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 w-full">
       <h2 className="text-2xl font-semibold mb-6">Document Management</h2>
       
       {(uploadError || validationError) && (
