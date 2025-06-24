@@ -112,6 +112,7 @@ const AuthCallback = () => {
               });
           }
 
+          // Redirect to dashboard after successful authentication
           navigate('/dashboard');
         } else {
           navigate('/login');

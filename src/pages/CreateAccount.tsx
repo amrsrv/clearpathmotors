@@ -91,9 +91,8 @@ const CreateAccount = () => {
 
         setSuccess(true);
         setTimeout(() => {
-          navigate('/login', {
-            state: { email: formData.email }
-          });
+          // Redirect to dashboard instead of login
+          navigate('/dashboard');
         }, 3000);
       }
     } catch (error: any) {
@@ -121,7 +120,7 @@ const CreateAccount = () => {
                 Account Created Successfully
               </h2>
               <p className="text-gray-600 mb-6">
-                Please check your email to verify your account. You will be redirected to the login page.
+                Please check your email to verify your account. You will be redirected to the dashboard.
               </p>
             </motion.div>
           </div>
