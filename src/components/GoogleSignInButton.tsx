@@ -8,7 +8,7 @@ interface GoogleSignInButtonProps {
 }
 
 export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({ 
-  redirectTo = `${window.location.origin}/auth/callback`,
+  redirectTo = `https://xndiuangipdcwmyacalj.supabase.co/auth/v1/callback`,
   className = '',
   children
 }) => {
