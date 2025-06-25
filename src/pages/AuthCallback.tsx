@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
+import toast from 'react-hot-toast';
 
 const AuthCallback = () => {
   const navigate = useNavigate();
@@ -9,6 +10,18 @@ const AuthCallback = () => {
     const handleAuthCallback = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
+        
+        // Check if user has a role, if not, assign 'customer' role
+        if (user && !user.app_metadata?.role) {
+          const { error: updateError } = await supabase.auth.updateUser({
+            data: { role: 'customer' }
+          });
+          
+          if (updateError) {
+            console.error('Error updating user role:', updateError);
+            toast.error('Failed to set user role. Some features may be limited.');
+          }
+        }
         
         if (user) {
           // Extract first and last name from email if available
@@ -113,7 +126,16 @@ const AuthCallback = () => {
           }
 
           // Redirect to dashboard after successful authentication
-          navigate('/dashboard');
+          // Redirect based on user role
+          const role = user.app_metadata?.role;
+          if (role === 'super_admin') {
+            navigate('/admin');
+          } else if (role === 'dealer') {
+            navigate('/dealer');
+          } else {
+            // Default to customer dashboard
+            navigate('/dashboard');
+          }
         } else {
           navigate('/login');
         }

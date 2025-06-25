@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 import { useAuth } from './hooks/useAuth';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import ProtectedRoute from './components/ProtectedRoute';
 import Home from './pages/Home';
 import HowItWorks from './pages/HowItWorks';
 import Calculator from './pages/Calculator';
@@ -28,6 +29,7 @@ import AdminDashboard from './pages/admin/Dashboard';
 import AdminApplications from './pages/admin/Applications';
 import AdminUsers from './pages/admin/Users';
 import AdminSettings from './pages/admin/Settings';
+import DealerDashboard from './pages/dealer/Dashboard';
 import ApplicationView from './pages/admin/ApplicationView';
 import AdminLayout from './components/admin/AdminLayout';
 import { MobileNavBar } from './components/MobileNavBar'; // Import MobileNavBar
@@ -139,52 +141,81 @@ const App = () => {
             <Route
               path="/admin"
               element={
-                <PrivateRoute requiresAdmin>
+                <ProtectedRoute allowedRoles={['super_admin']}>
                   <AdminLayout>
                     <AdminDashboard />
                   </AdminLayout>
-                </PrivateRoute>
+                </ProtectedRoute>
               }
             />
             <Route
               path="/admin/applications"
               element={
-                <PrivateRoute requiresAdmin>
+                <ProtectedRoute allowedRoles={['super_admin']}>
                   <AdminLayout>
                     <AdminApplications />
                   </AdminLayout>
-                </PrivateRoute>
+                </ProtectedRoute>
               }
             />
             <Route
               path="/admin/applications/:id"
               element={
-                <PrivateRoute requiresAdmin>
+                <ProtectedRoute allowedRoles={['super_admin']}>
                   <AdminLayout>
                     <ApplicationView />
                   </AdminLayout>
-                </PrivateRoute>
+                </ProtectedRoute>
               }
             />
             <Route
               path="/admin/users"
               element={
-                <PrivateRoute requiresAdmin>
+                <ProtectedRoute allowedRoles={['super_admin']}>
                   <AdminLayout>
                     <AdminUsers />
                   </AdminLayout>
-                </PrivateRoute>
+                </ProtectedRoute>
               }
             />
             <Route
               path="/admin/settings"
               element={
-                <PrivateRoute requiresAdmin>
+                <ProtectedRoute allowedRoles={['super_admin']}>
                   <AdminLayout>
                     <AdminSettings />
                   </AdminLayout>
-                </PrivateRoute>
+                </ProtectedRoute>
               }
+            />
+            {/* Dealer Routes */}
+            <Route
+              path="/dealer"
+              element={
+                <ProtectedRoute allowedRoles={['dealer']}>
+                  <DealerDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dealer/applications/:id"
+              element={
+                <ProtectedRoute allowedRoles={['dealer']}>
+                  <ApplicationView />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dealer/applications/new"
+              element={
+                <ProtectedRoute allowedRoles={['dealer']}>
+                  <div>New Application Form</div>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/apply/:dealerSlug"
+              element={<div>Public Application Form</div>}
             />
           </Routes>
         </AnimatePresence>

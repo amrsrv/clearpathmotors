@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import type { User } from '@supabase/supabase-js';
+import { useNavigate } from 'react-router-dom';
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const getInitialSession = async () => {
@@ -71,6 +73,40 @@ export const useAuth = () => {
         email: email.trim().toLowerCase(),
         password,
         options: {
+          data: {
+            role: 'customer'
+          },
+          emailRedirectTo: `${window.location.origin}/auth/callback`
+        }
+      });
+      
+      if (error) {
+        if (error.message.includes('already registered') || 
+            error.message.includes('already exists') ||
+            error.status === 400) {
+          throw new Error('EMAIL_EXISTS');
+        }
+        throw error;
+      }
+      
+      return { data, error: null };
+    } catch (error: any) {
+      console.error('Sign up error:', error);
+      return { data: null, error };
+    }
+  };
+
+  const signUpDealer = async (email: string, password: string, name: string, phone: string) => {
+    try {
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password,
+        options: {
+          data: {
+            role: 'dealer',
+            name,
+            phone
+          },
           emailRedirectTo: `${window.location.origin}/auth/callback`
         }
       });
@@ -149,6 +185,7 @@ export const useAuth = () => {
     signIn,
     signUp,
     signOut,
+    signUpDealer,
     resetPassword,
     updatePassword
   };
