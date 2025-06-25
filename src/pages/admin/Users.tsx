@@ -28,8 +28,10 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
+import { useUserRole } from '../../hooks/useUserRole';
 import toast from 'react-hot-toast';
 import { slugify } from '../../utils/slugify';
+import RoleSelector from '../../components/RoleSelector';
 
 interface UserData {
   id: string;
@@ -53,6 +55,7 @@ interface Application {
 const AdminUsers = () => {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
+  const { updateUserRole } = useUserRole();
   const [users, setUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +73,7 @@ const AdminUsers = () => {
   const [showUserActionModal, setShowUserActionModal] = useState<string | null>(null);
   const [isProcessingUserAction, setIsProcessingUserAction] = useState(false);
   const [newPassword, setNewPassword] = useState('');
+  const [selectedRole, setSelectedRole] = useState<'super_admin' | 'dealer' | 'customer'>('customer');
   const [newDealerData, setNewDealerData] = useState({
     name: '',
     email: '',
@@ -249,9 +253,24 @@ const AdminUsers = () => {
           toast.success(`${selectedUser.email} has been deleted`);
           break;
           
+        case 'make_super_admin':
+          await updateUserRole(selectedUser.id, 'super_admin');
+          toast.success(`${selectedUser.email} is now a Super Admin`);
+          break;
+          
+        case 'remove_super_admin':
+          await updateUserRole(selectedUser.id, 'customer');
+          toast.success(`Super Admin privileges removed from ${selectedUser.email}`);
+          break;
+          
         case 'create_dealer':
           await handleCreateDealer();
           return;
+          
+        case 'change_role':
+          await updateUserRole(selectedUser.id, selectedRole);
+          toast.success(`${selectedUser.email}'s role has been updated to ${selectedRole}`);
+          break;
       }
       
       // Refresh the user list
@@ -643,6 +662,43 @@ const AdminUsers = () => {
                             <UserX className="h-4 w-4 mr-2" />
                             Disable User
                           </button>
+                          {user.app_metadata?.role === 'super_admin' ? (
+                            <button
+                              onClick={() => {
+                                setSelectedUser(user);
+                                setShowUserActionModal('remove_super_admin');
+                                setShowActionMenu(null);
+                              }}
+                              className="w-full px-4 py-3 text-left text-sm text-orange-600 hover:bg-gray-100 flex items-center"
+                            >
+                              <Shield className="h-4 w-4 mr-2" />
+                              Remove Super Admin
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setSelectedUser(user);
+                                setShowUserActionModal('make_super_admin');
+                                setShowActionMenu(null);
+                              }}
+                              className="w-full px-4 py-3 text-left text-sm text-purple-600 hover:bg-gray-100 flex items-center"
+                            >
+                              <Shield className="h-4 w-4 mr-2" />
+                              Make Super Admin
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setSelectedRole(user.app_metadata?.role || 'customer');
+                              setShowUserActionModal('change_role');
+                              setShowActionMenu(null);
+                            }}
+                            className="w-full px-4 py-3 text-left text-sm text-blue-600 hover:bg-gray-100 flex items-center"
+                          >
+                            <Users className="h-4 w-4 mr-2" />
+                            Change Role
+                          </button>
                           <button
                             onClick={() => {
                               setSelectedUser(user);
@@ -882,6 +938,70 @@ const AdminUsers = () => {
                 </>
               )}
               
+              {/* Make Super Admin Modal */}
+              {showUserActionModal === 'make_super_admin' && (
+                <>
+                  <div className="flex items-center gap-3 text-purple-600 mb-4">
+                    <Shield className="h-6 w-6" />
+                    <h3 className="text-lg font-semibold">Make Super Admin</h3>
+                  </div>
+                  
+                  <p className="text-gray-700 mb-6">
+                    Are you sure you want to give super admin privileges to {selectedUser.email}? This will grant them full access to all system features and data.
+                  </p>
+                  
+                  <div className="bg-yellow-50 p-4 rounded-lg mb-6">
+                    <p className="text-sm text-yellow-700">
+                      <strong>Warning:</strong> Super admins have unrestricted access to all data and functionality in the system. Only promote trusted users.
+                    </p>
+                  </div>
+                </>
+              )}
+              
+              {/* Remove Super Admin Modal */}
+              {showUserActionModal === 'remove_super_admin' && (
+                <>
+                  <div className="flex items-center gap-3 text-orange-600 mb-4">
+                    <Shield className="h-6 w-6" />
+                    <h3 className="text-lg font-semibold">Remove Super Admin</h3>
+                  </div>
+                  
+                  <p className="text-gray-700 mb-6">
+                    Are you sure you want to remove super admin privileges from {selectedUser.email}? They will be downgraded to a regular customer account.
+                  </p>
+                </>
+              )}
+              
+              {/* Change Role Modal */}
+              {showUserActionModal === 'change_role' && (
+                <>
+                  <div className="flex items-center gap-3 text-blue-600 mb-4">
+                    <Users className="h-6 w-6" />
+                    <h3 className="text-lg font-semibold">Change User Role</h3>
+                  </div>
+                  
+                  <p className="text-gray-700 mb-6">
+                    Select a new role for {selectedUser.email}. This will change their access level and permissions in the system.
+                  </p>
+                  
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Role
+                    </label>
+                    <RoleSelector 
+                      currentRole={selectedRole}
+                      onRoleChange={setSelectedRole}
+                    />
+                  </div>
+                  
+                  <div className="bg-blue-50 p-4 rounded-lg mb-6">
+                    <p className="text-sm text-blue-700">
+                      <strong>Note:</strong> Changing a user's role will immediately affect their access to the system. They may need to log out and log back in for all changes to take effect.
+                    </p>
+                  </div>
+                </>
+              )}
+              
               {/* Create Dealer Modal */}
               {showUserActionModal === 'create_dealer' && (
                 <>
@@ -979,6 +1099,9 @@ const AdminUsers = () => {
                   {showUserActionModal === 'disable_user' && 'Disable User'}
                   {showUserActionModal === 'delete_user' && 'Delete User'}
                   {showUserActionModal === 'create_dealer' && 'Create Dealer'}
+                  {showUserActionModal === 'make_super_admin' && 'Make Super Admin'}
+                  {showUserActionModal === 'remove_super_admin' && 'Remove Super Admin'}
+                  {showUserActionModal === 'change_role' && 'Update Role'}
                 </button>
               </div>
             </motion.div>
