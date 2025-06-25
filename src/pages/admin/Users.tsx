@@ -22,11 +22,14 @@ import {
   Key,
   UserCheck,
   UserX,
-  Shield
+  Shield,
+  Plus,
+  Users
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
+import { slugify } from '../../utils/slugify';
 
 interface UserData {
   id: string;
@@ -67,6 +70,11 @@ const AdminUsers = () => {
   const [showUserActionModal, setShowUserActionModal] = useState<string | null>(null);
   const [isProcessingUserAction, setIsProcessingUserAction] = useState(false);
   const [newPassword, setNewPassword] = useState('');
+  const [newDealerData, setNewDealerData] = useState({
+    name: '',
+    email: '',
+    phone: ''
+  });
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
@@ -194,7 +202,7 @@ const AdminUsers = () => {
   };
 
   const handleUserAction = async (action: string) => {
-    if (!selectedUser) return;
+    if (!selectedUser && action !== 'create_dealer') return;
     
     try {
       setIsProcessingUserAction(true);
@@ -240,6 +248,10 @@ const AdminUsers = () => {
           // In a real implementation, you would delete the user account
           toast.success(`${selectedUser.email} has been deleted`);
           break;
+          
+        case 'create_dealer':
+          await handleCreateDealer();
+          return;
       }
       
       // Refresh the user list
@@ -254,6 +266,57 @@ const AdminUsers = () => {
     } catch (error) {
       console.error('Error performing user action:', error);
       toast.error('Failed to perform action');
+    } finally {
+      setIsProcessingUserAction(false);
+    }
+  };
+
+  const handleCreateDealer = async () => {
+    if (!newDealerData.name || !newDealerData.email) {
+      toast.error('Dealer name and email are required');
+      return;
+    }
+    
+    try {
+      setIsProcessingUserAction(true);
+      
+      // Call the create-dealer edge function
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-dealer`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+          },
+          body: JSON.stringify({
+            name: newDealerData.name,
+            email: newDealerData.email,
+            phone: newDealerData.phone
+          })
+        }
+      );
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create dealer');
+      }
+      
+      const data = await response.json();
+      
+      toast.success(`Dealer ${newDealerData.name} created successfully`);
+      setNewDealerData({
+        name: '',
+        email: '',
+        phone: ''
+      });
+      setShowUserActionModal(null);
+      
+      // Refresh the user list
+      await loadUsers(true);
+    } catch (error) {
+      console.error('Error creating dealer:', error);
+      toast.error(error.message || 'Failed to create dealer');
     } finally {
       setIsProcessingUserAction(false);
     }
@@ -333,6 +396,15 @@ const AdminUsers = () => {
                 disabled={isRefreshing}
               >
                 <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+              
+              {/* Create Dealer Button */}
+              <button
+                onClick={() => setShowUserActionModal('create_dealer')}
+                className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors flex items-center gap-2"
+              >
+                <Plus className="h-5 w-5" />
+                Create Dealer
               </button>
             </div>
           </div>
@@ -691,7 +763,7 @@ const AdminUsers = () => {
 
       {/* User Action Modals */}
       <AnimatePresence>
-        {showUserActionModal && selectedUser && (
+        {showUserActionModal && (selectedUser || showUserActionModal === 'create_dealer') && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -810,6 +882,63 @@ const AdminUsers = () => {
                 </>
               )}
               
+              {/* Create Dealer Modal */}
+              {showUserActionModal === 'create_dealer' && (
+                <>
+                  <div className="flex items-center gap-3 text-[#3BAA75] mb-4">
+                    <Users className="h-6 w-6" />
+                    <h3 className="text-lg font-semibold">Create Dealer Account</h3>
+                  </div>
+                  
+                  <div className="space-y-4 mb-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Dealer Name
+                      </label>
+                      <input
+                        type="text"
+                        value={newDealerData.name}
+                        onChange={(e) => setNewDealerData({...newDealerData, name: e.target.value})}
+                        className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        placeholder="Enter dealer name"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        value={newDealerData.email}
+                        onChange={(e) => setNewDealerData({...newDealerData, email: e.target.value})}
+                        className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        placeholder="Enter dealer email"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Phone Number
+                      </label>
+                      <input
+                        type="tel"
+                        value={newDealerData.phone}
+                        onChange={(e) => setNewDealerData({...newDealerData, phone: e.target.value})}
+                        className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        placeholder="Enter dealer phone number"
+                      />
+                    </div>
+                    
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <p className="text-sm text-blue-700">
+                        A password reset link will be sent to the dealer's email address. They will need to set their password before accessing the system.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+              
               <div className="flex justify-end gap-3">
                 <button
                   onClick={() => {
@@ -849,6 +978,7 @@ const AdminUsers = () => {
                   {showUserActionModal === 'remove_admin' && 'Remove Admin'}
                   {showUserActionModal === 'disable_user' && 'Disable User'}
                   {showUserActionModal === 'delete_user' && 'Delete User'}
+                  {showUserActionModal === 'create_dealer' && 'Create Dealer'}
                 </button>
               </div>
             </motion.div>
