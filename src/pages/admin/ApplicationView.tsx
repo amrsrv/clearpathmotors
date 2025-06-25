@@ -53,11 +53,13 @@ import { DocumentManager } from '../../components/DocumentManager';
 import { useDocumentUpload } from '../../hooks/useDocumentUpload';
 import type { Application, ApplicationStage, Document, Notification } from '../../types/database';
 import toast from 'react-hot-toast';
+import { useUserRole } from '../../hooks/useUserRole';
 
 const ApplicationView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { role } = useUserRole();
   const [application, setApplication] = useState<Application | null>(null);
   const [stages, setStages] = useState<ApplicationStage[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
@@ -100,6 +102,11 @@ const ApplicationView = () => {
   // New fields for editing
   const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [editedApplication, setEditedApplication] = useState<Partial<Application>>({});
+
+  // Dealer Assignment
+  const [dealers, setDealers] = useState([]);
+  const [selectedDealerId, setSelectedDealerId] = useState(null);
+  const [isAssigningDealer, setIsAssigningDealer] = useState(false);
 
   const { uploadDocument, deleteDocument, uploading, error: uploadError } = useDocumentUpload(id || '');
 
@@ -155,6 +162,13 @@ const ApplicationView = () => {
     }
     loadApplicationData();
   }, [id]);
+
+  useEffect(() => {
+    // Only load dealers if user is super_admin
+    if (role === 'super_admin') {
+      loadDealers();
+    }
+  }, [role]);
 
   useEffect(() => {
     if (!application?.id || !user?.id) return;
@@ -269,6 +283,11 @@ const ApplicationView = () => {
       setNewStage(appData.current_stage);
       setEditedApplication(appData);
 
+      // Set selected dealer if application has one
+      if (appData?.dealer_id) {
+        setSelectedDealerId(appData.dealer_id);
+      }
+
       // Load related data
       await Promise.all([
         loadStages(appData.id),
@@ -281,6 +300,20 @@ const ApplicationView = () => {
       setError(error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadDealers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('dealer_profiles')
+        .select('id, name, email');
+        
+      if (error) throw error;
+      setDealers(data || []);
+    } catch (error) {
+      console.error('Error loading dealers:', error);
+      toast.error('Failed to load dealers');
     }
   };
 
@@ -693,6 +726,37 @@ const ApplicationView = () => {
     }));
   };
 
+  const handleAssignDealer = async () => {
+    if (!selectedDealerId) {
+      toast.error('Please select a dealer');
+      return;
+    }
+    
+    try {
+      setIsAssigningDealer(true);
+      
+      const { error } = await supabase
+        .from('applications')
+        .update({ dealer_id: selectedDealerId })
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      toast.success('Application assigned to dealer successfully');
+      
+      // Update local state
+      setApplication({
+        ...application,
+        dealer_id: selectedDealerId
+      });
+    } catch (error) {
+      console.error('Error assigning dealer:', error);
+      toast.error('Failed to assign dealer');
+    } finally {
+      setIsAssigningDealer(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     const statusOption = statusOptions.find(opt => opt.value === status);
     return statusOption?.color || 'bg-gray-100 text-gray-700';
@@ -919,6 +983,43 @@ const ApplicationView = () => {
                   )}
                 </div>
               </div>
+
+              {/* Dealer Assignment (Super Admin Only) */}
+              {role === 'super_admin' && (
+                <div className="bg-white rounded-lg shadow-sm p-6">
+                  <h3 className="text-lg font-semibold mb-4">Dealer Assignment</h3>
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <select
+                        value={selectedDealerId || ''}
+                        onChange={(e) => setSelectedDealerId(e.target.value || null)}
+                        className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                      >
+                        <option value="">Select Dealer</option>
+                        {dealers.map((dealer) => (
+                          <option key={dealer.id} value={dealer.id}>
+                            {dealer.name} ({dealer.email})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <button
+                      onClick={handleAssignDealer}
+                      disabled={isAssigningDealer || selectedDealerId === application?.dealer_id}
+                      className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50"
+                    >
+                      {isAssigningDealer ? 'Assigning...' : 'Assign Dealer'}
+                    </button>
+                  </div>
+                  {application?.dealer_id && (
+                    <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                      <p className="text-sm text-blue-700">
+                        This application is currently assigned to: {dealers.find(d => d.id === application.dealer_id)?.name || 'Unknown Dealer'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Application Details */}
               <div className="bg-white rounded-lg shadow-sm p-6">
