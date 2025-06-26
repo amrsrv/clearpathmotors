@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 
-interface ProgressBarProps {
+export interface ProgressBarProps {
   currentStep: number;
   totalSteps: number;
   onStepClick?: (step: number) => void;
@@ -10,8 +10,11 @@ interface ProgressBarProps {
 export const ProgressBar = ({ currentStep, totalSteps, onStepClick }: ProgressBarProps) => {
   const progress = (currentStep / totalSteps) * 100;
 
+  // Determine if we're on mobile
+  const isMobile = window.innerWidth < 640;
+
   return (
-    <div className="w-full max-w-md mx-auto px-2" role="region" aria-label="Application progress">
+    <div className="w-full max-w-md mx-auto px-2 mb-6" role="region" aria-label="Application progress">
       <progress value={currentStep} max={totalSteps} className="sr-only" />
       
       <div className="relative">
@@ -35,8 +38,10 @@ export const ProgressBar = ({ currentStep, totalSteps, onStepClick }: ProgressBa
                   `}
                   aria-current={currentStep === index + 1 ? 'step' : undefined}
                   aria-label={`Step ${index + 1}`}
+                 aria-current={currentStep === index + 1 ? 'step' : undefined}
+                 aria-label={`Step ${index + 1}`}
                 />
-                <span className="text-xs text-gray-500 mt-1 hidden sm:block">
+                <span className="text-xs text-gray-500 mt-1 hidden sm:block whitespace-nowrap">
                   {index === 0 && "Vehicle"}
                   {index === 1 && "Budget"}
                   {index === 2 && "Employment"}
