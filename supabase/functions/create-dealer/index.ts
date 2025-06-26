@@ -145,10 +145,9 @@ Deno.serve(async (req) => {
       .from("dealer_profiles")
       .insert({
         id: newUser.user.id,
-        dealer_name: name,
+        name: name,
         email,
         phone: phone || null,
-        username,
         public_slug: uniqueSlug,
         created_at: new Date().toISOString()
       })
