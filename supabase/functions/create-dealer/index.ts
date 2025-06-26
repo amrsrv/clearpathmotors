@@ -117,20 +117,48 @@ Deno.serve(async (req) => {
 
     const uniqueSlug = await checkSlugUniqueness(baseSlug);
 
-    // Insert into dealers table
-    const { data: newDealer, error: dealerError } = await supabaseAdmin
-      .from("dealers")
-      .insert({
-        dealer_name: name,
+    // Create user in Supabase Auth with dealer role
+    const { data: newUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        name,
         username,
-        password,
+        phone
+      },
+      app_metadata: {
+        role: "dealer"
+      }
+    });
+
+    if (authError) {
+      throw new Error(`Failed to create user: ${authError.message}`);
+    }
+
+    if (!newUser.user) {
+      throw new Error("User creation failed - no user returned");
+    }
+
+    // Create dealer profile
+    const { data: dealerProfile, error: profileError } = await supabaseAdmin
+      .from("dealer_profiles")
+      .insert({
+        id: newUser.user.id,
+        dealer_name: name,
+        email,
+        phone: phone || null,
+        username,
+        public_slug: uniqueSlug,
         created_at: new Date().toISOString()
       })
       .select()
       .single();
 
-    if (dealerError) {
-      throw dealerError;
+    if (profileError) {
+      // If profile creation fails, we should clean up the auth user
+      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
+      throw new Error(`Failed to create dealer profile: ${profileError.message}`);
     }
 
     return new Response(
@@ -138,11 +166,12 @@ Deno.serve(async (req) => {
         success: true,
         message: "Dealer created successfully",
         dealer: {
-          id: newDealer.id,
+          id: newUser.user.id,
           name,
           email,
           username,
-          phone
+          phone,
+          slug: uniqueSlug
         }
       }),
       {
@@ -154,13 +183,18 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error("Error in create-dealer function:", error);
     
+    const errorMessage = error instanceof Error ? error.message : "An error occurred while creating dealer";
+    const statusCode = errorMessage.includes("Unauthorized") ? 403 : 
+                      errorMessage.includes("required") ? 400 : 500;
+    
     return new Response(
       JSON.stringify({
-        error: error.message || "An error occurred while creating dealer",
+        success: false,
+        error: errorMessage,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: error.message.includes("Unauthorized") ? 403 : 500,
+        status: statusCode,
       }
     );
   }
