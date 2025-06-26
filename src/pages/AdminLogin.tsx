@@ -19,7 +19,7 @@ const AdminLogin = () => {
   useEffect(() => {
     const checkAdminStatus = async () => {
       if (user) {
-        const isAdmin = user.app_metadata?.is_admin === true;
+        const isAdmin = user.app_metadata?.role === 'super_admin';
         if (isAdmin) {
           navigate('/admin');
         } else {
@@ -59,7 +59,7 @@ const AdminLogin = () => {
         throw new Error('Error verifying admin status');
       }
 
-      const isAdmin = user?.app_metadata?.is_admin === true;
+      const isAdmin = user?.app_metadata?.role === 'super_admin';
       if (!isAdmin) {
         await supabase.auth.signOut();
         throw new Error('Unauthorized access');
