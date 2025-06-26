@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { PreQualificationForm } from '../components/PreQualificationForm';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, ChevronRight } from 'lucide-react';
 import { makeClient } from '../lib/makeClient';
 
 const GetPrequalified = () => {
@@ -47,10 +47,10 @@ const GetPrequalified = () => {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-12"
         >
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4 px-4">
             Get Pre-Qualified Today
           </h1>
-          <p className="text-xl text-gray-600">
+          <p className="text-lg sm:text-xl text-gray-600 px-4">
             Complete this application to see your personalized financing options
           </p>
         </motion.div>
