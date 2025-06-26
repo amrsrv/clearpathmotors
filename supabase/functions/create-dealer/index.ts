@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.39.3";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey, x-client-info",
 };
 
 Deno.serve(async (req) => {
@@ -16,11 +16,17 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Only allow POST requests
+    if (req.method !== "POST") {
+      throw new Error("Method not allowed");
+    }
+
     // Get environment variables
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     
     if (!supabaseUrl || !supabaseServiceKey) {
+      console.error("Missing environment variables:", { supabaseUrl: !!supabaseUrl, supabaseServiceKey: !!supabaseServiceKey });
       throw new Error("Missing environment variables");
     }
 
@@ -48,17 +54,20 @@ Deno.serve(async (req) => {
     const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
 
     if (userError || !user) {
+      console.error("User verification failed:", userError);
       throw new Error("Invalid user session");
     }
 
     // Check if user is a super_admin
     const role = user.app_metadata?.role;
     if (role !== "super_admin") {
+      console.error("Unauthorized access attempt by user:", user.id, "with role:", role);
       throw new Error("Unauthorized - Super Admin access required");
     }
 
     // Parse request body
-    const { name, email, phone, username, password } = await req.json();
+    const requestBody = await req.json();
+    const { name, email, phone, username, password } = requestBody;
 
     if (!name || !email || !username || !password) {
       throw new Error("Name, email, username and password are required");
@@ -89,7 +98,10 @@ Deno.serve(async (req) => {
           .eq("public_slug", finalSlug)
           .maybeSingle();
         
-        if (error) throw error;
+        if (error) {
+          console.error("Error checking slug uniqueness:", error);
+          throw error;
+        }
         
         // If no data found, slug is unique
         if (!data) break;
@@ -133,6 +145,7 @@ Deno.serve(async (req) => {
     });
 
     if (authError) {
+      console.error("Auth user creation failed:", authError);
       throw new Error(`Failed to create user: ${authError.message}`);
     }
 
@@ -155,10 +168,13 @@ Deno.serve(async (req) => {
       .single();
 
     if (profileError) {
+      console.error("Dealer profile creation failed:", profileError);
       // If profile creation fails, we should clean up the auth user
       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
       throw new Error(`Failed to create dealer profile: ${profileError.message}`);
     }
+
+    console.log("Dealer created successfully:", { id: newUser.user.id, email, slug: uniqueSlug });
 
     return new Response(
       JSON.stringify({
@@ -184,7 +200,7 @@ Deno.serve(async (req) => {
     
     const errorMessage = error instanceof Error ? error.message : "An error occurred while creating dealer";
     const statusCode = errorMessage.includes("Unauthorized") ? 403 : 
-                      errorMessage.includes("required") ? 400 : 500;
+                      errorMessage.includes("required") || errorMessage.includes("Method not allowed") ? 400 : 500;
     
     return new Response(
       JSON.stringify({

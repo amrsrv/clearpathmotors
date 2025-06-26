@@ -301,6 +301,12 @@ const AdminUsers = () => {
     try {
       setIsProcessingUserAction(true);
       
+      // Get the current session
+      const session = await supabase.auth.getSession();
+      if (!session.data.session) {
+        throw new Error('No active session');
+      }
+      
       // Call the create-dealer edge function
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-dealer`,
@@ -308,7 +314,8 @@ const AdminUsers = () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+            'Authorization': `Bearer ${session.data.session.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
           },
           body: JSON.stringify({
             name: newDealerData.name,
@@ -321,7 +328,12 @@ const AdminUsers = () => {
       );
       
       if (!response.ok) {
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch (parseError) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
         throw new Error(errorData.error || 'Failed to create dealer');
       }
       
@@ -341,7 +353,7 @@ const AdminUsers = () => {
       await loadUsers(true);
     } catch (error) {
       console.error('Error creating dealer:', error);
-      toast.error(error.message || 'Failed to create dealer');
+      toast.error(error instanceof Error ? error.message : 'Failed to create dealer');
     } finally {
       setIsProcessingUserAction(false);
     }
