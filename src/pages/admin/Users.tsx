@@ -76,8 +76,10 @@ const AdminUsers = () => {
   const [selectedRole, setSelectedRole] = useState<'super_admin' | 'dealer' | 'customer'>('customer');
   const [newDealerData, setNewDealerData] = useState({
     name: '',
-    email: '',
-    phone: ''
+    email: '', 
+    phone: '',
+    username: '',
+    password: ''
   });
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -291,8 +293,8 @@ const AdminUsers = () => {
   };
 
   const handleCreateDealer = async () => {
-    if (!newDealerData.name || !newDealerData.email) {
-      toast.error('Dealer name and email are required');
+    if (!newDealerData.name || !newDealerData.email || !newDealerData.username || !newDealerData.password) {
+      toast.error('Dealer name, email, username and password are required');
       return;
     }
     
@@ -311,7 +313,9 @@ const AdminUsers = () => {
           body: JSON.stringify({
             name: newDealerData.name,
             email: newDealerData.email,
-            phone: newDealerData.phone
+            phone: newDealerData.phone,
+            username: newDealerData.username,
+            password: newDealerData.password
           })
         }
       );
@@ -327,7 +331,9 @@ const AdminUsers = () => {
       setNewDealerData({
         name: '',
         email: '',
-        phone: ''
+        phone: '',
+        username: '',
+        password: ''
       });
       setShowUserActionModal(null);
       
@@ -1039,6 +1045,32 @@ const AdminUsers = () => {
                     
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Username
+                      </label>
+                      <input
+                        type="text"
+                        value={newDealerData.username}
+                        onChange={(e) => setNewDealerData({...newDealerData, username: e.target.value})}
+                        className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        placeholder="Enter username"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Password
+                      </label>
+                      <input
+                        type="text"
+                        value={newDealerData.password}
+                        onChange={(e) => setNewDealerData({...newDealerData, password: e.target.value})}
+                        className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        placeholder="Enter password"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
                         Phone Number
                       </label>
                       <input
@@ -1052,7 +1084,7 @@ const AdminUsers = () => {
                     
                     <div className="bg-blue-50 p-4 rounded-lg">
                       <p className="text-sm text-blue-700">
-                        A password reset link will be sent to the dealer's email address. They will need to set their password before accessing the system.
+                        The dealer will use the provided username and password to log in.
                       </p>
                     </div>
                   </div>

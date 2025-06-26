@@ -58,10 +58,10 @@ Deno.serve(async (req) => {
     }
 
     // Parse request body
-    const { name, email, phone } = await req.json();
+    const { name, email, phone, username, password } = await req.json();
 
-    if (!name || !email) {
-      throw new Error("Name and email are required");
+    if (!name || !email || !username || !password) {
+      throw new Error("Name, email, username and password are required");
     }
 
     // Generate a unique slug for the dealer
@@ -117,61 +117,20 @@ Deno.serve(async (req) => {
 
     const uniqueSlug = await checkSlugUniqueness(baseSlug);
 
-    // Create a random password for the dealer
-    const generateRandomPassword = (): string => {
-      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*";
-      let password = "";
-      for (let i = 0; i < 12; i++) {
-        password += chars.charAt(Math.floor(Math.random() * chars.length));
-      }
-      return password;
-    };
-
-    const tempPassword = generateRandomPassword();
-
-    // Create the dealer user
-    const { data: newUser, error: createUserError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password: tempPassword,
-      email_confirm: true,
-      app_metadata: { role: "dealer" },
-      user_metadata: { name, phone }
-    });
-
-    if (createUserError) {
-      throw createUserError;
-    }
-
-    if (!newUser.user) {
-      throw new Error("Failed to create dealer user");
-    }
-
-    // Create dealer profile
-    const { error: profileError } = await supabaseAdmin
-      .from("dealer_profiles")
+    // Insert into dealers table
+    const { data: newDealer, error: dealerError } = await supabaseAdmin
+      .from("dealers")
       .insert({
-        id: newUser.user.id,
-        name,
-        email,
-        phone,
-        public_slug: uniqueSlug
-      });
+        dealer_name: name,
+        username,
+        password,
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
 
-    if (profileError) {
-      // If profile creation fails, delete the user to avoid orphaned accounts
-      await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
-      throw profileError;
-    }
-
-    // Send password reset email to allow dealer to set their own password
-    const { error: resetError } = await supabaseAdmin.auth.admin.generateLink({
-      type: "recovery",
-      email,
-    });
-
-    if (resetError) {
-      console.error("Error sending password reset email:", resetError);
-      // Continue anyway, as the dealer account is created successfully
+    if (dealerError) {
+      throw dealerError;
     }
 
     return new Response(
@@ -179,11 +138,11 @@ Deno.serve(async (req) => {
         success: true,
         message: "Dealer created successfully",
         dealer: {
-          id: newUser.user.id,
+          id: newDealer.id,
           name,
           email,
-          phone,
-          public_slug: uniqueSlug
+          username,
+          phone
         }
       }),
       {
