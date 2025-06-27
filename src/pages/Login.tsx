@@ -36,11 +36,13 @@ const Login = () => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
+    console.log('Login form submitted with email:', formData.email);
 
     try {
       const { error: signInError } = await signIn(formData.email, formData.password);
       
       if (signInError) {
+        console.error('Login error details:', signInError);
         throw signInError;
       }
 
@@ -48,6 +50,7 @@ const Login = () => {
       navigate(from, { replace: true });
     } catch (error: any) {
       console.error('Login error:', error);
+      console.log('Error message:', error.message);
       setError(error.message || 'An error occurred while signing in. Please try again.');
     } finally {
       setIsLoading(false);

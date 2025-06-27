@@ -37,6 +37,7 @@ export const useAuth = () => {
   const signIn = async (email: string, password: string) => {
     try {
       const normalizedEmail = email.trim().toLowerCase();
+      console.log('Attempting to sign in with:', normalizedEmail);
       
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
@@ -44,6 +45,7 @@ export const useAuth = () => {
       });
       
       if (signInError) {
+        console.error('Supabase sign in error:', signInError);
         let errorMessage = 'An error occurred while signing in. Please try again.';
         
         if (signInError.message.includes('Invalid login credentials')) {
@@ -60,6 +62,7 @@ export const useAuth = () => {
       return { data, error: null };
     } catch (error: any) {
       console.error('Sign in error:', error);
+      console.log('Error details:', JSON.stringify(error, null, 2));
       return { 
         data: null, 
         error
