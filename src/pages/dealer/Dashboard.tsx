@@ -20,12 +20,14 @@ import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
 import { useUserRole } from '../../hooks/useUserRole';
 import toast from 'react-hot-toast';
+import { Link } from 'react-router-dom';
 
 const DealerDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isDealer } = useUserRole();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [applications, setApplications] = useState([]);
   const [dealerProfile, setDealerProfile] = useState(null);
   const [stats, setStats] = useState({
@@ -50,6 +52,7 @@ const DealerDashboard = () => {
 
   const loadDashboardData = async () => {
     try {
+      setError(null);
       setLoading(true);
       
       // Load dealer profile
@@ -59,7 +62,11 @@ const DealerDashboard = () => {
         .eq('id', user.id)
         .single();
         
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Error loading dealer profile:', profileError);
+        throw new Error('Failed to load dealer profile. Please try again.');
+      }
+      
       setDealerProfile(profileData);
       
       // Load applications assigned to this dealer
@@ -69,7 +76,11 @@ const DealerDashboard = () => {
         .eq('dealer_id', user.id)
         .order('created_at', { ascending: false });
         
-      if (applicationsError) throw applicationsError;
+      if (applicationsError) {
+        console.error('Error loading applications:', applicationsError);
+        throw new Error('Failed to load applications. Please try again.');
+      }
+      
       setApplications(applicationsData || []);
       
       // Calculate stats
@@ -86,8 +97,9 @@ const DealerDashboard = () => {
       });
       
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
-      toast.error('Failed to load dashboard data');
+      console.error('Error in loadDashboardData:', error);
+      setError(error.message || 'Failed to load dashboard data. Please try again.');
+      toast.error(error.message || 'Failed to load dashboard data');
     } finally {
       setLoading(false);
       setIsRefreshing(false);
@@ -143,6 +155,36 @@ const DealerDashboard = () => {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-lg shadow-md text-center max-w-md">
+          <div className="text-red-500 mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Dashboard</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button
+              onClick={() => loadDashboardData()}
+              className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors"
+            >
+              Try Again
+            </button>
+            <Link
+              to="/dashboard"
+              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Go to User Dashboard
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
@@ -235,8 +277,13 @@ const DealerDashboard = () => {
               />
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(`${window.location.origin}/apply/${dealerProfile.public_slug}`);
-                  toast.success('Link copied to clipboard');
+                  try {
+                    navigator.clipboard.writeText(`${window.location.origin}/apply/${dealerProfile.public_slug}`);
+                    toast.success('Link copied to clipboard');
+                  } catch (error) {
+                    console.error('Failed to copy to clipboard:', error);
+                    toast.error('Failed to copy to clipboard');
+                  }
                 }}
                 className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors"
               >
@@ -320,7 +367,7 @@ const DealerDashboard = () => {
                 <p className="mt-1 text-sm text-gray-500">
                   {searchTerm || statusFilter
                     ? "Try adjusting your search filters"
-                    : "Create your first application to get started"}
+                    : "No applications have been assigned to you yet"}
                 </p>
                 <button
                   onClick={() => navigate('/dealer/applications/new')}
