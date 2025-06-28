@@ -15,27 +15,31 @@ import {
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
 import { CSVLink } from 'react-csv';
-import toast from 'react-hot-toast';
+import toast from 'react-hot-toast'; 
 
-interface BulkActionsProps {
+export interface BulkActionsProps {
   selectedApplications: string[];
   onClearSelection: () => void;
   onActionComplete: () => void;
+  dealers: any[];
 }
 
 export const BulkActions: React.FC<BulkActionsProps> = ({ 
   selectedApplications, 
   onClearSelection,
-  onActionComplete
+  onActionComplete,
+  dealers
 }) => {
   const { user } = useAuth();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showNotifyConfirm, setShowNotifyConfirm] = useState(false);
   const [showStatusConfirm, setShowStatusConfirm] = useState(false);
+  const [showAssignDealerConfirm, setShowAssignDealerConfirm] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [notificationTitle, setNotificationTitle] = useState('');
   const [notificationMessage, setNotificationMessage] = useState('');
   const [newStatus, setNewStatus] = useState('');
+  const [selectedDealerForBulk, setSelectedDealerForBulk] = useState<string | null>(null);
   const [exportData, setExportData] = useState<any[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   
@@ -191,6 +195,50 @@ export const BulkActions: React.FC<BulkActionsProps> = ({
     }
   };
 
+  const handleBulkAssignDealer = async (dealerId: string | null) => {
+    if (selectedApplications.length === 0) return;
+    
+    try {
+      setIsProcessing(true);
+      
+      const { error: updateError } = await supabase
+        .from('applications')
+        .update({ 
+          dealer_id: dealerId,
+          updated_at: new Date().toISOString()
+        })
+        .in('id', selectedApplications);
+        
+      if (updateError) throw updateError;
+      
+      // Create activity logs for each assigned application
+      const activityLogs = selectedApplications.map(appId => ({
+        application_id: appId,
+        user_id: user?.id,
+        action: 'bulk_assign_dealer',
+        details: {
+          dealer_id: dealerId,
+          dealer_name: dealers.find(d => d.id === dealerId)?.name || 'Unassigned'
+        },
+        is_admin_action: true
+      }));
+      
+      await supabase
+        .from('activity_log')
+        .insert(activityLogs);
+      
+      toast.success(`${selectedApplications.length} application(s) assigned successfully`);
+      onClearSelection();
+      onActionComplete();
+      setShowAssignDealerConfirm(false);
+    } catch (error) {
+      console.error('Error assigning dealers:', error);
+      toast.error('Failed to assign dealers');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleExport = async () => {
     if (selectedApplications.length === 0) return;
     
@@ -284,6 +332,14 @@ export const BulkActions: React.FC<BulkActionsProps> = ({
           >
             <FileText className="h-4 w-4" />
             <span className="hidden sm:inline">Update Status</span>
+          </button>
+          
+          <button
+            onClick={() => setShowAssignDealerConfirm(true)}
+            className="px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors flex items-center gap-1"
+          >
+            <FileText className="h-4 w-4" />
+            <span className="hidden sm:inline">Assign Dealer</span>
           </button>
           
           <button
@@ -469,6 +525,87 @@ export const BulkActions: React.FC<BulkActionsProps> = ({
                     <Save className="h-4 w-4" />
                   )}
                   Update
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Assign Dealer Modal */}
+      <AnimatePresence>
+        {showAssignDealerConfirm && (
+          <div className="fixed inset-0 z-50">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black bg-opacity-50"
+              onClick={() => setShowAssignDealerConfirm(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: "100%" }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 500 }}
+              className="absolute bottom-0 left-0 right-0 bg-white rounded-t-lg p-6 max-w-md mx-auto"
+              style={{ maxHeight: "80vh", overflow: "auto" }}
+            >
+              <button
+                onClick={() => setShowAssignDealerConfirm(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-500 p-1"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              
+              <div className="flex items-center gap-3 text-[#3BAA75] mb-4">
+                <Users className="h-6 w-6" />
+                <h3 className="text-lg font-semibold">Assign Dealer</h3>
+              </div>
+              
+              <p className="text-gray-700 mb-4">
+                Assign {selectedApplications.length} selected application(s) to a dealer.
+              </p>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Select Dealer
+                </label>
+                <select
+                  value={selectedDealerForBulk || ''}
+                  onChange={(e) => setSelectedDealerForBulk(e.target.value || null)}
+                  className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                >
+                  <option value="">Unassigned</option>
+                  {dealers.map(dealer => (
+                    <option key={dealer.id} value={dealer.id}>{dealer.name}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowAssignDealerConfirm(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                
+                <button
+                  onClick={async () => {
+                    await handleBulkAssignDealer(selectedDealerForBulk);
+                    setShowAssignDealerConfirm(false);
+                    setSelectedDealerForBulk(null);
+                  }}
+                  disabled={isProcessing}
+                  className="px-4 py-2 text-white bg-[#3BAA75] rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isProcessing ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Users className="h-4 w-4" />
+                  )}
+                  Assign
                 </button>
               </div>
             </motion.div>

@@ -23,12 +23,13 @@ import {
   Plus,
   RefreshCw,
   Trash2,
-  Edit2
+  Edit2,
+  Users
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Application } from '../../types/database';
 import toast from 'react-hot-toast';
-import { BulkActions } from '../../components/admin/BulkActions';
+import { BulkActions, BulkActionsProps } from '../../components/admin/BulkActions';
 import { toStartCase } from '../../utils/formatters';
 
 const AdminApplications = () => {
@@ -48,6 +49,10 @@ const AdminApplications = () => {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [dealers, setDealers] = useState<any[]>([]);
+  const [showAssignDealerModal, setShowAssignDealerModal] = useState(false);
+  const [applicationToAssignDealer, setApplicationToAssignDealer] = useState<Application | null>(null);
+  const [selectedDealerId, setSelectedDealerId] = useState<string | null>(null);
   const navigate = useNavigate();
   const [newApplication, setNewApplication] = useState({
     first_name: '',
@@ -85,6 +90,7 @@ const AdminApplications = () => {
 
   useEffect(() => {
     loadApplications(true);
+    loadDealers();
   }, [statusFilter, employmentFilter]);
 
   useEffect(() => {
@@ -92,6 +98,24 @@ const AdminApplications = () => {
       loadMoreApplications();
     }
   }, [page]);
+
+  const loadDealers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('dealer_profiles')
+        .select('id, name');
+        
+      if (error) {
+        console.error('Error fetching dealers:', error);
+        toast.error('Failed to load dealers');
+      } else {
+        setDealers(data || []);
+      }
+    } catch (error) {
+      console.error('Error loading dealers:', error);
+      toast.error('Failed to load dealers');
+    }
+  };
 
   useEffect(() => {
     // Set up real-time subscription for applications
@@ -160,7 +184,8 @@ const AdminApplications = () => {
         .select(`
           *,
           documents (count),
-          application_stages (count)
+          application_stages (count),
+          dealer:dealer_id(name)
         `)
         .range(0, ITEMS_PER_PAGE - 1)
         .order('created_at', { ascending: false });
@@ -194,7 +219,8 @@ const AdminApplications = () => {
         .select(`
           *,
           documents (count),
-          application_stages (count)
+          application_stages (count),
+          dealer:dealer_id(name)
         `)
         .range(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE - 1)
         .order('created_at', { ascending: false });
@@ -273,6 +299,33 @@ const AdminApplications = () => {
     } catch (error) {
       console.error('Error performing bulk action:', error);
       toast.error('Failed to perform bulk action');
+    }
+  };
+
+  const handleAssignDealer = async (appId: string, dealerId: string | null) => {
+    try {
+      const { error } = await supabase
+        .from('applications')
+        .update({ dealer_id: dealerId })
+        .eq('id', appId);
+
+      if (error) throw error;
+
+      // Log activity
+      await supabase.from('activity_log').insert({
+        application_id: appId,
+        user_id: user?.id,
+        action: 'assign_dealer',
+        details: { dealer_id: dealerId, dealer_name: dealers.find(d => d.id === dealerId)?.name || 'Unassigned' },
+        is_admin_action: true,
+        is_visible_to_user: false
+      });
+
+      toast.success('Dealer assigned successfully');
+      loadApplications(true); // Refresh applications
+    } catch (error) {
+      console.error('Error assigning dealer:', error);
+      toast.error('Failed to assign dealer');
     }
   };
 
@@ -643,6 +696,11 @@ const AdminApplications = () => {
                         <span className="text-xs text-gray-500">
                           Stage {application.current_stage}/7
                         </span>
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          application.dealer?.name ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-700'
+                        }`}>
+                          {application.dealer?.name || 'Unassigned'}
+                        </span>
                       </div>
 
                       {showActionMenu === application.id && (
@@ -678,6 +736,19 @@ const AdminApplications = () => {
                               <Trash2 className="h-4 w-4 mr-2" />
                               Delete Application
                             </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setApplicationToAssignDealer(application);
+                                setSelectedDealerId(application.dealer_id || null); // Pre-select current dealer if any
+                                setShowAssignDealerModal(true);
+                                setShowActionMenu(null);
+                              }}
+                              className="w-full px-4 py-3 text-left text-sm text-blue-600 hover:bg-gray-100 flex items-center"
+                            >
+                              <Users className="h-4 w-4 mr-2" />
+                              Assign Dealer
+                            </button>
                           </div>
                         </div>
                       )}
@@ -706,11 +777,14 @@ const AdminApplications = () => {
       </div>
 
       {/* Bulk Actions */}
-      <BulkActions 
-        selectedApplications={selectedApplications}
-        onClearSelection={() => setSelectedApplications([])}
-        onActionComplete={() => loadApplications(true)}
-      />
+      {showBulkActions && (
+        <BulkActions 
+          selectedApplications={selectedApplications}
+          onClearSelection={() => setSelectedApplications([])}
+          dealers={dealers}
+          onActionComplete={() => loadApplications(true)}
+        />
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
@@ -1105,6 +1179,44 @@ const AdminApplications = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Dealer Modal */}
+      {showAssignDealerModal && applicationToAssignDealer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Assign Dealer to {toStartCase(applicationToAssignDealer.first_name)} {toStartCase(applicationToAssignDealer.last_name)}</h3>
+              <button onClick={() => setShowAssignDealerModal(false)} className="text-gray-400 hover:text-gray-500"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="mb-4">
+              <label htmlFor="dealer-select" className="block text-sm font-medium text-gray-700 mb-1">Select Dealer</label>
+              <select
+                id="dealer-select"
+                value={selectedDealerId || ''}
+                onChange={(e) => setSelectedDealerId(e.target.value || null)}
+                className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+              >
+                <option value="">Unassigned</option>
+                {dealers.map(dealer => (
+                  <option key={dealer.id} value={dealer.id}>{dealer.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setShowAssignDealerModal(false)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
+              <button
+                onClick={async () => {
+                  await handleAssignDealer(applicationToAssignDealer.id, selectedDealerId);
+                  setShowAssignDealerModal(false);
+                }}
+                className="px-4 py-2 text-white bg-[#3BAA75] rounded-lg hover:bg-[#2D8259] transition-colors"
+              >
+                Assign
+              </button>
+            </div>
           </div>
         </div>
       )}
