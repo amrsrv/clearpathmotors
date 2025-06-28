@@ -1017,7 +1017,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       Terms and Conditions
                     </label>
                     <p className="text-gray-500">
-                      I agree to the <a href="/terms" className="text-[#3BAA75] hover:underline" target="_blank">Terms of Service</a> and <a href="/privacy" className="text-[#3BAA75] hover:underline" target="_blank">Privacy Policy</a>.
+                      I agree to the <a href="/terms" className="text-[#3BAA75] hover:underline" target="_blank">Terms of Service</a> and <a href="/privacy" className=\"text-[#3BAA75] hover:underline" target=\"_blank">Privacy Policy</a>.
                     </p>
                   </div>
                 </div>
