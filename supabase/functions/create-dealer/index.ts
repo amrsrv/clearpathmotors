@@ -67,10 +67,10 @@ Deno.serve(async (req) => {
 
     // Parse request body
     const requestBody = await req.json();
-    const { name, email, phone, username, password } = requestBody;
+    const { name, email, phone, password } = requestBody;
 
-    if (!name || !email || !username || !password) {
-      throw new Error("Name, email, username and password are required");
+    if (!name || !email || !password) {
+      throw new Error("Name, email, and password are required");
     }
 
     // Generate a unique slug for the dealer
@@ -136,7 +136,6 @@ Deno.serve(async (req) => {
       email_confirm: true,
       user_metadata: {
         name,
-        username,
         phone
       },
       app_metadata: {
@@ -184,7 +183,6 @@ Deno.serve(async (req) => {
           id: newUser.user.id,
           name,
           email,
-          username,
           phone,
           slug: uniqueSlug
         }

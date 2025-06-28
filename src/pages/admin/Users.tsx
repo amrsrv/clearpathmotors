@@ -78,7 +78,6 @@ const AdminUsers = () => {
     name: '',
     email: '', 
     phone: '',
-    username: '',
     password: ''
   });
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
@@ -293,8 +292,8 @@ const AdminUsers = () => {
   };
 
   const handleCreateDealer = async () => {
-    if (!newDealerData.name || !newDealerData.email || !newDealerData.username || !newDealerData.password) {
-      toast.error('Dealer name, email, username and password are required');
+    if (!newDealerData.name || !newDealerData.email || !newDealerData.password) {
+      toast.error('Dealer name, email, and password are required');
       return;
     }
     
@@ -321,7 +320,6 @@ const AdminUsers = () => {
             name: newDealerData.name,
             email: newDealerData.email,
             phone: newDealerData.phone,
-            username: newDealerData.username,
             password: newDealerData.password
           })
         }
@@ -344,7 +342,6 @@ const AdminUsers = () => {
         name: '',
         email: '',
         phone: '',
-        username: '',
         password: ''
       });
       setShowUserActionModal(null);
@@ -1057,19 +1054,6 @@ const AdminUsers = () => {
                     
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Username
-                      </label>
-                      <input
-                        type="text"
-                        value={newDealerData.username}
-                        onChange={(e) => setNewDealerData({...newDealerData, username: e.target.value})}
-                        className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                        placeholder="Enter username"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
                         Password
                       </label>
                       <input
@@ -1096,7 +1080,7 @@ const AdminUsers = () => {
                     
                     <div className="bg-blue-50 p-4 rounded-lg">
                       <p className="text-sm text-blue-700">
-                        The dealer will use the provided username and password to log in.
+                        The dealer will use the provided email and password to log in.
                       </p>
                     </div>
                   </div>
