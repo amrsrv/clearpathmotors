@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, ArrowRight, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { GoogleSignInButton } from '../components/GoogleSignInButton';
+import { supabase } from '../lib/supabaseClient';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -54,26 +55,7 @@ const Login = () => {
         throw signInError;
       }
 
-      // Get the current user to check their role
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (user) {
-        // Redirect based on user role
-        const role = user.app_metadata?.role;
-        let redirectPath = location.state?.from?.pathname || '/dashboard';
-        
-        // Override redirect if user has a specific role
-        if (role === 'super_admin') {
-          redirectPath = '/admin';
-        } else if (role === 'dealer') {
-          redirectPath = '/dealer';
-        }
-        
-        navigate(redirectPath, { replace: true });
-      } else {
-        // Fallback to dashboard if no user data
-        navigate('/dashboard', { replace: true });
-      }
+      // Navigation will be handled by the useEffect hook when user state updates
     } catch (error: any) {
       console.error('Login error:', error);
       console.log('Error message:', error.message);
