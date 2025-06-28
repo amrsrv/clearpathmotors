@@ -49,6 +49,20 @@ const AdminApplications = () => {
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [employmentFilter, setEmploymentFilter] = useState('all');
   const [creditScoreRange, setCreditScoreRange] = useState({ min: '', max: '' });
+  const [dealers, setDealers] = useState<any[]>([]);
+
+  const fetchDealers = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('dealer_profiles')
+        .select('id, name, email');
+      
+      if (error) throw error;
+      setDealers(data || []);
+    } catch (error) {
+      console.error('Error fetching dealers:', error);
+    }
+  }, []);
 
   const fetchApplications = useCallback(async () => {
     setLoading(true);
@@ -108,7 +122,8 @@ const AdminApplications = () => {
 
   useEffect(() => {
     fetchApplications();
-  }, [fetchApplications]);
+    fetchDealers();
+  }, [fetchApplications, fetchDealers]);
 
   const handleSelectApplication = (applicationId: string) => {
     setSelectedApplications(prev => 
@@ -124,6 +139,14 @@ const AdminApplications = () => {
     } else {
       setSelectedApplications(applications.map(app => app.id));
     }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedApplications([]);
+  };
+
+  const handleActionComplete = () => {
+    fetchApplications();
   };
 
   const handleBulkAction = async (action: string, data?: any) => {
@@ -309,9 +332,10 @@ const AdminApplications = () => {
       {/* Bulk Actions */}
       {selectedApplications.length > 0 && (
         <BulkActions
-          selectedCount={selectedApplications.length}
-          onAction={handleBulkAction}
-          onClear={() => setSelectedApplications([])}
+          selectedApplications={selectedApplications}
+          onClearSelection={handleClearSelection}
+          onActionComplete={handleActionComplete}
+          dealers={dealers}
         />
       )}
 
