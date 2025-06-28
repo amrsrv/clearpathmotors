@@ -185,7 +185,7 @@ const AdminApplications = () => {
           *,
           documents (count),
           application_stages (count),
-          users!dealer_id(
+          users(
             dealer_profiles(name)
           )
         `)
@@ -701,9 +701,9 @@ const AdminApplications = () => {
                           Stage {application.current_stage}/7
                         </span>
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          application.users?.dealer_profiles?.name ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-700'
+                          application.dealer_id ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-700'
                         }`}>
-                          {application.users?.dealer_profiles?.name || 'Unassigned'}
+                          {application.dealer_id ? (application.users?.dealer_profiles?.name || 'Dealer') : 'Internal'}
                         </span>
                       </div>
 
