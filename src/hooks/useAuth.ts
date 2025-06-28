@@ -150,6 +150,24 @@ export const useAuth = () => {
       setUser(null);
     } catch (error: any) {
       console.error('Sign out error:', error);
+      
+      // Check if the error is due to a missing or invalid session
+      const errorMessage = error.message || '';
+      const isSessionError = 
+        errorMessage.includes('Auth session missing') ||
+        errorMessage.includes('Session from session_id claim in JWT does not exist') ||
+        errorMessage.includes('session_not_found') ||
+        errorMessage.includes('Invalid session') ||
+        error.status === 403;
+
+      if (isSessionError) {
+        // If the session doesn't exist on the server, clear local state and succeed
+        console.log('Session not found on server, clearing local state');
+        setUser(null);
+        return; // Don't throw error, treat as successful sign out
+      }
+      
+      // For other errors, still throw
       throw new Error('Error signing out. Please try again.');
     }
   };
