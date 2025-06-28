@@ -393,7 +393,7 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
-  const  = async (userId: string) => {
+  const loadUserProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
         .from('user_profiles')
