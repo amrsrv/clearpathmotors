@@ -344,13 +344,10 @@ const Dashboard: React.FC<DashboardProps> = ({
     try {
       if (!user) return;
 
-      // Load all applications for this user
+      // Load all applications for this user (removed dealer_profiles join)
       const { data: applicationData, error: applicationError } = await supabase
         .from('applications')
-        .select(`
-          *,
-          dealer_profiles!dealer_id(name)
-        `)
+        .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
