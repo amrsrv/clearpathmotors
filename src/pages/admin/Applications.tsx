@@ -185,9 +185,7 @@ const AdminApplications = () => {
           *,
           documents (count),
           application_stages (count),
-          users(
-            dealer_profiles(name)
-          )
+          dealer_profiles!dealer_id(name)
         `)
         .range(0, ITEMS_PER_PAGE - 1)
         .order('created_at', { ascending: false });
@@ -222,9 +220,7 @@ const AdminApplications = () => {
           *,
           documents (count),
           application_stages (count),
-          users!dealer_id(
-            dealer_profiles(name)
-          )
+          dealer_profiles!dealer_id(name)
         `)
         .range(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE - 1)
         .order('created_at', { ascending: false });
@@ -703,7 +699,7 @@ const AdminApplications = () => {
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                           application.dealer_id ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-700'
                         }`}>
-                          {application.dealer_id ? (application.users?.dealer_profiles?.name || 'Dealer') : 'Internal'}
+                          {application.dealer_id ? (application.dealer_profiles?.name || 'Dealer') : 'Internal'}
                         </span>
                       </div>
 
