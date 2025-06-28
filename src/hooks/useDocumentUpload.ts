@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import type { Document } from '../types/database';
-import { makeClient } from '../lib/makeClient';
 import toast from 'react-hot-toast';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -97,22 +96,6 @@ export const useDocumentUpload = (applicationId: string) => {
         }
         
         throw documentError;
-      }
-
-      // Send document upload data to webhook
-      try {
-        await makeClient.uploadDocument({
-          documentId: document.id,
-          applicationId,
-          userId: user.id,
-          category,
-          filename: filename,
-          timestamp: new Date().toISOString(),
-          fileUrl: url
-        });
-      } catch (webhookError) {
-        console.error('Error sending document upload to webhook:', webhookError);
-        // Continue even if webhook fails - don't block the user
       }
 
       return document;

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Mail, Phone, MapPin, Send, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { ScrollReveal } from '../components/ScrollReveal';
-import { makeClient } from '../lib/makeClient';
+import { supabase } from '../lib/supabaseClient';
 
 const Contact = () => {
   const [formData, setFormData] = useState({
@@ -12,8 +12,7 @@ const Contact = () => {
     subject: 'General Inquiry',
     message: '',
     preferredContact: 'email',
-    bestTime: 'morning',
-    formName: 'contact_form'
+    bestTime: 'morning'
   });
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -38,7 +37,23 @@ const Contact = () => {
       setIsSubmitting(true);
       setError('');
       
-      await makeClient.submitContactForm(formData);
+      // Store contact form submission in Supabase
+      const { error: submissionError } = await supabase
+        .from('contact_submissions')
+        .insert({
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+          subject: formData.subject,
+          message: formData.message,
+          preferred_contact: formData.preferredContact,
+          best_time: formData.bestTime
+        });
+        
+      if (submissionError) {
+        console.error('Error submitting contact form:', submissionError);
+        throw new Error('Failed to submit your message. Please try again.');
+      }
       
       setSubmitted(true);
       setFormData({
@@ -48,8 +63,7 @@ const Contact = () => {
         subject: 'General Inquiry',
         message: '',
         preferredContact: 'email',
-        bestTime: 'morning',
-        formName: 'contact_form'
+        bestTime: 'morning'
       });
     } catch (error) {
       console.error('Error submitting form:', error);
