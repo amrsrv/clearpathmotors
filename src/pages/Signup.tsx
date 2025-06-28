@@ -49,9 +49,18 @@ const Signup = () => {
       return 'Invalid phone number';
     }
     if (!formData.employmentStatus) return 'Employment status is required';
-    if (!formData.annualIncome) return 'Annual income is required';
-    if (!formData.creditScore) return 'Credit score is required';
-    if (!formData.desiredMonthlyPayment) return 'Desired monthly payment is required';
+    if (!formData.annualIncome || formData.annualIncome.trim() === '') return 'Annual income is required';
+    if (isNaN(parseFloat(formData.annualIncome)) || parseFloat(formData.annualIncome) <= 0) {
+      return 'Annual income must be a valid positive number';
+    }
+    if (!formData.creditScore || formData.creditScore.trim() === '') return 'Credit score is required';
+    if (isNaN(parseInt(formData.creditScore)) || parseInt(formData.creditScore) < 300 || parseInt(formData.creditScore) > 900) {
+      return 'Credit score must be a valid number between 300 and 900';
+    }
+    if (!formData.desiredMonthlyPayment || formData.desiredMonthlyPayment.trim() === '') return 'Desired monthly payment is required';
+    if (isNaN(parseFloat(formData.desiredMonthlyPayment)) || parseFloat(formData.desiredMonthlyPayment) <= 0) {
+      return 'Desired monthly payment must be a valid positive number';
+    }
     if (!formData.password) return 'Password is required';
     if (formData.password.length < 8) {
       return 'Password must be at least 8 characters long';
@@ -68,6 +77,14 @@ const Signup = () => {
     setLoading(true);
 
     try {
+      // Validate form first
+      const validationError = validateForm();
+      if (validationError) {
+        setError(validationError);
+        setLoading(false);
+        return;
+      }
+
       // Sign up with Supabase Auth
       const { data, error: signUpError } = await signUp(formData.email, formData.password);
       
@@ -83,6 +100,11 @@ const Signup = () => {
       }
 
       if (data?.user) {
+        // Parse numeric values safely
+        const annualIncomeValue = parseFloat(formData.annualIncome);
+        const creditScoreValue = parseInt(formData.creditScore);
+        const desiredMonthlyPaymentValue = parseFloat(formData.desiredMonthlyPayment);
+
         // If we have an applicationId and tempUserId, update the application
         if (applicationId && tempUserId) {
           const { error: updateError } = await supabase
@@ -106,9 +128,9 @@ const Signup = () => {
               email: formData.email,
               phone: formData.phone,
               employment_status: formData.employmentStatus,
-              annual_income: parseFloat(formData.annualIncome),
-              credit_score: formData.creditScore,
-              desired_monthly_payment: parseFloat(formData.desiredMonthlyPayment),
+              annual_income: annualIncomeValue,
+              credit_score: creditScoreValue,
+              desired_monthly_payment: desiredMonthlyPaymentValue,
               status: 'submitted',
               current_stage: 1
             });
@@ -276,6 +298,97 @@ const Signup = () => {
                     value={formData.phone}
                     onChange={handleChange}
                     className="pl-10 block w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Employment Status
+                </label>
+                <div className="mt-1 relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Briefcase className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <select
+                    name="employmentStatus"
+                    value={formData.employmentStatus}
+                    onChange={handleChange}
+                    className="pl-10 block w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                    required
+                  >
+                    <option value="">Select employment status</option>
+                    <option value="employed">Employed</option>
+                    <option value="self_employed">Self-employed</option>
+                    <option value="unemployed">Unemployed</option>
+                    <option value="student">Student</option>
+                    <option value="retired">Retired</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Annual Income
+                </label>
+                <div className="mt-1 relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <DollarSign className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="number"
+                    name="annualIncome"
+                    value={formData.annualIncome}
+                    onChange={handleChange}
+                    className="pl-10 block w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                    placeholder="50000"
+                    min="0"
+                    step="1000"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Credit Score
+                </label>
+                <div className="mt-1 relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <CreditCard className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="number"
+                    name="creditScore"
+                    value={formData.creditScore}
+                    onChange={handleChange}
+                    className="pl-10 block w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                    placeholder="650"
+                    min="300"
+                    max="900"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Desired Monthly Payment
+                </label>
+                <div className="mt-1 relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Calculator className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="number"
+                    name="desiredMonthlyPayment"
+                    value={formData.desiredMonthlyPayment}
+                    onChange={handleChange}
+                    className="pl-10 block w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                    placeholder="400"
+                    min="0"
+                    step="50"
                     required
                   />
                 </div>

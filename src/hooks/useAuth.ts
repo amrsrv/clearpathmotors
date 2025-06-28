@@ -16,6 +16,19 @@ export const useAuth = () => {
       
       if (error) {
         console.error('useAuth: Error refreshing user:', error);
+        
+        // If the error is due to missing or invalid session, clear the session
+        if (error.message?.includes('Auth session missing') || 
+            error.message?.includes('session_not_found') ||
+            error.message?.includes('Invalid session')) {
+          console.log('useAuth: Clearing invalid session due to auth error');
+          try {
+            await supabase.auth.signOut();
+          } catch (signOutError) {
+            console.error('useAuth: Error signing out during session cleanup:', signOutError);
+          }
+        }
+        
         setUser(null);
         return null;
       }
@@ -46,6 +59,19 @@ export const useAuth = () => {
         
         if (error) {
           console.error('useAuth: Error getting session:', error);
+          
+          // If the error is due to missing or invalid session, clear any stale data
+          if (error.message?.includes('Auth session missing') || 
+              error.message?.includes('session_not_found') ||
+              error.message?.includes('Invalid session')) {
+            console.log('useAuth: Clearing invalid session during initialization');
+            try {
+              await supabase.auth.signOut();
+            } catch (signOutError) {
+              console.error('useAuth: Error signing out during initialization cleanup:', signOutError);
+            }
+          }
+          
           setUser(null);
           setSession(null);
           setLoading(false);
