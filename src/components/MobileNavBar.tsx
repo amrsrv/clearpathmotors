@@ -31,6 +31,9 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({ onNavigate, activeSe
           </button>
         </Link>
       </nav>
+    )
+    )
+    }
     </div>
   );
 };
