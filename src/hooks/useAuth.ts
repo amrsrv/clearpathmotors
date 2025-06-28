@@ -24,9 +24,22 @@ export const useAuth = () => {
 
     getInitialSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
+      
+      // If user just signed in, check if they have a role
+      if (session?.user && !session.user.app_metadata?.role) {
+        try {
+          // Set default role to customer if none exists
+          await supabase.auth.updateUser({
+            data: { role: 'customer' }
+          });
+          console.log('Default role set to customer');
+        } catch (error) {
+          console.error('Error setting default role:', error);
+        }
+      }
     });
 
     return () => {

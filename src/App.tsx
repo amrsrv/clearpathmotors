@@ -190,7 +190,7 @@ const App = () => {
             <Route
               path="/dealer"
               element={
-                <ProtectedRoute allowedRoles={['dealer']}>
+                <ProtectedRoute allowedRoles={['dealer', 'super_admin']}>
                   <DealerDashboard />
                 </ProtectedRoute>
               }
@@ -198,7 +198,7 @@ const App = () => {
             <Route
               path="/dealer/applications/:id"
               element={
-                <ProtectedRoute allowedRoles={['dealer']}>
+                <ProtectedRoute allowedRoles={['dealer', 'super_admin']}>
                   <ApplicationView />
                 </ProtectedRoute>
               }
@@ -206,7 +206,7 @@ const App = () => {
             <Route
               path="/dealer/applications/new"
               element={
-                <ProtectedRoute allowedRoles={['dealer']}>
+                <ProtectedRoute allowedRoles={['dealer', 'super_admin']}>
                   <div>New Application Form</div>
                 </ProtectedRoute>
               }

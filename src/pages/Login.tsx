@@ -20,7 +20,15 @@ const Login = () => {
 
   useEffect(() => {
     if (user && !loading) {
-      navigate('/dashboard');
+      // Redirect based on user role
+      const role = user.app_metadata?.role;
+      if (role === 'super_admin') {
+        navigate('/admin');
+      } else if (role === 'dealer') {
+        navigate('/dealer');
+      } else {
+        navigate('/dashboard');
+      }
     }
   }, [user, loading, navigate]);
 
@@ -46,8 +54,26 @@ const Login = () => {
         throw signInError;
       }
 
-      const from = location.state?.from?.pathname || '/dashboard';
-      navigate(from, { replace: true });
+      // Get the current user to check their role
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        // Redirect based on user role
+        const role = user.app_metadata?.role;
+        let redirectPath = location.state?.from?.pathname || '/dashboard';
+        
+        // Override redirect if user has a specific role
+        if (role === 'super_admin') {
+          redirectPath = '/admin';
+        } else if (role === 'dealer') {
+          redirectPath = '/dealer';
+        }
+        
+        navigate(redirectPath, { replace: true });
+      } else {
+        // Fallback to dashboard if no user data
+        navigate('/dashboard', { replace: true });
+      }
     } catch (error: any) {
       console.error('Login error:', error);
       console.log('Error message:', error.message);
