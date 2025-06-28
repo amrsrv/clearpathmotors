@@ -51,6 +51,11 @@ export type GovernmentBenefitTypeEnum =
   | 'child_tax_benefit'
   | 'other';
 
+export type VehicleSelectionStatusEnum =
+  | 'pending'
+  | 'confirmed'
+  | 'invoiced';
+
 export interface Application {
   id: string;
   user_id: string | null;
@@ -221,4 +226,33 @@ export interface ActivityLog {
   application_last_name?: string;
   application_email?: string;
   user_email?: string;
+}
+
+export interface VehicleSelection {
+  id: string;
+  application_id: string;
+  make: string | null;
+  model: string | null;
+  year: number | null;
+  trim: string | null;
+  vin: string | null;
+  mileage: number | null;
+  vehicle_price: number | null;
+  admin_fee: number | null;
+  hst: number | null;
+  rebate: number | null;
+  warranty_cost: number | null;
+  delivery_fee: number | null;
+  licensing_fee: number | null;
+  down_payment: number | null;
+  term_length: number | null;
+  interest_rate: number | null;
+  monthly_payment: number | null;
+  balloon_payment: number | null;
+  final_total: number | null;
+  status: VehicleSelectionStatusEnum;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+  updated_by: string | null;
 }
