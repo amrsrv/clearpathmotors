@@ -10,6 +10,10 @@ console.log('Environment variables check:', {
   supabaseAnonKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY
 });
 
+if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
+  console.error('CRITICAL: Missing required Supabase environment variables!');
+}
+
 const root = document.getElementById('root');
 if (!root) throw new Error('Root element not found');
 

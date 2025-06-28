@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Lock, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
@@ -9,7 +9,7 @@ import { GoogleSignInButton } from '../components/GoogleSignInButton';
 const CreateAccount = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signUp } = useAuth();
+  const { user, signUp } = useAuth();
   const { applicationId, tempUserId, formData } = location.state || {};
   
   const [password, setPassword] = useState('');
@@ -19,9 +19,30 @@ const CreateAccount = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  // Redirect if already logged in
+  useEffect(() => {
+    console.log('CreateAccount: Component mounted, user =', user ? {
+      id: user.id,
+      email: user.email
+    } : 'null');
+    
+    if (user) {
+      console.log('CreateAccount: User already logged in, redirecting to dashboard');
+      navigate('/dashboard');
+      return;
+    }
+  }, [user, navigate]);
+
   // Redirect if no application data
   useEffect(() => {
+    console.log('CreateAccount: Checking for required application data', {
+      hasApplicationId: !!applicationId,
+      hasTempUserId: !!tempUserId,
+      hasFormData: !!formData
+    });
+    
     if (!applicationId || !tempUserId || !formData) {
+      console.log('CreateAccount: Missing required application data, redirecting to get-prequalified');
       navigate('/get-prequalified');
     }
   }, [applicationId, tempUserId, formData, navigate]);
@@ -33,6 +54,8 @@ const CreateAccount = () => {
     setLoading(true);
 
     try {
+      console.log('CreateAccount: Form submitted, validating passwords');
+      
       // Validate passwords
       if (password.length < 8) {
         setError('Password must be at least 8 characters long');
@@ -46,11 +69,16 @@ const CreateAccount = () => {
         return;
       }
 
+      console.log('CreateAccount: Attempting to sign up with email:', formData.email);
+      
       // Sign up with Supabase Auth
       const { data, error: signUpError } = await signUp(formData.email, password);
       
       if (signUpError) {
-        if (signUpError.message === 'User already registered' || 
+        console.error('CreateAccount: Sign up error:', signUpError);
+        
+        if (signUpError.message === 'EMAIL_EXISTS' || 
+            signUpError.message.includes('User already registered') || 
             signUpError.message.includes('user_already_exists') ||
             signUpError.status === 400) {
           setEmailExists(true);
@@ -62,6 +90,8 @@ const CreateAccount = () => {
       }
 
       if (data?.user) {
+        console.log('CreateAccount: Sign up successful, updating application with user_id:', data.user.id);
+        
         // Update the application with the new user_id
         const { error: updateError } = await supabase
           .from('applications')
@@ -72,16 +102,22 @@ const CreateAccount = () => {
           .eq('id', applicationId)
           .eq('temp_user_id', tempUserId);
 
-        if (updateError) throw updateError;
+        if (updateError) {
+          console.error('CreateAccount: Error updating application:', updateError);
+          throw updateError;
+        }
 
+        console.log('CreateAccount: Application updated successfully');
         setSuccess(true);
+        
         setTimeout(() => {
           // Redirect to dashboard instead of login
+          console.log('CreateAccount: Redirecting to dashboard');
           navigate('/dashboard');
         }, 3000);
       }
     } catch (error: any) {
-      console.error('Error creating account:', error);
+      console.error('CreateAccount: Error creating account:', error);
       setError(error.message || 'An error occurred while creating your account');
     } finally {
       setLoading(false);

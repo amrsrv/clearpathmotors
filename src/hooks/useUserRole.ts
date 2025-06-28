@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './useAuth';
 import { supabase } from '../lib/supabaseClient';
 import toast from 'react-hot-toast';
@@ -6,13 +6,14 @@ import toast from 'react-hot-toast';
 export type UserRole = 'super_admin' | 'dealer' | 'customer' | null;
 
 export const useUserRole = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, refreshUser } = useAuth();
   const [role, setRole] = useState<UserRole>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Function to update user role via Edge Function
   const updateUserRole = async (userId: string, newRole: UserRole) => {
     try {
+      console.log('useUserRole: updating role for user', userId, 'to', newRole);
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
@@ -39,23 +40,25 @@ export const useUserRole = () => {
         throw new Error(errorData.error || 'Failed to update user role');
       }
       
+      console.log('useUserRole: role updated successfully');
       return await response.json();
     } catch (error) {
-      console.error('Error updating user role:', error);
+      console.error('useUserRole: Error updating user role:', error);
       throw error;
     }
   };
 
   // Function to ensure user has a valid role
-  const ensureUserRole = async (user: any) => {
-    if (!user) return;
+  const ensureUserRole = useCallback(async (currentUser: any) => {
+    if (!currentUser) return;
     
     try {
+      console.log('useUserRole: ensuring user has valid role');
       // Check if user has a valid role
-      const userRole = user.app_metadata?.role as UserRole;
+      const userRole = currentUser.app_metadata?.role as UserRole;
       
       if (!userRole || !['super_admin', 'dealer', 'customer'].includes(userRole)) {
-        console.log('User has no valid role, setting default role: customer');
+        console.log('useUserRole: User has no valid role, setting default role: customer');
         
         // First try to update role using client-side method
         try {
@@ -69,36 +72,50 @@ export const useUserRole = () => {
           const { data: { session } } = await supabase.auth.getSession();
           if (!session) throw new Error('Session refresh failed');
           
-          setRole('customer');
+          // Refresh user data
+          const updatedUser = await refreshUser();
+          if (updatedUser?.app_metadata?.role) {
+            setRole(updatedUser.app_metadata.role as UserRole);
+          } else {
+            setRole('customer'); // Default fallback
+          }
         } catch (clientError) {
-          console.error('Client-side role update failed, trying Edge Function:', clientError);
+          console.error('useUserRole: Client-side role update failed, trying Edge Function:', clientError);
           
           // If client-side update fails, try using the Edge Function
-          await updateUserRole(user.id, 'customer');
+          await updateUserRole(currentUser.id, 'customer');
           
           // Refresh session to get updated metadata
           await supabase.auth.refreshSession();
-          const { data: { user: refreshedUser } } = await supabase.auth.getUser();
+          const updatedUser = await refreshUser();
           
-          if (refreshedUser?.app_metadata?.role) {
-            setRole(refreshedUser.app_metadata.role as UserRole);
+          if (updatedUser?.app_metadata?.role) {
+            setRole(updatedUser.app_metadata.role as UserRole);
           } else {
             setRole('customer'); // Default fallback
           }
         }
       } else {
+        console.log('useUserRole: User has valid role:', userRole);
         setRole(userRole);
       }
     } catch (error) {
-      console.error('Error ensuring user role:', error);
+      console.error('useUserRole: Error ensuring user role:', error);
       toast.error('Error setting user role. Some features may be limited.');
       setRole('customer'); // Default fallback
     }
-  };
+  }, [refreshUser]);
 
   useEffect(() => {
+    console.log('useUserRole: effect triggered, loading =', loading, 'user =', user ? {
+      id: user.id,
+      email: user.email,
+      app_metadata: user.app_metadata
+    } : 'null');
+    
     if (!loading) {
       if (!user) {
+        console.log('useUserRole: No user, setting role to null');
         setRole(null);
         setIsLoading(false);
       } else {
@@ -106,17 +123,22 @@ export const useUserRole = () => {
         const userRole = user.app_metadata?.role as UserRole;
         
         if (!userRole || !['super_admin', 'dealer', 'customer'].includes(userRole)) {
+          console.log('useUserRole: User has no valid role, ensuring they get one');
           // User has no valid role, ensure they get one
           ensureUserRole(user)
-            .finally(() => setIsLoading(false));
+            .finally(() => {
+              console.log('useUserRole: Finished ensuring user role, setting isLoading=false');
+              setIsLoading(false);
+            });
         } else {
           // User already has a valid role
+          console.log('useUserRole: User already has valid role:', userRole);
           setRole(userRole);
           setIsLoading(false);
         }
       }
     }
-  }, [user, loading]);
+  }, [user, loading, ensureUserRole]);
 
   const isSuperAdmin = role === 'super_admin';
   const isDealer = role === 'dealer';

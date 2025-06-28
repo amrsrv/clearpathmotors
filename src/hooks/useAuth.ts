@@ -1,72 +1,134 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import type { User } from '@supabase/supabase-js';
-import { useNavigate } from 'react-router-dom';
+import type { User, Session } from '@supabase/supabase-js';
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
+  const [initialized, setInitialized] = useState(false);
 
+  // Function to refresh user data manually
+  const refreshUser = useCallback(async () => {
+    try {
+      console.log('useAuth: manually refreshing user data');
+      const { data: { user: currentUser }, error } = await supabase.auth.getUser();
+      
+      if (error) {
+        console.error('useAuth: Error refreshing user:', error);
+        setUser(null);
+        return null;
+      }
+      
+      console.log('useAuth: user refresh successful:', currentUser ? {
+        id: currentUser.id,
+        email: currentUser.email,
+        app_metadata: currentUser.app_metadata
+      } : 'null');
+      
+      setUser(currentUser);
+      return currentUser;
+    } catch (error) {
+      console.error('useAuth: Error in refreshUser:', error);
+      setUser(null);
+      return null;
+    }
+  }, []);
+
+  // Initialize auth state
   useEffect(() => {
     console.log('useAuth: initializing auth hook');
     
-    const getInitialSession = async () => {
+    const initializeAuth = async () => {
       try {
         console.log('useAuth: getting initial session');
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
         
         if (error) {
           console.error('useAuth: Error getting session:', error);
-          throw error;
+          setUser(null);
+          setSession(null);
+          setLoading(false);
+          setInitialized(true);
+          return;
         }
         
         console.log('useAuth: session result:', { 
-          hasSession: !!session, 
-          user: session?.user ? { 
-            id: session.user.id, 
-            email: session.user.email,
-            app_metadata: session.user.app_metadata
+          hasSession: !!currentSession, 
+          user: currentSession?.user ? { 
+            id: currentSession.user.id, 
+            email: currentSession.user.email,
+            app_metadata: currentSession.user.app_metadata
           } : null 
         });
         
-        setUser(session?.user ?? null);
+        setUser(currentSession?.user || null);
+        setSession(currentSession);
+        
+        // If user has no role, set default role
+        if (currentSession?.user && !currentSession.user.app_metadata?.role) {
+          try {
+            console.log('useAuth: user has no role, setting default role to customer');
+            await supabase.auth.updateUser({
+              data: { role: 'customer' }
+            });
+            console.log('useAuth: default role set to customer');
+            
+            // Refresh user to get updated metadata
+            await refreshUser();
+          } catch (roleError) {
+            console.error('useAuth: Error setting default role:', roleError);
+          }
+        }
       } catch (error) {
-        console.error('useAuth: Error getting session:', error);
+        console.error('useAuth: Error in initializeAuth:', error);
         setUser(null);
+        setSession(null);
       } finally {
         console.log('useAuth: completed initial session check, setting loading=false');
         setLoading(false);
+        setInitialized(true);
       }
     };
 
-    getInitialSession();
+    initializeAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      console.log('useAuth: authStateChange event:', _event, {
-        hasSession: !!session,
-        user: session?.user ? {
-          id: session.user.id,
-          email: session.user.email,
-          app_metadata: session.user.app_metadata
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      console.log('useAuth: authStateChange event:', event, {
+        hasSession: !!currentSession,
+        user: currentSession?.user ? {
+          id: currentSession.user.id,
+          email: currentSession.user.email,
+          app_metadata: currentSession.user.app_metadata
         } : null
       });
       
-      setUser(session?.user ?? null);
+      setUser(currentSession?.user || null);
+      setSession(currentSession);
       setLoading(false);
       
-      // If user just signed in, check if they have a role
-      if (session?.user && !session.user.app_metadata?.role) {
-        try {
-          console.log('useAuth: user has no role, setting default role to customer');
-          // Set default role to customer if none exists
-          await supabase.auth.updateUser({
-            data: { role: 'customer' }
-          });
-          console.log('useAuth: default role set to customer');
-        } catch (error) {
-          console.error('useAuth: Error setting default role:', error);
+      // Handle specific auth events
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        // If user just signed in, check if they have a role
+        if (currentSession?.user && !currentSession.user.app_metadata?.role) {
+          try {
+            console.log('useAuth: user has no role, setting default role to customer');
+            await supabase.auth.updateUser({
+              data: { role: 'customer' }
+            });
+            console.log('useAuth: default role set to customer');
+            
+            // Refresh user to get updated metadata
+            await refreshUser();
+          } catch (error) {
+            console.error('useAuth: Error setting default role:', error);
+          }
         }
+      } else if (event === 'SIGNED_OUT') {
+        console.log('useAuth: user signed out, clearing state');
+        setUser(null);
+        setSession(null);
       }
     });
 
@@ -74,7 +136,7 @@ export const useAuth = () => {
       console.log('useAuth: unsubscribing from auth state changes');
       subscription.unsubscribe();
     };
-  }, []);
+  }, [refreshUser]);
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -106,6 +168,11 @@ export const useAuth = () => {
         email: data.user?.email,
         role: data.user?.app_metadata?.role 
       });
+      
+      // Update local state immediately
+      setUser(data.user);
+      setSession(data.session);
+      
       return { data, error: null };
     } catch (error: any) {
       console.error('useAuth: Sign in error:', error);
@@ -135,6 +202,7 @@ export const useAuth = () => {
         console.error('useAuth: sign up error:', error);
         if (error.message.includes('already registered') || 
             error.message.includes('already exists') ||
+            error.message.includes('user_already_exists') ||
             error.status === 400) {
           throw new Error('EMAIL_EXISTS');
         }
@@ -145,47 +213,10 @@ export const useAuth = () => {
         userId: data.user?.id, 
         email: data.user?.email 
       });
+      
       return { data, error: null };
     } catch (error: any) {
       console.error('useAuth: Sign up error:', error);
-      return { data: null, error };
-    }
-  };
-
-  const signUpDealer = async (email: string, password: string, name: string, phone: string) => {
-    try {
-      console.log('useAuth: attempting to sign up dealer:', email, name);
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
-        password,
-        options: {
-          data: {
-            role: 'dealer',
-            name,
-            phone
-          },
-          emailRedirectTo: `${window.location.origin}/auth/callback`
-        }
-      });
-      
-      if (error) {
-        console.error('useAuth: dealer sign up error:', error);
-        if (error.message.includes('already registered') || 
-            error.message.includes('already exists') ||
-            error.status === 400) {
-          throw new Error('EMAIL_EXISTS');
-        }
-        throw error;
-      }
-      
-      console.log('useAuth: dealer sign up successful:', { 
-        userId: data.user?.id, 
-        email: data.user?.email,
-        role: 'dealer' 
-      });
-      return { data, error: null };
-    } catch (error: any) {
-      console.error('useAuth: Dealer sign up error:', error);
       return { data: null, error };
     }
   };
@@ -194,32 +225,39 @@ export const useAuth = () => {
     try {
       console.log('useAuth: attempting to sign out');
       const { error } = await supabase.auth.signOut();
+      
       if (error) {
         console.error('useAuth: sign out error:', error);
+        
+        // Check if the error is due to a missing or invalid session
+        const errorMessage = error.message || '';
+        const isSessionError = 
+          errorMessage.includes('Auth session missing') ||
+          errorMessage.includes('Session from session_id claim in JWT does not exist') ||
+          errorMessage.includes('session_not_found') ||
+          errorMessage.includes('Invalid session') ||
+          error.status === 403;
+
+        if (isSessionError) {
+          // If the session doesn't exist on the server, clear local state and succeed
+          console.log('useAuth: Session not found on server, clearing local state');
+          setUser(null);
+          setSession(null);
+          return; // Don't throw error, treat as successful sign out
+        }
+        
         throw error;
       }
+      
       console.log('useAuth: sign out successful, clearing user state');
       setUser(null);
+      setSession(null);
     } catch (error: any) {
       console.error('useAuth: Sign out error:', error);
       
-      // Check if the error is due to a missing or invalid session
-      const errorMessage = error.message || '';
-      const isSessionError = 
-        errorMessage.includes('Auth session missing') ||
-        errorMessage.includes('Session from session_id claim in JWT does not exist') ||
-        errorMessage.includes('session_not_found') ||
-        errorMessage.includes('Invalid session') ||
-        error.status === 403;
-
-      if (isSessionError) {
-        // If the session doesn't exist on the server, clear local state and succeed
-        console.log('useAuth: Session not found on server, clearing local state');
-        setUser(null);
-        return; // Don't throw error, treat as successful sign out
-      }
-      
-      // For other errors, still throw
+      // For non-session errors, still clear state but also throw the error
+      setUser(null);
+      setSession(null);
       throw new Error('Error signing out. Please try again.');
     }
   };
@@ -266,6 +304,7 @@ export const useAuth = () => {
         console.error('useAuth: Update password error:', error);
         throw error;
       }
+      
       console.log('useAuth: password updated successfully');
       return { error: null };
     } catch (error: any) {
@@ -274,14 +313,40 @@ export const useAuth = () => {
     }
   };
 
+  const getUser = async () => {
+    try {
+      console.log('useAuth: getting current user');
+      const { data: { user: currentUser }, error } = await supabase.auth.getUser();
+      
+      if (error) {
+        console.error('useAuth: Error getting user:', error);
+        return null;
+      }
+      
+      console.log('useAuth: got user:', currentUser ? {
+        id: currentUser.id,
+        email: currentUser.email,
+        app_metadata: currentUser.app_metadata
+      } : 'null');
+      
+      return currentUser;
+    } catch (error) {
+      console.error('useAuth: Error in getUser:', error);
+      return null;
+    }
+  };
+
   return {
     user,
+    session,
     loading,
+    initialized,
     signIn,
     signUp,
     signOut,
-    signUpDealer,
     resetPassword,
-    updatePassword
+    updatePassword,
+    getUser,
+    refreshUser
   };
 };

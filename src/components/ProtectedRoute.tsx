@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useUserRole } from '../hooks/useUserRole';
@@ -15,11 +15,23 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   allowedRoles = [] 
 }) => {
   const location = useLocation();
-  const { user, loading } = useAuth();
+  const { user, loading, initialized } = useAuth();
   const { role, isLoading } = useUserRole();
 
+  useEffect(() => {
+    console.log('ProtectedRoute: Component mounted', {
+      user: user ? { id: user.id, email: user.email } : 'null',
+      loading,
+      initialized,
+      role,
+      isLoading,
+      allowedRoles
+    });
+  }, [user, loading, initialized, role, isLoading, allowedRoles]);
+
   // Show a more detailed loading state
-  if (loading || isLoading) {
+  if (loading || isLoading || !initialized) {
+    console.log('ProtectedRoute: Still loading, showing loading state');
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex flex-col items-center">
@@ -32,23 +44,24 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   if (!user) {
     // Redirect to login if not authenticated
-    console.log('User not authenticated, redirecting to login');
+    console.log('ProtectedRoute: User not authenticated, redirecting to login');
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   // If allowedRoles is empty, allow any authenticated user
   if (allowedRoles.length === 0) {
+    console.log('ProtectedRoute: No specific roles required, allowing access');
     return <>{children}</>;
   }
 
   // Check if user has one of the allowed roles
   if (role && allowedRoles.includes(role)) {
-    console.log(`User has allowed role: ${role}`);
+    console.log(`ProtectedRoute: User has allowed role: ${role}`);
     return <>{children}</>;
   }
 
   // Log the unauthorized access attempt
-  console.log(`Unauthorized access attempt: User with role ${role} tried to access a route restricted to ${allowedRoles.join(', ')}`);
+  console.log(`ProtectedRoute: Unauthorized access attempt: User with role ${role} tried to access a route restricted to ${allowedRoles.join(', ')}`);
   toast.error(`You don't have permission to access this page`);
 
   // Redirect based on role if not authorized

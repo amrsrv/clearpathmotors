@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, ArrowRight, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { GoogleSignInButton } from '../components/GoogleSignInButton';
-import { supabase } from '../lib/supabaseClient';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -19,8 +18,16 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
+  // Redirect if already logged in
   useEffect(() => {
+    console.log('Login: Component mounted, user =', user ? {
+      id: user.id,
+      email: user.email,
+      app_metadata: user.app_metadata
+    } : 'null', 'loading =', loading);
+    
     if (user && !loading) {
+      console.log('Login: User already logged in, redirecting based on role');
       // Redirect based on user role
       const role = user.app_metadata?.role;
       if (role === 'super_admin') {
@@ -45,27 +52,40 @@ const Login = () => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
-    console.log('Login form submitted with email:', formData.email);
+    console.log('Login: Form submitted with email:', formData.email);
 
     try {
       const { error: signInError } = await signIn(formData.email, formData.password);
       
       if (signInError) {
-        console.error('Login error details:', signInError);
+        console.error('Login: Error during sign in:', signInError);
         throw signInError;
       }
 
       // Navigation will be handled by the useEffect hook when user state updates
+      console.log('Login: Sign in successful, waiting for redirect');
     } catch (error: any) {
-      console.error('Login error:', error);
-      console.log('Error message:', error.message);
+      console.error('Login: Error handling sign in result:', error);
       setError(error.message || 'An error occurred while signing in. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (loading || user) {
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent"
+        />
+      </div>
+    );
+  }
+
+  // Don't render the login form if already logged in
+  if (user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <motion.div
@@ -110,7 +130,7 @@ const Login = () => {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="flex items-center gap-2 text-red-600 bg-red-50 p-4 rounded-lg mb-6"
+                className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-lg mb-6"
               >
                 <AlertCircle className="h-5 w-5" />
                 <span className="text-sm">{error}</span>
@@ -258,7 +278,7 @@ const Login = () => {
                 <div className="bg-white/20 rounded-full p-2">
                   <CheckCircle className="h-5 w-5" />
                 </div>
-                <span>No impact on credit score</span>
+                <span>No impact on your credit score</span>
               </div>
               <div className="flex items-center gap-3">
                 <div className="bg-white/20 rounded-full p-2">

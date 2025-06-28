@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import toast from 'react-hot-toast';
@@ -13,18 +13,32 @@ const AuthCallback = () => {
     const handleAuthCallback = async () => {
       try {
         setLoading(true);
+        console.log('AuthCallback: Processing auth callback');
         
-        const { data: { user } } = await supabase.auth.getUser();
+        // Get the current session and user
+        const { data: { session, user }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('AuthCallback: Error getting session:', sessionError);
+          throw sessionError;
+        }
         
         // If no user, redirect to login
         if (!user) {
+          console.log('AuthCallback: No user found, redirecting to login');
           navigate('/login');
           return;
         }
         
+        console.log('AuthCallback: User authenticated:', {
+          id: user.id,
+          email: user.email,
+          app_metadata: user.app_metadata
+        });
+        
         // Check if user has a valid role
-        if (user && !user.app_metadata?.role) {
-          console.log('User has no role, setting default role: customer');
+        if (!user.app_metadata?.role) {
+          console.log('AuthCallback: User has no role, setting default role: customer');
           
           try {
             // Try to update the user's role
@@ -32,19 +46,26 @@ const AuthCallback = () => {
               data: { role: 'customer' }
             });
             
-            if (updateError) throw updateError;
+            if (updateError) {
+              console.error('AuthCallback: Error updating user role:', updateError);
+              throw updateError;
+            }
             
             // Refresh the session to get updated metadata
-            await supabase.auth.refreshSession();
+            const { error: refreshError } = await supabase.auth.refreshSession();
+            if (refreshError) {
+              console.error('AuthCallback: Error refreshing session:', refreshError);
+              throw refreshError;
+            }
             
             // Get the updated user
             const { data: { user: refreshedUser } } = await supabase.auth.getUser();
             
             if (!refreshedUser?.app_metadata?.role) {
-              console.warn('Role not set after refresh, using fallback');
+              console.warn('AuthCallback: Role not set after refresh, using fallback');
             }
           } catch (error) {
-            console.error('Error updating user role:', error);
+            console.error('AuthCallback: Error updating user role:', error);
             setError('Failed to set user role. Some features may be limited.');
           }
         }
@@ -75,12 +96,12 @@ const AuthCallback = () => {
           .is('user_id', null);
 
         if (emailError) {
-          console.error('Error checking applications by email:', emailError);
+          console.error('AuthCallback: Error checking applications by email:', emailError);
         }
 
         // If applications with matching email exist but no user_id, link them
         if (applicationsWithEmail && applicationsWithEmail.length > 0) {
-          console.log(`Found ${applicationsWithEmail.length} unlinked applications with email ${user.email}`);
+          console.log(`AuthCallback: Found ${applicationsWithEmail.length} unlinked applications with email ${user.email}`);
           
           // Update all applications with the user's email to have their user_id
           const { error: updateError } = await supabase
@@ -95,19 +116,25 @@ const AuthCallback = () => {
             .is('user_id', null);
 
           if (updateError) {
-            console.error('Error updating applications with user ID:', updateError);
+            console.error('AuthCallback: Error updating applications with user ID:', updateError);
           } else {
-            console.log(`Successfully linked ${applicationsWithEmail.length} applications to user ${user.id}`);
+            console.log(`AuthCallback: Successfully linked ${applicationsWithEmail.length} applications to user ${user.id}`);
           }
         }
 
         // Check if user already has an application
-        const { data: existingApplications } = await supabase
+        const { data: existingApplications, error: appError } = await supabase
           .from('applications')
           .select('id, email, first_name, last_name')
           .eq('user_id', user.id);
 
+        if (appError) {
+          console.error('AuthCallback: Error checking existing applications:', appError);
+        }
+
         if (!existingApplications || existingApplications.length === 0) {
+          console.log('AuthCallback: No existing applications found, creating initial application');
+          
           // Create initial application if none exists
           const { data: application, error: applicationError } = await supabase
             .from('applications')
@@ -124,13 +151,15 @@ const AuthCallback = () => {
             .single();
 
           if (applicationError) {
-            console.error('Error creating application:', applicationError);
+            console.error('AuthCallback: Error creating application:', applicationError);
             navigate('/get-approved');
             return;
           }
 
+          console.log('AuthCallback: Created initial application:', application.id);
+
           // Create initial application stage
-          await supabase
+          const { error: stageError } = await supabase
             .from('application_stages')
             .insert({
               application_id: application.id,
@@ -139,8 +168,12 @@ const AuthCallback = () => {
               notes: 'Application submitted successfully'
             });
 
+          if (stageError) {
+            console.error('AuthCallback: Error creating application stage:', stageError);
+          }
+
           // Create welcome notification
-          await supabase
+          const { error: notificationError } = await supabase
             .from('notifications')
             .insert({
               user_id: user.id,
@@ -148,10 +181,18 @@ const AuthCallback = () => {
               message: 'Your account has been created successfully. Start your application process now.',
               read: false
             });
+
+          if (notificationError) {
+            console.error('AuthCallback: Error creating welcome notification:', notificationError);
+          }
+        } else {
+          console.log('AuthCallback: User already has applications:', existingApplications.length);
         }
 
         // Redirect based on user role
         const role = user.app_metadata?.role;
+        console.log('AuthCallback: Redirecting based on role:', role);
+        
         if (role === 'super_admin') {
           navigate('/admin');
         } else if (role === 'dealer') {
@@ -161,7 +202,7 @@ const AuthCallback = () => {
           navigate('/dashboard');
         }
       } catch (error) {
-        console.error('Error in auth callback:', error);
+        console.error('AuthCallback: Error in auth callback:', error);
         setError('Authentication error. Please try logging in again.');
         navigate('/login');
       } finally {
