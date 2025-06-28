@@ -708,7 +708,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     onChange={handleChange}
                     className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                   />
-         className=\"       </div>
+                </div>
                 
                 <div>
                   <label htmlFor="province" className="block text-sm font-medium text-gray-700 mb-2">
@@ -733,4 +733,351 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     <option value="ON">Ontario</option>
                     <option value="PE">Prince Edward Island</option>
                     <option value="QC">Quebec</option>
-                    <option value="SK"
+                    <option value="SK">Saskatchewan</option>
+                    <option value="YT">Yukon</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-2">
+                    Postal Code
+                  </label>
+                  <input
+                    type="text"
+                    id="postalCode"
+                    name="postalCode"
+                    value={formData.postalCode}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                    placeholder="A1A 1A1"
+                  />
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        );
+      
+      case 5:
+        return (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-8"
+          >
+            <div className="text-center">
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">Additional Information</h2>
+              <p className="text-lg text-gray-600 mb-8">Help us understand your financial situation better.</p>
+            </div>
+            
+            <div className="space-y-8">
+              {/* Government Benefits Section */}
+              <div className="bg-gray-50 p-6 rounded-lg">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Government Benefits</h3>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm text-gray-700 mb-2">Do you collect any government benefits?</p>
+                    <div className="flex gap-4">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          checked={formData.collects_government_benefits === true}
+                          onChange={() => handleRadioChange('collects_government_benefits', true)}
+                          className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75]"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Yes</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          checked={formData.collects_government_benefits === false}
+                          onChange={() => handleRadioChange('collects_government_benefits', false)}
+                          className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75]"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">No</span>
+                      </label>
+                    </div>
+                  </div>
+                  
+                  {formData.collects_government_benefits && (
+                    <div className="space-y-4 pl-4 border-l-2 border-gray-200">
+                      <div>
+                        <p className="text-sm text-gray-700 mb-2">Which benefits do you receive? (Select all that apply)</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { id: 'ontario_works', label: 'Ontario Works' },
+                            { id: 'odsp', label: 'ODSP' },
+                            { id: 'cpp', label: 'CPP' },
+                            { id: 'ei', label: 'EI' },
+                            { id: 'child_tax_benefit', label: 'Child Tax Benefit' },
+                            { id: 'other', label: 'Other' }
+                          ].map(benefit => (
+                            <label key={benefit.id} className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={formData.government_benefit_types.includes(benefit.id)}
+                                onChange={() => handleBenefitTypeChange(benefit.id)}
+                                className="h-4 w-4 rounded text-[#3BAA75] focus:ring-[#3BAA75]"
+                              />
+                              <span className="ml-2 text-sm text-gray-700">{benefit.label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {formData.government_benefit_types.includes('other') && (
+                        <div>
+                          <label htmlFor="government_benefit_other" className="block text-sm text-gray-700 mb-1">
+                            Please specify other benefit
+                          </label>
+                          <input
+                            type="text"
+                            id="government_benefit_other"
+                            name="government_benefit_other"
+                            value={formData.government_benefit_other}
+                            onChange={handleChange}
+                            className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                          />
+                        </div>
+                      )}
+                      
+                      <div>
+                        <label htmlFor="government_benefit_amount" className="block text-sm text-gray-700 mb-1">
+                          Monthly benefit amount
+                        </label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <DollarSign className="h-4 w-4 text-gray-400" />
+                          </div>
+                          <CurrencyInput
+                            id="government_benefit_amount"
+                            name="government_benefit_amount"
+                            value={formData.government_benefit_amount}
+                            onValueChange={(value) => handleCurrencyChange(value, 'government_benefit_amount')}
+                            placeholder="Enter monthly amount"
+                            prefix="$"
+                            groupSeparator=","
+                            decimalSeparator="."
+                            className="w-full p-2 pl-8 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Bankruptcy/Consumer Proposal Section */}
+              <div className="bg-gray-50 p-6 rounded-lg">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Debt Discharge History</h3>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm text-gray-700 mb-2">Have you ever filed for bankruptcy or a consumer proposal?</p>
+                    <div className="flex gap-4">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          checked={formData.has_debt_discharge_history === true}
+                          onChange={() => handleRadioChange('has_debt_discharge_history', true)}
+                          className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75]"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Yes</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          checked={formData.has_debt_discharge_history === false}
+                          onChange={() => handleRadioChange('has_debt_discharge_history', false)}
+                          className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75]"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">No</span>
+                      </label>
+                    </div>
+                  </div>
+                  
+                  {formData.has_debt_discharge_history && (
+                    <div className="space-y-4 pl-4 border-l-2 border-gray-200">
+                      <div>
+                        <label htmlFor="debt_discharge_type" className="block text-sm text-gray-700 mb-1">
+                          Type
+                        </label>
+                        <select
+                          id="debt_discharge_type"
+                          name="debt_discharge_type"
+                          value={formData.debt_discharge_type}
+                          onChange={handleChange}
+                          className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                        >
+                          <option value="">Select type</option>
+                          <option value="bankruptcy">Bankruptcy</option>
+                          <option value="consumer_proposal">Consumer Proposal</option>
+                          <option value="informal_settlement">Informal Settlement</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="debt_discharge_status" className="block text-sm text-gray-700 mb-1">
+                          Status
+                        </label>
+                        <select
+                          id="debt_discharge_status"
+                          name="debt_discharge_status"
+                          value={formData.debt_discharge_status}
+                          onChange={handleChange}
+                          className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                        >
+                          <option value="">Select status</option>
+                          <option value="active">Active</option>
+                          <option value="discharged">Discharged</option>
+                          <option value="not_sure">Not Sure</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label htmlFor="debt_discharge_year" className="block text-sm text-gray-700 mb-1">
+                          Year
+                        </label>
+                        <input
+                          type="number"
+                          id="debt_discharge_year"
+                          name="debt_discharge_year"
+                          value={formData.debt_discharge_year}
+                          onChange={handleChange}
+                          min="1980"
+                          max={new Date().getFullYear()}
+                          className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                          placeholder="YYYY"
+                        />
+                      </div>
+                      
+                      {formData.debt_discharge_status === 'active' && (
+                        <div>
+                          <label htmlFor="amount_owed" className="block text-sm text-gray-700 mb-1">
+                            Amount Owed
+                          </label>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                              <DollarSign className="h-4 w-4 text-gray-400" />
+                            </div>
+                            <CurrencyInput
+                              id="amount_owed"
+                              name="amount_owed"
+                              value={formData.amount_owed}
+                              onValueChange={(value) => handleCurrencyChange(value, 'amount_owed')}
+                              placeholder="Enter amount owed"
+                              prefix="$"
+                              groupSeparator=","
+                              decimalSeparator="."
+                              className="w-full p-2 pl-8 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Consent Section */}
+              <div className="bg-gray-50 p-6 rounded-lg">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Consent</h3>
+                <div className="space-y-4">
+                  <label className="flex items-start">
+                    <input
+                      type="checkbox"
+                      name="consentToSoftCheck"
+                      checked={formData.consentToSoftCheck}
+                      onChange={(e) => setFormData(prev => ({ ...prev, consentToSoftCheck: e.target.checked }))}
+                      className="h-5 w-5 mt-0.5 rounded text-[#3BAA75] focus:ring-[#3BAA75]"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">
+                      I consent to a soft credit check, which will not affect my credit score. This allows Clearpath Motors to provide me with accurate pre-qualification options.
+                    </span>
+                  </label>
+                  
+                  <label className="flex items-start">
+                    <input
+                      type="checkbox"
+                      name="termsAccepted"
+                      checked={formData.termsAccepted}
+                      onChange={(e) => setFormData(prev => ({ ...prev, termsAccepted: e.target.checked }))}
+                      className="h-5 w-5 mt-0.5 rounded text-[#3BAA75] focus:ring-[#3BAA75]"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">
+                      I agree to the <a href="/terms" target="_blank" className="text-[#3BAA75] hover:underline">Terms of Service</a> and <a href="/privacy" target="_blank" className="text-[#3BAA75] hover:underline">Privacy Policy</a>. I understand that my information will be used to process my application and may be shared with lenders and dealerships in Clearpath's network.
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        );
+      
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="w-full max-w-4xl mx-auto">
+      {isProcessing ? (
+        <ProcessingAnimation />
+      ) : (
+        <div className="bg-white rounded-xl shadow-lg p-6 md:p-8">
+          {/* Progress Bar */}
+          <ProgressBar 
+            currentStep={currentStep} 
+            totalSteps={5} 
+            onStepClick={(step) => {
+              // Only allow going back to previous steps
+              if (step < currentStep) {
+                setCurrentStep(step);
+              }
+            }}
+          />
+          
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-lg flex items-center gap-2">
+              <AlertCircle className="h-5 w-5" />
+              <span>{error}</span>
+            </div>
+          )}
+          
+          {/* Step Content */}
+          <AnimatePresence mode="wait">
+            {renderStep()}
+          </AnimatePresence>
+          
+          {/* Navigation Buttons */}
+          <div className="flex justify-between mt-8">
+            <button
+              type="button"
+              onClick={handlePrevious}
+              disabled={currentStep === 1}
+              className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
+                currentStep === 1
+                  ? 'opacity-0 pointer-events-none'
+                  : 'text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              <ChevronLeft className="h-5 w-5" />
+              Back
+            </button>
+            
+            <button
+              type="button"
+              onClick={handleNext}
+              className="flex items-center gap-2 px-6 py-3 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors"
+            >
+              {currentStep === 5 ? 'Submit' : 'Next'}
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
