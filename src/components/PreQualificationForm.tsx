@@ -7,7 +7,6 @@ import { ProgressBar } from './ProgressBar';
 import { ProcessingAnimation } from './ProcessingAnimation';
 import { vehicles } from '../pages/Vehicles';
 import { Slider } from '@/components/ui/slider';
-import { makeClient } from '../lib/makeClient';
 import { 
   Car, 
   DollarSign, 
@@ -344,41 +343,6 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           status: 'completed',
           notes: 'Application submitted successfully'
         });
-      
-      // Send the form data to the webhook
-      try {
-        await makeClient.submitApplication({
-          applicationId: application.id,
-          tempUserId,
-          formData: {
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            email: formData.email,
-            phone: formData.phone,
-            vehicleType: formData.vehicleType,
-            creditScore: formData.creditScore,
-            employmentStatus: formData.employmentStatus,
-            annualIncome: formData.annualIncome,
-            desiredMonthlyPayment: formData.desiredMonthlyPayment,
-            address: formData.address,
-            city: formData.city,
-            province: formData.province,
-            postalCode: formData.postalCode,
-            dateOfBirth: formData.dateOfBirth,
-            collects_government_benefits: formData.collects_government_benefits,
-            government_benefit_types: formData.government_benefit_types,
-            has_debt_discharge_history: formData.has_debt_discharge_history,
-            debt_discharge_type: formData.debt_discharge_type,
-            debt_discharge_status: formData.debt_discharge_status,
-            debt_discharge_year: formData.debt_discharge_year,
-            amount_owed: formData.amount_owed
-          },
-          source: 'web_prequalification'
-        });
-      } catch (webhookError) {
-        console.error('Error sending to webhook:', webhookError);
-        // Continue even if webhook fails
-      }
       
       // Wait a moment to simulate processing
       setTimeout(() => {
@@ -778,20 +742,15 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                   <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-2">
                     Postal Code
                   </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      id="postalCode"
-                      name="postalCode"
-                      value={formData.postalCode}
-                      onChange={handleChange}
-                      placeholder="A1A 1A1"
-                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    />
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <MapPin className="h-5 w-5 text-gray-400" />
-                    </div>
-                  </div>
+                  <input
+                    type="text"
+                    id="postalCode"
+                    name="postalCode"
+                    value={formData.postalCode}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                    placeholder="A1A 1A1"
+                  />
                 </div>
               </div>
             </div>
@@ -809,233 +768,217 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           >
             <div className="text-center">
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">Additional Information</h2>
-              <p className="text-lg text-gray-600 mb-8">Just a few more details to help us find the best financing options for you.</p>
+              <p className="text-lg text-gray-600 mb-8">Just a few more details to help us find the best options for you.</p>
             </div>
             
             <div className="space-y-8">
-              <div className="bg-gray-50 p-6 rounded-md border border-gray-200">
-                <h3 className="text-xl font-semibold text-gray-800 mb-4">Please answer the following questions</h3>
+              {/* Government Benefits Section */}
+              <div className="bg-gray-50 p-6 rounded-lg">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Government Benefits</h3>
                 
-                {/* Government Benefits Section */}
-                <div className="mb-6">
-                  <p className="font-medium text-gray-700 mb-3">1. Do you receive any government benefits? (CPP, EI, etc.)</p>
-                  <div className="flex gap-4 mb-4">
+                <div className="mb-4">
+                  <p className="text-sm text-gray-700 mb-2">Do you collect any government benefits?</p>
+                  <div className="flex gap-4">
                     <label className="flex items-center">
                       <input
                         type="radio"
                         checked={formData.collects_government_benefits === true}
                         onChange={() => handleRadioChange('collects_government_benefits', true)}
-                        className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded-full"
+                        className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75]"
                       />
-                      <span className="ml-2">Yes</span>
+                      <span className="ml-2 text-sm text-gray-700">Yes</span>
                     </label>
                     <label className="flex items-center">
                       <input
                         type="radio"
                         checked={formData.collects_government_benefits === false}
                         onChange={() => handleRadioChange('collects_government_benefits', false)}
-                        className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded-full"
+                        className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75]"
                       />
-                      <span className="ml-2">No</span>
+                      <span className="ml-2 text-sm text-gray-700">No</span>
                     </label>
                   </div>
-                  
-                  <AnimatePresence>
-                    {formData.collects_government_benefits && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="pl-4 border-l-2 border-[#3BAA75]/30 space-y-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Select all that apply:
-                            </label>
-                            <div className="grid grid-cols-2 gap-3">
-                              {[
-                                { id: 'ontario_works', label: 'Ontario Works' },
-                                { id: 'odsp', label: 'ODSP' },
-                                { id: 'cpp', label: 'CPP' },
-                                { id: 'ei', label: 'EI' },
-                                { id: 'child_tax_benefit', label: 'Child Tax Benefit' },
-                                { id: 'other', label: 'Other' }
-                              ].map(benefit => (
-                                <label key={benefit.id} className="flex items-center">
-                                  <input
-                                    type="checkbox"
-                                    checked={formData.government_benefit_types.includes(benefit.id)}
-                                    onChange={() => handleBenefitTypeChange(benefit.id)}
-                                    className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
-                                  />
-                                  <span className="ml-2 text-sm">{benefit.label}</span>
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-                          
-                          {formData.government_benefit_types.includes('other') && (
-                            <div>
-                              <label htmlFor="government_benefit_other" className="block text-sm font-medium text-gray-700 mb-2">
-                                Please specify:
-                              </label>
-                              <input
-                                type="text"
-                                id="government_benefit_other"
-                                name="government_benefit_other"
-                                value={formData.government_benefit_other}
-                                onChange={handleChange}
-                                className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                              />
-                            </div>
-                          )}
-                          
-                          <div>
-                            <label htmlFor="government_benefit_amount" className="block text-sm font-medium text-gray-700 mb-2">
-                              How much do you receive monthly?
-                            </label>
-                            <div className="relative">
-                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <DollarSign className="h-5 w-5 text-gray-400" />
-                              </div>
-                              <CurrencyInput
-                                id="government_benefit_amount"
-                                name="government_benefit_amount"
-                                value={formData.government_benefit_amount}
-                                onValueChange={(value) => handleCurrencyChange(value, 'government_benefit_amount')}
-                                placeholder="Enter monthly amount"
-                                prefix="$"
-                                groupSeparator=","
-                                decimalSeparator="."
-                                className="w-full p-3 pl-10 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
                 </div>
                 
-                {/* Bankruptcy/Consumer Proposal Section */}
-                <div>
-                  <p className="font-medium text-gray-700 mb-3">2. Have you ever filed for bankruptcy or a consumer proposal?</p>
-                  <div className="flex gap-4 mb-4">
+                {formData.collects_government_benefits && (
+                  <div className="space-y-4 pl-4 border-l-2 border-gray-200">
+                    <div>
+                      <p className="text-sm text-gray-700 mb-2">Which benefits do you receive? (Select all that apply)</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { id: 'ontario_works', label: 'Ontario Works' },
+                          { id: 'odsp', label: 'ODSP' },
+                          { id: 'cpp', label: 'CPP' },
+                          { id: 'ei', label: 'EI' },
+                          { id: 'child_tax_benefit', label: 'Child Tax Benefit' },
+                          { id: 'other', label: 'Other' }
+                        ].map(benefit => (
+                          <label key={benefit.id} className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={formData.government_benefit_types.includes(benefit.id)}
+                              onChange={() => handleBenefitTypeChange(benefit.id)}
+                              className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] rounded"
+                            />
+                            <span className="ml-2 text-sm text-gray-700">{benefit.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {formData.government_benefit_types.includes('other') && (
+                      <div>
+                        <label htmlFor="government_benefit_other" className="block text-sm text-gray-700 mb-1">
+                          Please specify other benefit
+                        </label>
+                        <input
+                          type="text"
+                          id="government_benefit_other"
+                          name="government_benefit_other"
+                          value={formData.government_benefit_other}
+                          onChange={handleChange}
+                          className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                        />
+                      </div>
+                    )}
+                    
+                    <div>
+                      <label htmlFor="government_benefit_amount" className="block text-sm text-gray-700 mb-1">
+                        Monthly benefit amount
+                      </label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <DollarSign className="h-4 w-4 text-gray-400" />
+                        </div>
+                        <CurrencyInput
+                          id="government_benefit_amount"
+                          name="government_benefit_amount"
+                          value={formData.government_benefit_amount}
+                          onValueChange={(value) => handleCurrencyChange(value, 'government_benefit_amount')}
+                          placeholder="Enter monthly amount"
+                          prefix="$"
+                          groupSeparator=","
+                          decimalSeparator="."
+                          className="w-full p-2 pl-8 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Bankruptcy/Consumer Proposal Section */}
+              <div className="bg-gray-50 p-6 rounded-lg">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Debt Discharge History</h3>
+                
+                <div className="mb-4">
+                  <p className="text-sm text-gray-700 mb-2">Have you ever filed for bankruptcy or a consumer proposal?</p>
+                  <div className="flex gap-4">
                     <label className="flex items-center">
                       <input
                         type="radio"
                         checked={formData.has_debt_discharge_history === true}
                         onChange={() => handleRadioChange('has_debt_discharge_history', true)}
-                        className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded-full"
+                        className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75]"
                       />
-                      <span className="ml-2">Yes</span>
+                      <span className="ml-2 text-sm text-gray-700">Yes</span>
                     </label>
                     <label className="flex items-center">
                       <input
                         type="radio"
                         checked={formData.has_debt_discharge_history === false}
                         onChange={() => handleRadioChange('has_debt_discharge_history', false)}
-                        className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded-full"
+                        className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75]"
                       />
-                      <span className="ml-2">No</span>
+                      <span className="ml-2 text-sm text-gray-700">No</span>
                     </label>
                   </div>
-                  
-                  <AnimatePresence>
-                    {formData.has_debt_discharge_history && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="pl-4 border-l-2 border-[#3BAA75]/30 space-y-4">
-                          <div>
-                            <label htmlFor="debt_discharge_type" className="block text-sm font-medium text-gray-700 mb-2">
-                              Type:
-                            </label>
-                            <select
-                              id="debt_discharge_type"
-                              name="debt_discharge_type"
-                              value={formData.debt_discharge_type}
-                              onChange={handleChange}
-                              className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                            >
-                              <option value="">Select Type</option>
-                              <option value="bankruptcy">Bankruptcy</option>
-                              <option value="consumer_proposal">Consumer Proposal</option>
-                              <option value="division_1_proposal">Division 1 Proposal</option>
-                              <option value="other">Other</option>
-                            </select>
-                          </div>
-                          
-                          <div>
-                            <label htmlFor="debt_discharge_status" className="block text-sm font-medium text-gray-700 mb-2">
-                              Status:
-                            </label>
-                            <select
-                              id="debt_discharge_status"
-                              name="debt_discharge_status"
-                              value={formData.debt_discharge_status}
-                              onChange={handleChange}
-                              className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                            >
-                              <option value="">Select Status</option>
-                              <option value="active">Active</option>
-                              <option value="discharged">Discharged</option>
-                            </select>
-                          </div>
-                          
-                          <div>
-                            <label htmlFor="debt_discharge_year" className="block text-sm font-medium text-gray-700 mb-2">
-                              Year Filed:
-                            </label>
-                            <input
-                              type="number"
-                              id="debt_discharge_year"
-                              name="debt_discharge_year"
-                              value={formData.debt_discharge_year}
-                              onChange={handleChange}
-                              min="1980"
-                              max={new Date().getFullYear()}
-                              placeholder="YYYY"
-                              className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                            />
-                          </div>
-                          
-                          {formData.debt_discharge_status === 'active' && (
-                            <div>
-                              <label htmlFor="amount_owed" className="block text-sm font-medium text-gray-700 mb-2">
-                                Amount Owed:
-                              </label>
-                              <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                  <DollarSign className="h-5 w-5 text-gray-400" />
-                                </div>
-                                <CurrencyInput
-                                  id="amount_owed"
-                                  name="amount_owed"
-                                  value={formData.amount_owed}
-                                  onValueChange={(value) => handleCurrencyChange(value, 'amount_owed')}
-                                  placeholder="Enter amount owed"
-                                  prefix="$"
-                                  groupSeparator=","
-                                  decimalSeparator="."
-                                  className="w-full p-3 pl-10 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
                 </div>
+                
+                {formData.has_debt_discharge_history && (
+                  <div className="space-y-4 pl-4 border-l-2 border-gray-200">
+                    <div>
+                      <label htmlFor="debt_discharge_type" className="block text-sm text-gray-700 mb-1">
+                        Type
+                      </label>
+                      <select
+                        id="debt_discharge_type"
+                        name="debt_discharge_type"
+                        value={formData.debt_discharge_type}
+                        onChange={handleChange}
+                        className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                      >
+                        <option value="">Select type</option>
+                        <option value="bankruptcy">Bankruptcy</option>
+                        <option value="consumer_proposal">Consumer Proposal</option>
+                        <option value="informal_settlement">Informal Settlement</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="debt_discharge_status" className="block text-sm text-gray-700 mb-1">
+                        Status
+                      </label>
+                      <select
+                        id="debt_discharge_status"
+                        name="debt_discharge_status"
+                        value={formData.debt_discharge_status}
+                        onChange={handleChange}
+                        className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                      >
+                        <option value="">Select status</option>
+                        <option value="active">Active</option>
+                        <option value="discharged">Discharged</option>
+                        <option value="not_sure">Not Sure</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="debt_discharge_year" className="block text-sm text-gray-700 mb-1">
+                        Year
+                      </label>
+                      <input
+                        type="number"
+                        id="debt_discharge_year"
+                        name="debt_discharge_year"
+                        value={formData.debt_discharge_year}
+                        onChange={handleChange}
+                        min="1980"
+                        max={new Date().getFullYear()}
+                        className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                        placeholder="YYYY"
+                      />
+                    </div>
+                    
+                    {formData.debt_discharge_status === 'active' && (
+                      <div>
+                        <label htmlFor="amount_owed" className="block text-sm text-gray-700 mb-1">
+                          Amount Owed
+                        </label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <DollarSign className="h-4 w-4 text-gray-400" />
+                          </div>
+                          <CurrencyInput
+                            id="amount_owed"
+                            name="amount_owed"
+                            value={formData.amount_owed}
+                            onValueChange={(value) => handleCurrencyChange(value, 'amount_owed')}
+                            placeholder="Enter amount owed"
+                            prefix="$"
+                            groupSeparator=","
+                            decimalSeparator="."
+                            className="w-full p-2 pl-8 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               
+              {/* Consent Section */}
               <div className="space-y-4">
                 <div className="flex items-start">
                   <div className="flex items-center h-5">
@@ -1050,10 +993,10 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                   </div>
                   <div className="ml-3 text-sm">
                     <label htmlFor="consentToSoftCheck" className="font-medium text-gray-700">
-                      I consent to a soft credit check
+                      Consent to Soft Credit Check
                     </label>
                     <p className="text-gray-500">
-                      This won't affect your credit score and allows us to provide you with accurate pre-qualification options.
+                      I authorize Clearpath Motors to perform a soft credit check, which will not affect my credit score.
                     </p>
                   </div>
                 </div>
@@ -1071,10 +1014,10 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                   </div>
                   <div className="ml-3 text-sm">
                     <label htmlFor="termsAccepted" className="font-medium text-gray-700">
-                      I accept the terms and conditions
+                      Terms and Conditions
                     </label>
                     <p className="text-gray-500">
-                      By checking this box, you agree to our <a href="/terms" className="text-[#3BAA75] hover:underline">Terms of Service</a> and <a href="/privacy" className="text-[#3BAA75] hover:underline">Privacy Policy</a>.
+                      I agree to the <a href="/terms" className="text-[#3BAA75] hover:underline" target="_blank">Terms of Service</a> and <a href="/privacy" className="text-[#3BAA75] hover:underline" target="_blank">Privacy Policy</a>.
                     </p>
                   </div>
                 </div>
@@ -1089,83 +1032,63 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
   };
 
   return (
-    <div className="bg-white rounded-md shadow-2xl shadow-emerald-300/30 p-8 lg:p-12 border border-gray-100">
-      {/* Progress Bar */}
-      <div className="w-full max-w-md mx-auto mb-8">
-        <ProgressBar 
-          currentStep={currentStep} 
-          totalSteps={5} 
-          onStepClick={(step) => {
-            // Only allow going back to previous steps
+    <div className="w-full max-w-4xl mx-auto">
+      {isProcessing ? (
+        <ProcessingAnimation onComplete={() => {}} />
+      ) : (
+        <div className="bg-white rounded-xl shadow-lg p-6 md:p-8">
+          <ProgressBar currentStep={currentStep} totalSteps={5} onStepClick={(step) => {
             if (step < currentStep) {
               setCurrentStep(step);
             }
-          }}
-        />
-      </div>
-      
-      {/* Error Message */}
-      {error && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6 p-4 bg-red-50 text-red-600 rounded-md flex items-center"
-        >
-          <AlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
-          <span>{error}</span>
-        </motion.div>
-      )}
-      
-      {/* Form Steps */}
-      <div className="min-h-[400px]">
-        <AnimatePresence mode="wait">
-          {renderStep()}
-        </AnimatePresence>
-      </div>
-      
-      {/* Navigation Buttons */}
-      <div className="flex justify-between mt-8">
-        {currentStep > 1 ? (
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            type="button"
-            onClick={handlePrevious}
-            className="flex items-center justify-center px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 transition-colors duration-200"
-          >
-            <ChevronLeft className="h-5 w-5 mr-2" />
-            Back
-          </motion.button>
-        ) : (
-          <div></div> // Empty div to maintain layout
-        )}
-        
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          type="button"
-          onClick={handleNext}
-          className="w-full md:w-auto flex items-center justify-center px-6 py-3 rounded-md font-semibold text-white bg-gradient-to-r from-[#3BAA75] to-[#2D8259] hover:from-[#2D8259] hover:to-[#1F5F3F] shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {currentStep < 5 ? (
-            <>
-              Next
-              <ChevronRight className="h-5 w-5 ml-2" />
-            </>
-          ) : (
-            <>
-              Get Pre-Qualified
-              <CheckCircle className="h-5 w-5 ml-2" />
-            </>
+          }} />
+          
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-lg flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
           )}
-        </motion.button>
-      </div>
-      
-      {/* Processing Animation */}
-      {isProcessing && (
-        <ProcessingAnimation 
-          onComplete={() => setIsProcessing(false)}
-        />
+          
+          <div className="min-h-[400px] flex flex-col">
+            <AnimatePresence mode="wait">
+              {renderStep()}
+            </AnimatePresence>
+            
+            <div className="mt-auto pt-8 flex justify-between">
+              {currentStep > 1 ? (
+                <button
+                  type="button"
+                  onClick={handlePrevious}
+                  className="flex items-center gap-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                  Back
+                </button>
+              ) : (
+                <div></div>
+              )}
+              
+              <button
+                type="button"
+                onClick={handleNext}
+                className="flex items-center gap-2 px-6 py-3 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors"
+              >
+                {currentStep === 5 ? (
+                  <>
+                    Submit
+                    <CheckCircle className="h-5 w-5" />
+                  </>
+                ) : (
+                  <>
+                    Next
+                    <ChevronRight className="h-5 w-5" />
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
