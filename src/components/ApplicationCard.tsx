@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 import { Eye, ChevronRight, ChevronDown, ChevronUp, DollarSign, CreditCard, Car, Briefcase, MapPin, Calendar, Phone, Mail, User } from 'lucide-react';
 import { PreQualifiedBadge } from './PreQualifiedBadge';
-import type { Application, UserProfile } from '../types/database';
+import type { Application } from '../types/database';
 import { toStartCase } from '../utils/formatters';
 
 interface ApplicationCardProps {
@@ -69,6 +69,11 @@ export const ApplicationCard: React.FC<ApplicationCardProps> = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           {application.status === 'pre_approved' && <PreQualifiedBadge />}
+          {application.dealer_id && (
+            <span className="px-2 py-1 text-xs font-medium rounded-full bg-indigo-100 text-indigo-700">
+              Dealer Assigned
+            </span>
+          )}
           <div>
             <h3 className="font-medium text-lg">
               {application.vehicle_type || 'Vehicle'} Financing

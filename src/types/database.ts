@@ -113,6 +113,11 @@ export interface Application {
   amount_owed: number | null;
   trustee_name: string | null;
   dealer_profiles?: {
+  dealer_profiles?: {
+    name: string | null;
+    email: string | null;
+    public_slug: string | null;
+  };
     name: string;
   } | null;
 }
