@@ -355,8 +355,9 @@ const Dashboard: React.FC<DashboardProps> = ({
         throw applicationError;
       }
 
+      // If no applications, redirect to prequalification form
       if (!applicationData || applicationData.length === 0) {
-        navigate('/get-approved');
+        navigate('/get-prequalified');
         return;
       }
 
@@ -613,7 +614,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           <h2 className="text-2xl font-semibold mb-4">No Application Found</h2>
           <p className="text-gray-600 mb-6">Start your application to view this dashboard</p>
           <button
-            onClick={() => navigate('/get-approved')}
+            onClick={() => navigate('/get-prequalified')}
             className="bg-[#3BAA75] text-white px-6 py-3 rounded-lg hover:bg-[#2D8259] transition-colors"
           >
             Start Application
