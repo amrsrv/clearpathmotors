@@ -34,7 +34,6 @@ import DealerDashboard from './pages/dealer/Dashboard';
 import ApplicationView from './pages/admin/ApplicationView';
 import AdminLayout from './components/admin/AdminLayout';
 import { MobileNavBar } from './components/MobileNavBar'; // Import MobileNavBar
-import HelpCenter from './pages/HelpCenter';
 
 declare global {
   interface Window {
