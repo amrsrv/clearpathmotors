@@ -25,6 +25,7 @@ import UpdatePassword from './pages/UpdatePassword';
 import Dashboard from './pages/Dashboard';
 import AuthCallback from './pages/AuthCallback';
 import AdminLogin from './pages/AdminLogin';
+import HelpCenter from './pages/HelpCenter';
 import AdminDashboard from './pages/admin/Dashboard';
 import AdminApplications from './pages/admin/Applications';
 import AdminUsers from './pages/admin/Users';
@@ -133,9 +134,7 @@ const App = () => {
             <Route
               path="/help"
               element={
-                <PrivateRoute>
-                  <HelpCenter />
-                </PrivateRoute>
+                <Navigate to="/dashboard" state={{ section: 'help' }} replace />
               }
             />
             <Route

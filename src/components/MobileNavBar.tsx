@@ -1,6 +1,5 @@
 import React from 'react';
-import { Home, FileText, Bell, User, HelpCircle } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Home, FileText, Bell, User, LifeBuoy } from 'lucide-react';
 
 interface MobileNavBarProps {
   onNavigate: (section: string) => void;
@@ -13,6 +12,7 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({ onNavigate, activeSe
     { name: 'Documents', icon: FileText, section: 'documents' },
     { name: 'Notifications', icon: Bell, section: 'notifications' },
     { name: 'Profile', icon: User, section: 'profile' },
+    { name: 'Help', icon: LifeBuoy, section: 'help' },
   ];
 
   return (
@@ -29,14 +29,6 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({ onNavigate, activeSe
             <item.icon className="h-6 w-6 mb-1" />
             <span>{item.name}</span>
           </button>
-        ))}
-        
-        <Link
-          to="/help"
-          className="flex flex-col items-center justify-center flex-1 h-full text-xs font-medium text-gray-500 hover:text-gray-700"
-        >
-          <HelpCircle className="h-6 w-6 mb-1" />
-          <span>Help</span>
         </Link>
       </nav>
     </div>
