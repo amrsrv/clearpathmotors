@@ -32,6 +32,7 @@ interface Message {
 interface UserMessageCenterProps {
   userId: string;
   applicationId: string;
+  ticketSubject?: string;
 }
 
 // Format date for display - moved to top level to avoid hoisting issues
@@ -50,7 +51,11 @@ const formatDate = (dateStr: string) => {
   }
 };
 
-export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({ userId, applicationId }) => {
+export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({ 
+  userId, 
+  applicationId,
+  ticketSubject
+}) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageText, setMessageText] = useState('');
@@ -254,7 +259,11 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({ userId, ap
       {/* Header - Sticky */}
       <div className="p-4 border-b border-gray-200 sticky top-0 bg-white z-10 flex items-center">
         <Link 
-          to="/dashboard" 
+          to="#" 
+          onClick={(e) => {
+            e.preventDefault();
+            window.history.back();
+          }}
           className="mr-3 flex items-center text-gray-600 hover:text-[#3BAA75] transition-colors"
         >
           <ArrowLeft className="h-5 w-5" />
@@ -262,10 +271,12 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({ userId, ap
         </Link>
         
         <div>
-          <h2 className="text-xl font-semibold">Message Center</h2>
-          <p className="text-sm text-gray-600">
-            Communicate with our support team about your application
-          </p>
+          <h2 className="text-xl font-semibold">{ticketSubject || "Message Center"}</h2>
+          {!ticketSubject && (
+            <p className="text-sm text-gray-600">
+              Communicate with our support team about your application
+            </p>
+          )}
         </div>
         
         {unreadCount > 0 && (

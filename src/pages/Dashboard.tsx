@@ -1,6 +1,6 @@
 import React, { useLayoutEffect, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { format } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
@@ -46,6 +46,7 @@ import { DashboardNavBar } from '../components/DashboardNavBar';
 import { UserProfileSection } from '../components/UserProfileSection';
 import { toStartCase } from '../utils/formatters';
 import { UnifiedDocumentUploader } from '../components/UnifiedDocumentUploader';
+import HelpCenter from './HelpCenter';
 
 interface DashboardProps {
   activeSection?: string;
@@ -58,6 +59,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 }) => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const location = useLocation();
   const [applications, setApplications] = useState<Application[]>([]);
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
   const [stages, setStages] = useState<ApplicationStage[]>([]);
@@ -82,7 +84,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate('/login');
+      navigate('/login', { state: { from: location } });
       return;
     }
 
@@ -90,6 +92,15 @@ const Dashboard: React.FC<DashboardProps> = ({
       loadDashboardData();
     }
   }, [user, authLoading]);
+
+  // Check if we're being redirected with a specific section
+  useEffect(() => {
+    if (location.state?.section) {
+      setActiveSection(location.state.section);
+      // Clear the state to avoid persisting it
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.state, navigate]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -774,6 +785,15 @@ const Dashboard: React.FC<DashboardProps> = ({
             <UserProfileSection 
               application={selectedApplication}
               onUpdate={loadDashboardData}
+            />
+          </div>
+        );
+      case 'help':
+        return (
+          <div className="mb-6">
+            <HelpCenter 
+              userId={user?.id || ''}
+              applicationId={selectedApplication?.id || ''}
             />
           </div>
         );
