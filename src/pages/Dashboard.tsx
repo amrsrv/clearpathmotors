@@ -57,6 +57,8 @@ const Dashboard: React.FC<DashboardProps> = ({
   activeSection = 'overview', 
   setActiveSection = () => {} 
 }) => {
+  console.log('Dashboard: component initializing with activeSection:', activeSection);
+  
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const location = useLocation();
@@ -86,12 +88,20 @@ const Dashboard: React.FC<DashboardProps> = ({
   const { uploadDocument, deleteDocument, uploading, error: uploadError } = useDocumentUpload(selectedApplication?.id || '');
 
   useEffect(() => {
+    console.log('Dashboard: Component mounted, authLoading =', authLoading, ', user =', user ? {
+      id: user.id,
+      email: user.email,
+      app_metadata: user.app_metadata
+    } : 'null');
+    
     if (!authLoading && !user) {
+      console.log('Dashboard: No authenticated user, redirecting to login');
       navigate('/login', { state: { from: location } });
       return;
     }
 
     if (user) {
+      console.log('Dashboard: User authenticated, loading dashboard data');
       loadDashboardData();
     }
   }, [user, authLoading]);
@@ -99,6 +109,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   // Check if we're being redirected with a specific section
   useEffect(() => {
     if (location.state?.section) {
+      console.log('Dashboard: Redirected with specific section:', location.state.section);
       setActiveSection(location.state.section);
       // Clear the state to avoid persisting it
       navigate(location.pathname, { replace: true });
@@ -115,8 +126,13 @@ const Dashboard: React.FC<DashboardProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!selectedApplication?.id || !user?.id) return;
+    if (!selectedApplication?.id || !user?.id) {
+      console.log('Dashboard: No selectedApplication or user, skipping real-time subscriptions');
+      return;
+    }
 
+    console.log('Dashboard: Setting up real-time subscriptions for application:', selectedApplication.id);
+    
     // Set up real-time subscription for application updates
     const applicationsChannel = supabase
       .channel('application-updates')
@@ -129,7 +145,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           filter: `id=eq.${selectedApplication.id}`
         },
         async (payload) => {
-          console.log('Application update received:', payload);
+          console.log('Dashboard: Application update received:', payload);
           
           const oldStatus = selectedApplication.status;
           const newStatus = payload.new.status;
@@ -194,7 +210,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           filter: `application_id=eq.${selectedApplication.id}`
         },
         async (payload) => {
-          console.log('Document change received:', payload);
+          console.log('Dashboard: Document change received:', payload);
           
           // Reload documents to get the latest state
           await loadDocuments(selectedApplication.id);
@@ -243,7 +259,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           filter: `user_id=eq.${user.id}`
         },
         async (payload) => {
-          console.log('Notification change received:', payload);
+          console.log('Dashboard: Notification change received:', payload);
           
           // Reload notifications to get the latest state
           await loadNotifications(user.id);
@@ -266,7 +282,7 @@ const Dashboard: React.FC<DashboardProps> = ({
           filter: `application_id=eq.${selectedApplication.id}`
         },
         async (payload) => {
-          console.log('Stage change received:', payload);
+          console.log('Dashboard: Stage change received:', payload);
           
           // Reload stages to get the latest state
           await loadStages(selectedApplication.id);
@@ -309,6 +325,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       .subscribe();
 
     return () => {
+      console.log('Dashboard: Cleaning up real-time subscriptions');
       supabase.removeChannel(applicationsChannel);
       supabase.removeChannel(documentsChannel);
       supabase.removeChannel(notificationsChannel);
@@ -324,9 +341,13 @@ const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const createNotification = async (title: string, message: string) => {
-    if (!user) return;
+    if (!user) {
+      console.log('Dashboard: No user, skipping notification creation');
+      return;
+    }
     
     try {
+      console.log('Dashboard: Creating notification', { title, message });
       await supabase
         .from('notifications')
         .insert({
@@ -336,13 +357,20 @@ const Dashboard: React.FC<DashboardProps> = ({
           read: false
         });
     } catch (error) {
-      console.error('Error creating notification:', error);
+      console.error('Dashboard: Error creating notification:', error);
     }
   };
 
   const loadDashboardData = async () => {
+    console.log('Dashboard: loadDashboardData started');
+    
     try {
-      if (!user) return;
+      if (!user) {
+        console.log('Dashboard: No user in loadDashboardData, exiting early');
+        return;
+      }
+      
+      console.log('Dashboard: Loading applications for user:', user.id);
 
       // Load all applications for this user (removed dealer_profiles join)
       const { data: applicationData, error: applicationError } = await supabase
@@ -352,11 +380,15 @@ const Dashboard: React.FC<DashboardProps> = ({
         .order('created_at', { ascending: false });
 
       if (applicationError) {
+        console.error('Dashboard: Error loading applications:', applicationError);
         throw applicationError;
       }
 
+      console.log('Dashboard: Applications data loaded:', applicationData?.length || 0, 'applications found');
+
       // If no applications, redirect to prequalification form
       if (!applicationData || applicationData.length === 0) {
+        console.log('Dashboard: No applications found, redirecting to prequalification form');
         navigate('/get-prequalified');
         return;
       }
@@ -365,35 +397,43 @@ const Dashboard: React.FC<DashboardProps> = ({
       
       // Select the most recent application by default
       const mostRecentApplication = applicationData[0];
+      console.log('Dashboard: Selected most recent application:', mostRecentApplication.id);
       setSelectedApplication(mostRecentApplication);
 
       // Load stages for the selected application
+      console.log('Dashboard: Loading stages for application:', mostRecentApplication.id);
       await loadStages(mostRecentApplication.id);
 
       // Load documents for the selected application
+      console.log('Dashboard: Loading documents for application:', mostRecentApplication.id);
       await loadDocuments(mostRecentApplication.id);
 
       // Load notifications
+      console.log('Dashboard: Loading notifications for user:', user.id);
       await loadNotifications(user.id);
 
       // Load user profile
+      console.log('Dashboard: Loading user profile for user:', user.id);
       await loadUserProfile(user.id);
 
       // Load summary stats
+      console.log('Dashboard: Loading summary stats');
       await loadSummaryStats();
 
       // Set prequalification data
       updatePrequalificationData(mostRecentApplication);
 
     } catch (error: any) {
-      console.error('Error loading dashboard data:', error);
+      console.error('Dashboard: Error loading dashboard data:', error);
       setError(error.message);
     } finally {
+      console.log('Dashboard: loadDashboardData completed, setting loading=false');
       setLoading(false);
     }
   };
 
   const loadUserProfile = async (userId: string) => {
+    console.log('Dashboard: loadUserProfile started for user:', userId);
     try {
       const { data, error } = await supabase
         .from('user_profiles')
@@ -402,26 +442,32 @@ const Dashboard: React.FC<DashboardProps> = ({
         .maybeSingle();
 
       if (error) {
-        console.error('Error loading user profile:', error);
+        console.error('Dashboard: Error loading user profile:', error);
         return;
       }
 
+      console.log('Dashboard: User profile loaded:', data);
+      
       // Set user profile data (will be null if no profile exists)
       setUserProfile(data);
       
       // If no profile exists, we could optionally create one here
       if (!data) {
-        console.log('No user profile found for user:', userId);
+        console.log('Dashboard: No user profile found for user:', userId);
         // Optionally create a default profile:
         // await createUserProfile(userId);
       }
     } catch (error) {
-      console.error('Error loading user profile:', error);
+      console.error('Dashboard: Error loading user profile:', error);
     }
   };
 
   const loadSummaryStats = async () => {
-    if (!user) return;
+    console.log('Dashboard: loadSummaryStats started');
+    if (!user) {
+      console.log('Dashboard: No user in loadSummaryStats, exiting early');
+      return;
+    }
 
     try {
       // Count total applications for this user
@@ -446,21 +492,28 @@ const Dashboard: React.FC<DashboardProps> = ({
         .eq('read', false);
 
       if (totalError || approvedError || unreadError) {
-        console.error('Error loading summary stats:', { totalError, approvedError, unreadError });
+        console.error('Dashboard: Error loading summary stats:', { totalError, approvedError, unreadError });
         return;
       }
 
+      console.log('Dashboard: Summary stats loaded', { 
+        totalApplications: totalCount || 0,
+        approvedApplications: approvedCount || 0,
+        unreadMessages: unreadCount || 0
+      });
+      
       setSummaryStats({
         totalApplications: totalCount || 0,
         approvedApplications: approvedCount || 0,
         unreadMessages: unreadCount || 0
       });
     } catch (error) {
-      console.error('Error loading summary stats:', error);
+      console.error('Dashboard: Error loading summary stats:', error);
     }
   };
 
   const updatePrequalificationData = (applicationData: Application) => {
+    console.log('Dashboard: Updating prequalification data with application:', applicationData.id);
     if (applicationData) {
       setPrequalificationData({
         loanRange: {
@@ -476,6 +529,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const loadStages = async (applicationId: string) => {
+    console.log('Dashboard: loadStages started for application:', applicationId);
     try {
       const { data: stagesData, error: stagesError } = await supabase
         .from('application_stages')
@@ -483,14 +537,20 @@ const Dashboard: React.FC<DashboardProps> = ({
         .eq('application_id', applicationId)
         .order('stage_number', { ascending: true });
 
-      if (stagesError) throw stagesError;
+      if (stagesError) {
+        console.error('Dashboard: Error loading stages:', stagesError);
+        throw stagesError;
+      }
+      
+      console.log('Dashboard: Stages loaded:', stagesData?.length || 0, 'stages found');
       setStages(stagesData || []);
     } catch (error) {
-      console.error('Error loading stages:', error);
+      console.error('Dashboard: Error loading stages:', error);
     }
   };
 
   const loadDocuments = async (applicationId: string) => {
+    console.log('Dashboard: loadDocuments started for application:', applicationId);
     try {
       const { data: documentsData, error: documentsError } = await supabase
         .from('documents')
@@ -498,14 +558,20 @@ const Dashboard: React.FC<DashboardProps> = ({
         .eq('application_id', applicationId)
         .order('uploaded_at', { ascending: false });
 
-      if (documentsError) throw documentsError;
+      if (documentsError) {
+        console.error('Dashboard: Error loading documents:', documentsError);
+        throw documentsError;
+      }
+      
+      console.log('Dashboard: Documents loaded:', documentsData?.length || 0, 'documents found');
       setDocuments(documentsData || []);
     } catch (error) {
-      console.error('Error loading documents:', error);
+      console.error('Dashboard: Error loading documents:', error);
     }
   };
 
   const loadNotifications = async (userId: string) => {
+    console.log('Dashboard: loadNotifications started for user:', userId);
     try {
       const { data: notificationsData, error: notificationsError } = await supabase
         .from('notifications')
@@ -513,50 +579,68 @@ const Dashboard: React.FC<DashboardProps> = ({
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
-      if (notificationsError) throw notificationsError;
+      if (notificationsError) {
+        console.error('Dashboard: Error loading notifications:', notificationsError);
+        throw notificationsError;
+      }
+      
+      console.log('Dashboard: Notifications loaded:', notificationsData?.length || 0, 'notifications found');
       setNotifications(notificationsData || []);
     } catch (error) {
-      console.error('Error loading notifications:', error);
+      console.error('Dashboard: Error loading notifications:', error);
     }
   };
 
   const handleDocumentUpload = async (file: File, category: string) => {
-    if (!selectedApplication) return;
+    console.log('Dashboard: handleDocumentUpload started', { category });
+    if (!selectedApplication) {
+      console.log('Dashboard: No selectedApplication, aborting document upload');
+      return;
+    }
     
     try {
+      console.log('Dashboard: Uploading document');
       const document = await uploadDocument(file, category);
       if (document) {
         // Update the documents state immediately with the new document
+        console.log('Dashboard: Document uploaded successfully:', document.id);
         setDocuments(prevDocuments => [document, ...prevDocuments]);
         toast.success('Document uploaded successfully');
       }
     } catch (error) {
-      console.error('Error uploading document:', error);
+      console.error('Dashboard: Error uploading document:', error);
       toast.error('Failed to upload document');
     }
   };
 
   const handleDocumentDelete = async (documentId: string) => {
+    console.log('Dashboard: handleDocumentDelete started for document:', documentId);
     try {
       await deleteDocument(documentId);
       // Update the documents state immediately by removing the deleted document
+      console.log('Dashboard: Document deleted successfully');
       setDocuments(prevDocuments => prevDocuments.filter(doc => doc.id !== documentId));
       toast.success('Document deleted successfully');
     } catch (error) {
-      console.error('Error deleting document:', error);
+      console.error('Dashboard: Error deleting document:', error);
       toast.error('Failed to delete document');
     }
   };
 
   const handleMarkNotificationAsRead = async (id: string) => {
+    console.log('Dashboard: handleMarkNotificationAsRead started for notification:', id);
     try {
       const { error } = await supabase
         .from('notifications')
         .update({ read: true })
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Dashboard: Error marking notification as read:', error);
+        throw error;
+      }
 
+      console.log('Dashboard: Notification marked as read');
       // Update local state
       setNotifications(prev =>
         prev.map(notification =>
@@ -566,11 +650,12 @@ const Dashboard: React.FC<DashboardProps> = ({
         )
       );
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      console.error('Dashboard: Error marking notification as read:', error);
     }
   };
 
   const handleApplicationSelect = async (application: Application) => {
+    console.log('Dashboard: handleApplicationSelect started for application:', application.id);
     setSelectedApplication(application);
     await loadStages(application.id);
     await loadDocuments(application.id);
@@ -579,10 +664,12 @@ const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const handleSectionChange = (section: string) => {
+    console.log('Dashboard: handleSectionChange to section:', section);
     setActiveSection(section);
   };
 
   if (authLoading || loading) {
+    console.log('Dashboard: Rendering loading state, authLoading =', authLoading, 'loading =', loading);
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent" />
@@ -591,6 +678,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   }
 
   if (error) {
+    console.log('Dashboard: Rendering error state:', error);
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -608,6 +696,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   }
 
   if (!selectedApplication) {
+    console.log('Dashboard: No selectedApplication, rendering no application found state');
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -714,13 +803,18 @@ const Dashboard: React.FC<DashboardProps> = ({
               <AppointmentScheduler
                 onSchedule={async (date, type) => {
                   try {
+                    console.log('Dashboard: Scheduling appointment', { date, type });
                     const { error } = await supabase
                       .from('applications')
                       .update({ consultation_time: date.toISOString() })
                       .eq('id', selectedApplication.id);
 
-                    if (error) throw error;
+                    if (error) {
+                      console.error('Dashboard: Error scheduling appointment:', error);
+                      throw error;
+                    }
                     
+                    console.log('Dashboard: Appointment scheduled successfully');
                     setSelectedApplication(prev => prev ? {
                       ...prev,
                       consultation_time: date.toISOString()
@@ -728,7 +822,7 @@ const Dashboard: React.FC<DashboardProps> = ({
                     
                     toast.success('Consultation scheduled successfully');
                   } catch (error) {
-                    console.error('Error scheduling appointment:', error);
+                    console.error('Dashboard: Error scheduling appointment:', error);
                     toast.error('Failed to schedule consultation');
                   }
                 }}

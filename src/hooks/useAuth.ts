@@ -9,15 +9,33 @@ export const useAuth = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log('useAuth: initializing auth hook');
+    
     const getInitialSession = async () => {
       try {
+        console.log('useAuth: getting initial session');
         const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) throw error;
+        
+        if (error) {
+          console.error('useAuth: Error getting session:', error);
+          throw error;
+        }
+        
+        console.log('useAuth: session result:', { 
+          hasSession: !!session, 
+          user: session?.user ? { 
+            id: session.user.id, 
+            email: session.user.email,
+            app_metadata: session.user.app_metadata
+          } : null 
+        });
+        
         setUser(session?.user ?? null);
       } catch (error) {
-        console.error('Error getting session:', error);
+        console.error('useAuth: Error getting session:', error);
         setUser(null);
       } finally {
+        console.log('useAuth: completed initial session check, setting loading=false');
         setLoading(false);
       }
     };
@@ -25,24 +43,35 @@ export const useAuth = () => {
     getInitialSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      console.log('useAuth: authStateChange event:', _event, {
+        hasSession: !!session,
+        user: session?.user ? {
+          id: session.user.id,
+          email: session.user.email,
+          app_metadata: session.user.app_metadata
+        } : null
+      });
+      
       setUser(session?.user ?? null);
       setLoading(false);
       
       // If user just signed in, check if they have a role
       if (session?.user && !session.user.app_metadata?.role) {
         try {
+          console.log('useAuth: user has no role, setting default role to customer');
           // Set default role to customer if none exists
           await supabase.auth.updateUser({
             data: { role: 'customer' }
           });
-          console.log('Default role set to customer');
+          console.log('useAuth: default role set to customer');
         } catch (error) {
-          console.error('Error setting default role:', error);
+          console.error('useAuth: Error setting default role:', error);
         }
       }
     });
 
     return () => {
+      console.log('useAuth: unsubscribing from auth state changes');
       subscription.unsubscribe();
     };
   }, []);
@@ -50,7 +79,7 @@ export const useAuth = () => {
   const signIn = async (email: string, password: string) => {
     try {
       const normalizedEmail = email.trim().toLowerCase();
-      console.log('Attempting to sign in with:', normalizedEmail);
+      console.log('useAuth: attempting to sign in with:', normalizedEmail);
       
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
@@ -58,7 +87,7 @@ export const useAuth = () => {
       });
       
       if (signInError) {
-        console.error('Supabase sign in error:', signInError);
+        console.error('useAuth: Supabase sign in error:', signInError);
         let errorMessage = 'An error occurred while signing in. Please try again.';
         
         if (signInError.message.includes('Invalid login credentials')) {
@@ -72,10 +101,15 @@ export const useAuth = () => {
         throw new Error(errorMessage);
       }
 
+      console.log('useAuth: sign in successful:', { 
+        userId: data.user?.id,
+        email: data.user?.email,
+        role: data.user?.app_metadata?.role 
+      });
       return { data, error: null };
     } catch (error: any) {
-      console.error('Sign in error:', error);
-      console.log('Error details:', JSON.stringify(error, null, 2));
+      console.error('useAuth: Sign in error:', error);
+      console.log('useAuth: Error details:', JSON.stringify(error, null, 2));
       return { 
         data: null, 
         error
@@ -85,6 +119,7 @@ export const useAuth = () => {
 
   const signUp = async (email: string, password: string) => {
     try {
+      console.log('useAuth: attempting to sign up:', email);
       const { data, error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
@@ -97,6 +132,7 @@ export const useAuth = () => {
       });
       
       if (error) {
+        console.error('useAuth: sign up error:', error);
         if (error.message.includes('already registered') || 
             error.message.includes('already exists') ||
             error.status === 400) {
@@ -105,16 +141,21 @@ export const useAuth = () => {
         throw error;
       }
       
+      console.log('useAuth: sign up successful:', { 
+        userId: data.user?.id, 
+        email: data.user?.email 
+      });
       return { data, error: null };
     } catch (error: any) {
-      console.error('Sign up error:', error);
+      console.error('useAuth: Sign up error:', error);
       return { data: null, error };
     }
   };
 
   const signUpDealer = async (email: string, password: string, name: string, phone: string) => {
     try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      console.log('useAuth: attempting to sign up dealer:', email, name);
+      const { data, error } = await supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
         options: {
@@ -128,6 +169,7 @@ export const useAuth = () => {
       });
       
       if (error) {
+        console.error('useAuth: dealer sign up error:', error);
         if (error.message.includes('already registered') || 
             error.message.includes('already exists') ||
             error.status === 400) {
@@ -136,20 +178,30 @@ export const useAuth = () => {
         throw error;
       }
       
+      console.log('useAuth: dealer sign up successful:', { 
+        userId: data.user?.id, 
+        email: data.user?.email,
+        role: 'dealer' 
+      });
       return { data, error: null };
     } catch (error: any) {
-      console.error('Sign up error:', error);
+      console.error('useAuth: Dealer sign up error:', error);
       return { data: null, error };
     }
   };
 
   const signOut = async () => {
     try {
+      console.log('useAuth: attempting to sign out');
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      if (error) {
+        console.error('useAuth: sign out error:', error);
+        throw error;
+      }
+      console.log('useAuth: sign out successful, clearing user state');
       setUser(null);
     } catch (error: any) {
-      console.error('Sign out error:', error);
+      console.error('useAuth: Sign out error:', error);
       
       // Check if the error is due to a missing or invalid session
       const errorMessage = error.message || '';
@@ -162,7 +214,7 @@ export const useAuth = () => {
 
       if (isSessionError) {
         // If the session doesn't exist on the server, clear local state and succeed
-        console.log('Session not found on server, clearing local state');
+        console.log('useAuth: Session not found on server, clearing local state');
         setUser(null);
         return; // Don't throw error, treat as successful sign out
       }
@@ -179,18 +231,22 @@ export const useAuth = () => {
         ? 'https://clearpathmotors.com/update-password'
         : `${window.location.origin}/update-password`;
 
+      console.log('useAuth: sending password reset email to:', email);
+      console.log('useAuth: redirect URL:', redirectTo);
+      
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
         redirectTo
       });
 
       if (error) {
-        console.error('Reset password error:', error);
+        console.error('useAuth: Reset password error:', error);
         throw error;
       }
 
+      console.log('useAuth: password reset email sent successfully');
       return { error: null };
     } catch (error: any) {
-      console.error('Reset password error:', error);
+      console.error('useAuth: Reset password error:', error);
       return { 
         error: {
           message: error.message || 'An error occurred while resetting the password. Please try again later.'
@@ -201,14 +257,19 @@ export const useAuth = () => {
 
   const updatePassword = async (newPassword: string) => {
     try {
+      console.log('useAuth: updating password');
       const { error } = await supabase.auth.updateUser({
         password: newPassword
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('useAuth: Update password error:', error);
+        throw error;
+      }
+      console.log('useAuth: password updated successfully');
       return { error: null };
     } catch (error: any) {
-      console.error('Update password error:', error);
+      console.error('useAuth: Update password error:', error);
       return { error };
     }
   };
