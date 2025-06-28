@@ -79,7 +79,16 @@ const AdminApplications = () => {
         .order('created_at', { ascending: false });
 
       if (searchTerm) {
-        query = query.or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,id.ilike.%${searchTerm}%`);
+        // Check if searchTerm is a valid UUID format for exact matching
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(searchTerm);
+        
+        if (isUUID) {
+          // If it's a UUID, search by exact match on id
+          query = query.or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,id.eq.${searchTerm}`);
+        } else {
+          // If it's not a UUID, search only text fields
+          query = query.or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`);
+        }
       }
 
       if (statusFilter !== 'all') {
