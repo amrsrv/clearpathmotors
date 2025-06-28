@@ -33,6 +33,7 @@ interface UserWithMessages {
   unreadCount: number;
   lastMessage: string;
   lastMessageTime: string;
+  ticketSubject?: string;
 }
 
 export const MessageCenter: React.FC = () => {
@@ -111,6 +112,23 @@ export const MessageCenter: React.FC = () => {
           
         if (userError) throw userError;
         
+        // Get the most recent support ticket for each user
+        const { data: userTickets, error: ticketsError } = await supabase
+          .from('support_tickets')
+          .select('user_id, subject, created_at')
+          .in('user_id', userIds)
+          .order('created_at', { ascending: false });
+          
+        if (ticketsError) throw ticketsError;
+        
+        // Create a map of user IDs to their most recent ticket subject
+        const ticketSubjectMap = new Map();
+        userTickets?.forEach((ticket) => {
+          if (!ticketSubjectMap.has(ticket.user_id)) {
+            ticketSubjectMap.set(ticket.user_id, ticket.subject);
+          }
+        });
+        
         // Create a map of user IDs to emails
         const userMap = new Map();
         userDetails?.forEach((u) => {
@@ -132,7 +150,8 @@ export const MessageCenter: React.FC = () => {
               email: userMap.get(userId) || 'Unknown User',
               unreadCount,
               lastMessage: lastMessage.message,
-              lastMessageTime: lastMessage.created_at
+              lastMessageTime: lastMessage.created_at,
+              ticketSubject: ticketSubjectMap.get(userId)
             });
           }
         });
@@ -270,7 +289,7 @@ export const MessageCenter: React.FC = () => {
                           <User className="h-5 w-5" />
                         </div>
                         <div className="ml-3">
-                          <div className="font-medium">{user.email}</div>
+                          <div className="font-medium">{user.ticketSubject || user.email}</div>
                           <div className="text-sm text-gray-500 truncate max-w-[180px]">
                             {user.lastMessage}
                           </div>
@@ -306,7 +325,10 @@ export const MessageCenter: React.FC = () => {
                   <ArrowLeft className="h-5 w-5" />
                 </button>
                 <div className="flex-1">
-                  <h2 className="text-lg font-semibold">{selectedUserEmail}</h2>
+                  <h2 className="text-lg font-semibold">
+                    {users.find(u => u.id === selectedUserId)?.ticketSubject || selectedUserEmail}
+                  </h2>
+                  <p className="text-xs text-gray-500">{selectedUserEmail}</p>
                 </div>
               </div>
               
