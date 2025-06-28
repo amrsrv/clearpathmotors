@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 const MAKE_ENDPOINTS = {
   submitApplication: 'https://hook.us2.make.com/mcp1vldmdo6by27pepjuwe1octgvf7iy',
-  uploadDocument: 'https://hook.us2.make.com/dw1c3e5v8d3m6m2cs6vv45yz6emlhhu6',
+  uploadDocument: 'https://hook.us1.make.com/y4pmc2ojk78pfewwhiu2dedne0z4d0xk',
   contactForm: 'https://hook.us2.make.com/3r8kj9l2m5n6p7q8s9t1u2v3w4x5y6z7'
 };
 
