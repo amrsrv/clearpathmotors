@@ -398,14 +398,22 @@ const Dashboard: React.FC<DashboardProps> = ({
         .from('user_profiles')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error loading user profile:', error);
         return;
       }
 
+      // Set user profile data (will be null if no profile exists)
       setUserProfile(data);
+      
+      // If no profile exists, we could optionally create one here
+      if (!data) {
+        console.log('No user profile found for user:', userId);
+        // Optionally create a default profile:
+        // await createUserProfile(userId);
+      }
     } catch (error) {
       console.error('Error loading user profile:', error);
     }
