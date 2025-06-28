@@ -5,7 +5,6 @@ import { Mail, Lock, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
 import { GoogleSignInButton } from '../components/GoogleSignInButton';
-import { makeClient } from '../lib/makeClient';
 
 const CreateAccount = () => {
   const navigate = useNavigate();
@@ -74,20 +73,6 @@ const CreateAccount = () => {
           .eq('temp_user_id', tempUserId);
 
         if (updateError) throw updateError;
-
-        // Send account creation data to webhook
-        try {
-          await makeClient.submitApplication({
-            event: 'account_created',
-            applicationId,
-            userId: data.user.id,
-            email: formData.email,
-            timestamp: new Date().toISOString()
-          });
-        } catch (webhookError) {
-          console.error('Error sending account creation to webhook:', webhookError);
-          // Continue even if webhook fails
-        }
 
         setSuccess(true);
         setTimeout(() => {
