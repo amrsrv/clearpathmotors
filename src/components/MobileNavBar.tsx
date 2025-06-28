@@ -29,11 +29,8 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({ onNavigate, activeSe
             <item.icon className="h-6 w-6 mb-1" />
             <span>{item.name}</span>
           </button>
-        </Link>
+        ))}
       </nav>
-    )
-    )
-    }
     </div>
   );
 };
