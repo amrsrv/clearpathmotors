@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import { motion } from 'framer-motion';
 import { Eye, ChevronRight, ChevronDown, ChevronUp, DollarSign, CreditCard, Car, Briefcase, MapPin, Calendar, Phone, Mail, User } from 'lucide-react';
 import { PreQualifiedBadge } from './PreQualifiedBadge';
-import type { Application } from '../types/database';
+import type { Application, UserProfile } from '../types/database';
 import { toStartCase } from '../utils/formatters';
 
 interface ApplicationCardProps {
@@ -171,6 +171,12 @@ export const ApplicationCard: React.FC<ApplicationCardProps> = ({
                   <Calendar className="h-4 w-4 text-gray-500" />
                   <span className="text-sm text-gray-700">Born {format(new Date(application.date_of_birth), 'MMM d, yyyy')}</span>
                 </div>
+                {application.dealer_profiles && (
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm text-gray-700">Dealer: {application.dealer_profiles.name}</span>
+                  </div>
+                )}
               )}
             </div>
           </div>

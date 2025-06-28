@@ -33,7 +33,7 @@ import {
   ArrowRight,
   HelpCircle
 } from 'lucide-react';
-import type { Application, ApplicationStage, Document, Notification } from '../types/database';
+import type { Application, ApplicationStage, Document, Notification, UserProfile } from '../types/database';
 import { PreQualifiedBadge } from '../components/PreQualifiedBadge';
 import { LoanRangeBar } from '../components/LoanRangeBar';
 import { ApplicationTracker } from '../components/ApplicationTracker';
@@ -71,6 +71,9 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [activeTab, setActiveTab] = useState<'upload' | 'manage'>('upload');
   const [showApplicationSelector, setShowApplicationSelector] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  
+  // User profile
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   
   // Summary stats
   const [summaryStats, setSummaryStats] = useState({
@@ -344,7 +347,10 @@ const Dashboard: React.FC<DashboardProps> = ({
       // Load all applications for this user
       const { data: applicationData, error: applicationError } = await supabase
         .from('applications')
-        .select('*')
+        .select(`
+          *,
+          dealer_profiles!dealer_id(name)
+        `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -372,6 +378,9 @@ const Dashboard: React.FC<DashboardProps> = ({
       // Load notifications
       await loadNotifications(user.id);
 
+      // Load user profile
+      await loadUserProfile(user.id);
+
       // Load summary stats
       await loadSummaryStats();
 
@@ -383,6 +392,25 @@ const Dashboard: React.FC<DashboardProps> = ({
       setError(error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error loading user profile:', error);
+        return;
+      }
+
+      setUserProfile(data);
+    } catch (error) {
+      console.error('Error loading user profile:', error);
     }
   };
 
