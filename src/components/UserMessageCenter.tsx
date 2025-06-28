@@ -33,14 +33,8 @@ interface UserMessageCenterProps {
   userId: string;
   applicationId: string;
   ticketSubject?: string;
-  ticketSubject?: string;
 }
 
-export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({ 
-  userId, 
-  applicationId,
-  ticketSubject
-}) => {
 const formatDate = (dateStr: string) => {
   const date = new Date(dateStr);
   const today = new Date();
@@ -269,10 +263,6 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({
             e.preventDefault();
             window.history.back();
           }}
-          onClick={(e) => {
-            e.preventDefault();
-            window.history.back();
-          }}
           className="mr-3 flex items-center text-gray-600 hover:text-[#3BAA75] transition-colors"
         >
           <ArrowLeft className="h-5 w-5" />
@@ -284,8 +274,6 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({
           {!ticketSubject && (
             <p className="text-sm text-gray-600">
               Communicate with our support team about your application
-            </p>
-          )}
             </p>
           )}
         </div>
