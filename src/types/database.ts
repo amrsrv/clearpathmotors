@@ -51,7 +51,7 @@ export type GovernmentBenefitTypeEnum =
   | 'child_tax_benefit'
   | 'other';
 
-export type VehicleSelectionStatusEnum =
+export type VehicleSelectionStatus =
   | 'pending'
   | 'confirmed'
   | 'invoiced';
@@ -250,9 +250,10 @@ export interface VehicleSelection {
   monthly_payment: number | null;
   balloon_payment: number | null;
   final_total: number | null;
-  status: VehicleSelectionStatusEnum;
+  status: VehicleSelectionStatus;
   created_at: string;
   updated_at: string;
   created_by: string | null;
   updated_by: string | null;
+  admin_comments: string | null;
 }
