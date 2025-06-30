@@ -25,18 +25,23 @@ const Login = () => {
   useEffect(() => {
     const checkAuth = async () => {
       console.log('Login: Checking authentication status');
-      const { user: currentUser, error } = await verifyAuth();
-      
-      if (error) {
-        console.error('Login: Error verifying auth:', error);
-      }
-      
-      setAuthChecked(true);
-      
-      // If user is logged in, redirect
-      if (currentUser) {
-        console.log('Login: User already logged in, redirecting');
-        redirectBasedOnRole(currentUser);
+      try {
+        const { user: currentUser, error } = await verifyAuth();
+        
+        if (error) {
+          console.error('Login: Error verifying auth:', error);
+        }
+        
+        setAuthChecked(true);
+        
+        // If user is logged in, redirect
+        if (currentUser) {
+          console.log('Login: User already logged in, redirecting');
+          redirectBasedOnRole(currentUser);
+        }
+      } catch (err) {
+        console.error('Login: Error in checkAuth:', err);
+        setAuthChecked(true);
       }
     };
     
@@ -104,21 +109,6 @@ const Login = () => {
     }
   };
 
-  if (loading && !authChecked) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="flex flex-col items-center"
-        >
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent mb-4" />
-          <p className="text-gray-600">Checking authentication status...</p>
-        </motion.div>
-      </div>
-    );
-  }
-
   // Don't render the login form if already logged in and we've checked auth status
   if (user && authChecked) {
     return (
@@ -130,6 +120,22 @@ const Login = () => {
         >
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent mb-4" />
           <p className="text-gray-600">You're already signed in. Redirecting...</p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Show a loading state only if we haven't checked auth yet
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="flex flex-col items-center"
+        >
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent mb-4" />
+          <p className="text-gray-600">Checking authentication status...</p>
         </motion.div>
       </div>
     );
