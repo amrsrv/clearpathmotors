@@ -13,6 +13,7 @@ import { Checkbox } from './ui/checkbox';
 import { ProgressBar } from './ProgressBar';
 import CurrencyInputField from './CurrencyInputField';
 import { vehicles } from '../pages/Vehicles';
+import { useForm, Controller } from 'react-hook-form';
 
 interface PreQualificationFormProps {
   onComplete: (applicationId: string, tempUserId: string, formData: any) => void;
