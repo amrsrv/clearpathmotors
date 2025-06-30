@@ -51,16 +51,21 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
     // Step 2: Financial Information
     desiredMonthlyPayment: searchParams.get('budget') ? parseInt(searchParams.get('budget')!) : 500,
     creditScore: '',
-    dateOfBirth: '',
     
     // Step 3: Personal Information
     firstName: '',
     lastName: '',
+    email: '',
+    phone: '',
     address: '',
     city: '',
     province: '',
     postalCode: '',
-    housingStatus: '',
+    dateOfBirth: '',
+    housingStatus: 'rent',
+    housingPayment: '',
+    residenceDurationYears: '',
+    residenceDurationMonths: '',
     
     // Step 4: Employment Information
     employmentStatus: 'employed',
@@ -80,10 +85,10 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
     debt_discharge_status: '',
     debt_discharge_year: '',
     amount_owed: '',
+    trustee_name: '',
+    debt_discharge_comments: '',
     
     // Step 6: Account Creation
-    email: '',
-    phone: '',
     password: '',
     confirmPassword: '',
     
@@ -102,56 +107,44 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
       creditScore: z.string().refine(val => {
         const num = parseInt(val);
         return !isNaN(num) && num >= 300 && num <= 900;
-      }, 'Credit score must be between 300 and 900'),
-      dateOfBirth: z.string().min(1, 'Date of birth is required')
+      }, 'Credit score must be between 300 and 900')
     }),
     3: z.object({
       firstName: z.string().min(1, 'First name is required'),
       lastName: z.string().min(1, 'Last name is required'),
+      email: z.string().email('Please enter a valid email address'),
+      phone: z.string().min(10, 'Please enter a valid phone number'),
       address: z.string().min(1, 'Address is required'),
       city: z.string().min(1, 'City is required'),
       province: z.string().min(1, 'Province is required'),
       postalCode: z.string().regex(/^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/, 'Please enter a valid postal code'),
-      housingStatus: z.string().min(1, 'Housing status is required')
+      dateOfBirth: z.string().min(1, 'Date of birth is required'),
+      housingStatus: z.string().min(1, 'Housing status is required'),
+      housingPayment: z.string().optional(),
+      residenceDurationYears: z.string().optional(),
+      residenceDurationMonths: z.string().optional()
     }),
     4: z.object({
       employmentStatus: z.string().min(1, 'Please select your employment status'),
       employerName: z.string().optional(),
       occupation: z.string().optional(),
-      employmentDurationYears: z.string().refine(val => {
-        const num = parseInt(val);
-        return !isNaN(num) && num >= 0;
-      }, 'Please enter a valid number of years'),
-      employmentDurationMonths: z.string().refine(val => {
-        const num = parseInt(val);
-        return !isNaN(num) && num >= 0 && num <= 11;
-      }, 'Please enter a valid number of months (0-11)'),
+      employmentDurationYears: z.string().optional(),
+      employmentDurationMonths: z.string().optional(),
       annualIncome: z.string().refine(val => {
         const num = parseFloat(val.replace(/[^0-9.]/g, ''));
         return !isNaN(num) && num > 0;
       }, 'Please enter a valid annual income')
-    }).refine(data => {
-      // If employment status is 'employed', employerName and occupation are required
-      if (data.employmentStatus === 'employed') {
-        return !!data.employerName && !!data.occupation;
-      }
-      return true;
-    }, {
-      message: 'Employer name and occupation are required for employed status',
-      path: ['employerName']
     }),
     5: z.object({
       consentToSoftCheck: z.boolean().refine(val => val === true, 'You must consent to a soft credit check'),
       termsAccepted: z.boolean().refine(val => val === true, 'You must accept the terms and conditions')
     }),
     6: z.object({
-      email: z.string().email('Please enter a valid email address'),
-      phone: z.string().min(10, 'Please enter a valid phone number'),
       password: z.string().min(8, 'Password must be at least 8 characters'),
       confirmPassword: z.string().min(8, 'Please confirm your password')
     }).refine(data => data.password === data.confirmPassword, {
-      message: 'Passwords do not match',
-      path: ['confirmPassword']
+      message: "Passwords don't match",
+      path: ["confirmPassword"]
     })
   };
 
@@ -209,7 +202,9 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
         debt_discharge_type: '',
         debt_discharge_status: '',
         debt_discharge_year: '',
-        amount_owed: ''
+        amount_owed: '',
+        trustee_name: '',
+        debt_discharge_comments: ''
       }));
     }
     
@@ -249,19 +244,6 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
       Object.keys(schema.shape).forEach(key => {
         stepData[key] = formData[key as keyof typeof formData];
       });
-      
-      // Additional validation for step 4
-      if (currentStep === 4) {
-        // Validate employer name and occupation if employment status is 'employed'
-        if (formData.employmentStatus === 'employed') {
-          if (!formData.employerName) {
-            throw new Error('Employer name is required');
-          }
-          if (!formData.occupation) {
-            throw new Error('Occupation is required');
-          }
-        }
-      }
       
       // Additional validation for step 5
       if (currentStep === 5) {
@@ -358,6 +340,10 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           province: formData.province,
           postal_code: formData.postalCode,
           date_of_birth: formData.dateOfBirth,
+          housing_status: formData.housingStatus,
+          housing_payment: formData.housingPayment ? parseFloat(formData.housingPayment.replace(/[^0-9.]/g, '')) : null,
+          residence_duration_years: formData.residenceDurationYears ? parseInt(formData.residenceDurationYears) : null,
+          residence_duration_months: formData.residenceDurationMonths ? parseInt(formData.residenceDurationMonths) : null,
           employment_status: formData.employmentStatus,
           employer_name: formData.employerName || null,
           occupation: formData.occupation || null,
@@ -372,7 +358,6 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           loan_amount_max: loanMax,
           interest_rate: interestRate,
           loan_term: term,
-          housing_status: formData.housingStatus,
           collects_government_benefits: formData.collects_government_benefits,
           government_benefit_types: formData.government_benefit_types.length > 0 ? formData.government_benefit_types : null,
           government_benefit_other: formData.government_benefit_other || null,
@@ -381,6 +366,8 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           debt_discharge_status: formData.debt_discharge_status || null,
           debt_discharge_year: formData.debt_discharge_year ? parseInt(formData.debt_discharge_year) : null,
           amount_owed: formData.amount_owed ? parseFloat(formData.amount_owed.replace(/[^0-9.]/g, '')) : null,
+          trustee_name: formData.trustee_name || null,
+          debt_discharge_comments: formData.debt_discharge_comments || null,
           consent_soft_check: formData.consentToSoftCheck,
           terms_accepted: formData.termsAccepted
         })
@@ -409,28 +396,6 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           lastName: formData.lastName,
           email: formData.email,
           password: formData.password
-        });
-        
-        // Navigate to results page
-        navigate('/qualification-results', {
-          state: {
-            fromApproval: true,
-            applicationId: application.id,
-            tempUserId: tempUserId,
-            loanRange: {
-              min: loanMin,
-              max: loanMax,
-              rate: interestRate
-            },
-            vehicleType: formData.vehicleType,
-            monthlyBudget: formData.desiredMonthlyPayment,
-            originalFormData: {
-              firstName: formData.firstName,
-              lastName: formData.lastName,
-              email: formData.email,
-              password: formData.password
-            }
-          }
         });
       }, 3000);
     } catch (err) {
@@ -551,25 +516,6 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                 </div>
                 <p className="mt-1 text-xs text-gray-500">Don't know your score? Enter your best estimate.</p>
               </div>
-              
-              <div>
-                <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700 mb-2">
-                  Date of Birth
-                </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    id="dateOfBirth"
-                    name="dateOfBirth"
-                    value={formData.dateOfBirth}
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                  />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <Calendar className="h-5 w-5 text-gray-400" />
-                  </div>
-                </div>
-              </div>
             </div>
           </motion.div>
         );
@@ -625,6 +571,65 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                       <User className="h-5 w-5 text-gray-400" />
                     </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      id="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                    />
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                      <Mail className="h-5 w-5 text-gray-400" />
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone Number
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="tel"
+                      id="phone"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                    />
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                      <Phone className="h-5 w-5 text-gray-400" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700 mb-2">
+                  Date of Birth
+                </label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    id="dateOfBirth"
+                    name="dateOfBirth"
+                    value={formData.dateOfBirth}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                  />
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <Calendar className="h-5 w-5 text-gray-400" />
                   </div>
                 </div>
               </div>
@@ -718,15 +723,71 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                   onChange={handleChange}
                   className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                 >
-                  <option value="">Select Housing Status</option>
-                  <option value="own_no_mortgage">Own – No Mortgage</option>
-                  <option value="own_with_mortgage">Own – With Mortgage</option>
+                  <option value="own">Own – No Mortgage</option>
+                  <option value="own_mortgage">Own – With Mortgage</option>
                   <option value="rent">Rent</option>
-                  <option value="live_with_family">Live with Family</option>
+                  <option value="live_with_parents">Live with Family</option>
                   <option value="subsidized_housing">Subsidized Housing</option>
                   <option value="military">Military</option>
                   <option value="student">Student</option>
                 </select>
+              </div>
+              
+              {(formData.housingStatus === 'rent' || formData.housingStatus === 'own_mortgage') && (
+                <div>
+                  <label htmlFor="housingPayment" className="block text-sm font-medium text-gray-700 mb-2">
+                    Monthly Housing Payment
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <DollarSign className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <CurrencyInput
+                      id="housingPayment"
+                      name="housingPayment"
+                      value={formData.housingPayment}
+                      onValueChange={(value) => handleCurrencyChange(value, 'housingPayment')}
+                      placeholder="Enter your monthly payment"
+                      prefix="$"
+                      groupSeparator=","
+                      decimalSeparator="."
+                      className="w-full p-3 pl-10 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                    />
+                  </div>
+                </div>
+              )}
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="residenceDurationYears" className="block text-sm font-medium text-gray-700 mb-2">
+                    Years at Current Residence
+                  </label>
+                  <input
+                    type="number"
+                    id="residenceDurationYears"
+                    name="residenceDurationYears"
+                    value={formData.residenceDurationYears}
+                    onChange={handleChange}
+                    min="0"
+                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="residenceDurationMonths" className="block text-sm font-medium text-gray-700 mb-2">
+                    Months at Current Residence
+                  </label>
+                  <input
+                    type="number"
+                    id="residenceDurationMonths"
+                    name="residenceDurationMonths"
+                    value={formData.residenceDurationMonths}
+                    onChange={handleChange}
+                    min="0"
+                    max="11"
+                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                  />
+                </div>
               </div>
             </div>
           </motion.div>
@@ -771,73 +832,78 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                 </div>
               </div>
               
-              {/* Conditional fields for employed status */}
               {formData.employmentStatus === 'employed' && (
-                <div className="grid md:grid-cols-2 gap-6">
+                <>
                   <div>
                     <label htmlFor="employerName" className="block text-sm font-medium text-gray-700 mb-2">
                       Employer Name
                     </label>
-                    <input
-                      type="text"
-                      id="employerName"
-                      name="employerName"
-                      value={formData.employerName}
-                      onChange={handleChange}
-                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                      placeholder="Enter your employer's name"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        id="employerName"
+                        name="employerName"
+                        value={formData.employerName}
+                        onChange={handleChange}
+                        className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                      />
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                        <Building className="h-5 w-5 text-gray-400" />
+                      </div>
+                    </div>
                   </div>
                   
                   <div>
                     <label htmlFor="occupation" className="block text-sm font-medium text-gray-700 mb-2">
                       Occupation
                     </label>
-                    <input
-                      type="text"
-                      id="occupation"
-                      name="occupation"
-                      value={formData.occupation}
-                      onChange={handleChange}
-                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                      placeholder="Enter your job title"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        id="occupation"
+                        name="occupation"
+                        value={formData.occupation}
+                        onChange={handleChange}
+                        className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                      />
+                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                        <Briefcase className="h-5 w-5 text-gray-400" />
+                      </div>
+                    </div>
                   </div>
-                </div>
+                </>
               )}
               
-              {/* Employment duration - always visible */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  How long have you been {formData.employmentStatus === 'employed' ? 'with your current employer' : formData.employmentStatus}?
-                </label>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="employmentDurationYears" className="block text-xs text-gray-500 mb-1">Years</label>
-                    <input
-                      type="number"
-                      id="employmentDurationYears"
-                      name="employmentDurationYears"
-                      value={formData.employmentDurationYears}
-                      onChange={handleChange}
-                      min="0"
-                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label htmlFor="employmentDurationMonths" className="block text-xs text-gray-500 mb-1">Months</label>
-                    <input
-                      type="number"
-                      id="employmentDurationMonths"
-                      name="employmentDurationMonths"
-                      value={formData.employmentDurationMonths}
-                      onChange={handleChange}
-                      min="0"
-                      max="11"
-                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    />
-                  </div>
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="employmentDurationYears" className="block text-sm font-medium text-gray-700 mb-2">
+                    Years {formData.employmentStatus === 'employed' ? 'at Current Employer' : `being ${formData.employmentStatus.replace(/_/g, ' ')}`}
+                  </label>
+                  <input
+                    type="number"
+                    id="employmentDurationYears"
+                    name="employmentDurationYears"
+                    value={formData.employmentDurationYears}
+                    onChange={handleChange}
+                    min="0"
+                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="employmentDurationMonths" className="block text-sm font-medium text-gray-700 mb-2">
+                    Months {formData.employmentStatus === 'employed' ? 'at Current Employer' : `being ${formData.employmentStatus.replace(/_/g, ' ')}`}
+                  </label>
+                  <input
+                    type="number"
+                    id="employmentDurationMonths"
+                    name="employmentDurationMonths"
+                    value={formData.employmentDurationMonths}
+                    onChange={handleChange}
+                    min="0"
+                    max="11"
+                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                  />
                 </div>
               </div>
               
@@ -1062,28 +1128,60 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       </div>
                       
                       {formData.debt_discharge_status === 'active' && (
-                        <div>
-                          <label htmlFor="amount_owed" className="block text-sm text-gray-700 mb-1">
-                            Amount Owed
-                          </label>
-                          <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                              <DollarSign className="h-4 w-4 text-gray-400" />
+                        <>
+                          <div>
+                            <label htmlFor="amount_owed" className="block text-sm text-gray-700 mb-1">
+                              Amount Owed
+                            </label>
+                            <div className="relative">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <DollarSign className="h-4 w-4 text-gray-400" />
+                              </div>
+                              <CurrencyInput
+                                id="amount_owed"
+                                name="amount_owed"
+                                value={formData.amount_owed}
+                                onValueChange={(value) => handleCurrencyChange(value, 'amount_owed')}
+                                placeholder="Enter amount owed"
+                                prefix="$"
+                                groupSeparator=","
+                                decimalSeparator="."
+                                className="w-full p-2 pl-8 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                              />
                             </div>
-                            <CurrencyInput
-                              id="amount_owed"
-                              name="amount_owed"
-                              value={formData.amount_owed}
-                              onValueChange={(value) => handleCurrencyChange(value, 'amount_owed')}
-                              placeholder="Enter amount owed"
-                              prefix="$"
-                              groupSeparator=","
-                              decimalSeparator="."
-                              className="w-full p-2 pl-8 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                          </div>
+                          
+                          <div>
+                            <label htmlFor="trustee_name" className="block text-sm text-gray-700 mb-1">
+                              Trustee Name
+                            </label>
+                            <input
+                              type="text"
+                              id="trustee_name"
+                              name="trustee_name"
+                              value={formData.trustee_name}
+                              onChange={handleChange}
+                              className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                              placeholder="Enter trustee name"
                             />
                           </div>
-                        </div>
+                        </>
                       )}
+                      
+                      <div>
+                        <label htmlFor="debt_discharge_comments" className="block text-sm text-gray-700 mb-1">
+                          Additional Comments
+                        </label>
+                        <textarea
+                          id="debt_discharge_comments"
+                          name="debt_discharge_comments"
+                          value={formData.debt_discharge_comments}
+                          onChange={handleChange}
+                          className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                          placeholder="Any additional information about your debt discharge"
+                          rows={3}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1115,7 +1213,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       className="h-5 w-5 mt-0.5 rounded text-[#3BAA75] focus:ring-[#3BAA75]"
                     />
                     <span className="ml-2 text-sm text-gray-700">
-                      I agree to the <a href="/terms" target="_blank" className="text-[#3BAA75] hover:underline">Terms of Service</a> and <a href="/privacy" target=\"_blank" className="text-[#3BAA75] hover:underline">Privacy Policy</a>. I understand that my information will be used to process my application and may be shared with lenders and dealerships in Clearpath's network.
+                      I agree to the <a href="/terms" target="_blank" className="text-[#3BAA75] hover:underline">Terms of Service</a> and <a href="/privacy" target="_blank" className="text-[#3BAA75] hover:underline">Privacy Policy</a>. I understand that my information will be used to process my application and may be shared with lenders and dealerships in Clearpath's network.
                     </span>
                   </label>
                 </div>
@@ -1135,132 +1233,99 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           >
             <div className="text-center">
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">Create Your Account</h2>
-              <p className="text-lg text-gray-600 mb-8">Set up your account to save your application and track your progress.</p>
+              <p className="text-lg text-gray-600 mb-8">Set up your account to track your application and get updates.</p>
             </div>
             
             <div className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    />
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <Mail className="h-5 w-5 text-gray-400" />
-                    </div>
-                  </div>
-                </div>
-                
-                <div>
-                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                    Phone Number
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="tel"
-                      id="phone"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleChange}
-                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    />
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <Phone className="h-5 w-5 text-gray-400" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                    Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="password"
-                      id="password"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                      placeholder="Create a password (min. 8 characters)"
-                      minLength={8}
-                    />
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <Lock className="h-5 w-5 text-gray-400" />
-                    </div>
-                  </div>
-                </div>
-                
-                <div>
-                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                    Confirm Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="password"
-                      id="confirmPassword"
-                      name="confirmPassword"
-                      value={formData.confirmPassword}
-                      onChange={handleChange}
-                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                      placeholder="Confirm your password"
-                      minLength={8}
-                    />
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <Lock className="h-5 w-5 text-gray-400" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-gray-50 p-6 rounded-lg">
+              <div className="bg-gray-50 p-6 rounded-lg mb-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Application Summary</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <p className="text-sm font-medium text-gray-700">Vehicle Type:</p>
-                    <p className="text-sm text-gray-900">{formData.vehicleType}</p>
+                    <p className="text-sm font-medium text-gray-700">Name</p>
+                    <p className="text-sm text-gray-600">{formData.firstName} {formData.lastName}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-700">Monthly Payment:</p>
-                    <p className="text-sm text-gray-900">${formData.desiredMonthlyPayment}</p>
+                    <p className="text-sm font-medium text-gray-700">Email</p>
+                    <p className="text-sm text-gray-600">{formData.email}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-700">Name:</p>
-                    <p className="text-sm text-gray-900">{formData.firstName} {formData.lastName}</p>
+                    <p className="text-sm font-medium text-gray-700">Phone</p>
+                    <p className="text-sm text-gray-600">{formData.phone}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-700">Date of Birth:</p>
-                    <p className="text-sm text-gray-900">{formData.dateOfBirth}</p>
+                    <p className="text-sm font-medium text-gray-700">Vehicle Type</p>
+                    <p className="text-sm text-gray-600">{formData.vehicleType}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-700">Address:</p>
-                    <p className="text-sm text-gray-900">{formData.address}, {formData.city}, {formData.province} {formData.postalCode}</p>
+                    <p className="text-sm font-medium text-gray-700">Monthly Payment</p>
+                    <p className="text-sm text-gray-600">${formData.desiredMonthlyPayment}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-700">Employment:</p>
-                    <p className="text-sm text-gray-900">{formData.employmentStatus.replace('_', ' ')}</p>
+                    <p className="text-sm font-medium text-gray-700">Credit Score</p>
+                    <p className="text-sm text-gray-600">{formData.creditScore}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                  Create Password
+                </label>
+                <div className="relative">
+                  <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                    placeholder="••••••••"
+                    minLength={8}
+                  />
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <Lock className="h-5 w-5 text-gray-400" />
+                  </div>
+                </div>
+                <p className="mt-1 text-xs text-gray-500">Password must be at least 8 characters</p>
+              </div>
+              
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                  Confirm Password
+                </label>
+                <div className="relative">
+                  <input
+                    type="password"
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                    placeholder="••••••••"
+                    minLength={8}
+                  />
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <Lock className="h-5 w-5 text-gray-400" />
                   </div>
                 </div>
               </div>
               
               <div className="bg-blue-50 p-4 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="text-blue-500">
-                    <CheckCircle className="h-5 w-5" />
+                <div className="flex items-start gap-3">
+                  <div className="mt-1">
+                    <CheckCircle className="h-5 w-5 text-blue-500" />
                   </div>
-                  <p className="text-sm text-blue-700">
-                    By creating an account, you'll be able to track your application status, upload documents, and communicate with our team.
-                  </p>
+                  <div>
+                    <p className="text-sm text-blue-700">
+                      By creating an account, you'll be able to:
+                    </p>
+                    <ul className="text-sm text-blue-600 mt-2 space-y-1 list-disc list-inside">
+                      <li>Track your application status</li>
+                      <li>Receive updates on your approval</li>
+                      <li>Upload required documents</li>
+                      <li>Communicate with our team</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
             </div>

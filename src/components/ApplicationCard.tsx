@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
-import { Eye, ChevronRight, ChevronDown, ChevronUp, DollarSign, CreditCard, Car, Briefcase, MapPin, Calendar, Phone, Mail, User } from 'lucide-react';
+import { Eye, ChevronRight, ChevronDown, ChevronUp, DollarSign, CreditCard, Car, Briefcase, MapPin, Calendar, Phone, Mail, User, Home, Clock, FileText, AlertTriangle } from 'lucide-react';
 import { PreQualifiedBadge } from './PreQualifiedBadge';
 import type { Application } from '../types/database';
 import { toStartCase } from '../utils/formatters';
@@ -51,6 +51,26 @@ export const ApplicationCard: React.FC<ApplicationCardProps> = ({
   const handleDetailsClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsExpanded(!isExpanded);
+  };
+
+  const formatHousingStatus = (status: string | null): string => {
+    if (!status) return 'Not specified';
+    return status
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, char => char.toUpperCase());
+  };
+
+  const formatDuration = (years: number | null, months: number | null): string => {
+    if (years === null && months === null) return 'Not specified';
+    
+    const yearText = years ? `${years} year${years !== 1 ? 's' : ''}` : '';
+    const monthText = months ? `${months} month${months !== 1 ? 's' : ''}` : '';
+    
+    if (yearText && monthText) {
+      return `${yearText}, ${monthText}`;
+    }
+    
+    return yearText || monthText;
   };
 
   return (
@@ -177,6 +197,20 @@ export const ApplicationCard: React.FC<ApplicationCardProps> = ({
                   <span className="text-sm text-gray-700">Born {format(new Date(application.date_of_birth), 'MMM d, yyyy')}</span>
                 </div>
               )}
+              {application.housing_status && (
+                <div className="flex items-center gap-2">
+                  <Home className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-gray-700">Housing: {formatHousingStatus(application.housing_status)}</span>
+                </div>
+              )}
+              {(application.residence_duration_years !== null || application.residence_duration_months !== null) && (
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-gray-700">
+                    Time at Residence: {formatDuration(application.residence_duration_years, application.residence_duration_months)}
+                  </span>
+                </div>
+              )}
               {application.dealer_profiles && (
                 <div className="flex items-center gap-2">
                   <User className="h-4 w-4 text-gray-500" />
@@ -209,14 +243,60 @@ export const ApplicationCard: React.FC<ApplicationCardProps> = ({
                 <Briefcase className="h-4 w-4 text-gray-500" />
                 <span className="text-sm text-gray-700">{application.employment_status?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
               </div>
+              {application.employer_name && (
+                <div className="flex items-center gap-2">
+                  <Briefcase className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-gray-700">Employer: {application.employer_name}</span>
+                </div>
+              )}
+              {application.occupation && (
+                <div className="flex items-center gap-2">
+                  <Briefcase className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-gray-700">Occupation: {application.occupation}</span>
+                </div>
+              )}
+              {(application.employment_duration_years !== null || application.employment_duration_months !== null) && (
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-gray-700">
+                    Employment Duration: {formatDuration(application.employment_duration_years, application.employment_duration_months)}
+                  </span>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <DollarSign className="h-4 w-4 text-gray-500" />
                 <span className="text-sm text-gray-700">Annual Income: ${application.annual_income?.toLocaleString()}</span>
               </div>
+              {application.other_income !== null && application.other_income > 0 && (
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-gray-700">Other Income: ${application.other_income?.toLocaleString()}</span>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <CreditCard className="h-4 w-4 text-gray-500" />
                 <span className="text-sm text-gray-700">Credit Score: {application.credit_score}</span>
               </div>
+              {application.collects_government_benefits && (
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-gray-700">
+                    Collects Government Benefits: {application.government_benefit_types?.map(type => 
+                      type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+                    ).join(', ')}
+                  </span>
+                </div>
+              )}
+              {application.has_debt_discharge_history && (
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-gray-700">
+                    Debt Discharge: {application.debt_discharge_type?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} 
+                    ({application.debt_discharge_status?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())})
+                    {application.debt_discharge_year ? ` - ${application.debt_discharge_year}` : ''}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -251,6 +331,14 @@ export const ApplicationCard: React.FC<ApplicationCardProps> = ({
                 <DollarSign className="h-4 w-4 text-gray-500" />
                 <span className="text-sm text-gray-700">Down Payment: ${application.down_payment?.toLocaleString()}</span>
               </div>
+              {application.has_driver_license !== null && (
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-gray-500" />
+                  <span className="text-sm text-gray-700">
+                    Driver's License: {application.has_driver_license ? 'Yes' : 'No'}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
