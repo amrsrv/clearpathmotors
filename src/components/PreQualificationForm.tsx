@@ -759,7 +759,7 @@ const PreQualificationForm: React.FC = () => {
                   onCheckedChange={(checked) => updateFormData('termsAccepted', checked)}
                 />
                 <Label htmlFor="termsAccepted" className="text-sm leading-relaxed">
-                  I have read and agree to the <a href="/terms" className="text-blue-600 hover:underline">Terms of Service</a> and <a href="/privacy" className=\"text-blue-600 hover:underline">Privacy Policy</a>. I understand that submitting this application does not guarantee loan approval.
+                  I have read and agree to the <a href="/terms" className="text-blue-600 hover:underline">Terms of Service</a> and <a href="/privacy" className="text-blue-600 hover:underline">Privacy Policy</a>. I understand that submitting this application does not guarantee loan approval.
                 </Label>
               </div>
             </div>
