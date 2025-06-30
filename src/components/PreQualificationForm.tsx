@@ -1183,7 +1183,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                   className="h-5 w-5 mt-0.5 rounded border-gray-300 text-[#3BAA75] focus:ring-[#3BAA75]"
                 />
                 <label htmlFor="termsAccepted" className="text-sm text-gray-700">
-                  I have read and agree to the <a href="/terms" className="text-[#3BAA75] hover:underline">Terms of Service</a> and <a href="/privacy" className=\"text-[#3BAA75] hover:underline">Privacy Policy</a>. I understand that submitting this application does not guarantee loan approval. *
+                  I have read and agree to the <a href="/terms" className=\"text-[#3BAA75] hover:underline">Terms of Service</a> and <a href="/privacy" className="text-[#3BAA75] hover:underline">Privacy Policy</a>. I understand that submitting this application does not guarantee loan approval. *
                 </label>
               </div>
             </div>
