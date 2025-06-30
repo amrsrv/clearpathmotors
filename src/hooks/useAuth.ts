@@ -255,10 +255,17 @@ export const useAuth = () => {
   const signOut = async () => {
     try {
       console.log('useAuth: attempting to sign out');
+      
+      // First, clear local state to ensure UI updates immediately
+      console.log('useAuth: clearing local state first');
+      setUser(null);
+      setSession(null);
+      
+      // Then attempt to sign out from Supabase
       const { error } = await supabase.auth.signOut();
       
       if (error) {
-        console.error('useAuth: sign out error:', error);
+        console.error('useAuth: sign out error from Supabase:', error);
         
         // Check if the error is due to a missing or invalid session
         const errorMessage = error.message || '';
@@ -270,10 +277,8 @@ export const useAuth = () => {
           error.status === 403;
 
         if (isSessionError) {
-          // If the session doesn't exist on the server, clear local state and succeed
-          console.log('useAuth: Session not found on server, clearing local state');
-          setUser(null);
-          setSession(null);
+          // If the session doesn't exist on the server, we've already cleared local state
+          console.log('useAuth: Session not found on server, local state already cleared');
           toast.success('Logged out successfully');
           return; // Don't throw error, treat as successful sign out
         }
@@ -282,17 +287,21 @@ export const useAuth = () => {
         throw error;
       }
       
-      console.log('useAuth: sign out successful, clearing user state');
-      setUser(null);
-      setSession(null);
+      console.log('useAuth: sign out successful from Supabase');
       toast.success('Logged out successfully');
+      
+      // Verify state is cleared
+      console.log('useAuth: final state check - user:', user, 'session:', session);
     } catch (error: any) {
       console.error('useAuth: Sign out error:', error);
       
       // For non-session errors, still clear state but also throw the error
+      toast.error('Error signing out. Please try again.');
+    } finally {
+      // Ensure state is cleared no matter what
+      console.log('useAuth: ensuring state is cleared in finally block');
       setUser(null);
       setSession(null);
-      toast.error('Error signing out. Please try again.');
     }
   };
 
