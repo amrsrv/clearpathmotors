@@ -30,6 +30,13 @@ const QualificationResults = () => {
 
   useEffect(() => {
     const checkAccess = async () => {
+      // If user is already logged in, redirect directly to dashboard
+      if (user) {
+        console.log('User already logged in, redirecting to dashboard');
+        navigate('/dashboard', { replace: true });
+        return;
+      }
+
       if (!location.state?.fromApproval) {
         navigate('/get-approved');
         return;
