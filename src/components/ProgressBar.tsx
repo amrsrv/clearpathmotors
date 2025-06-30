@@ -43,9 +43,9 @@ export const ProgressBar = ({ currentStep, totalSteps, onStepClick }: ProgressBa
                   {index === 0 && "Vehicle"}
                   {index === 1 && "Financial"}
                   {index === 2 && "Personal"}
-                  {index === 3 && "Address"}
-                  {index === 4 && "Employment"}
-                  {index === 5 && "Additional"}
+                  {index === 3 && "Employment"}
+                  {index === 4 && "Additional"}
+                  {index === 5 && "Account"}
                 </span>
               </div>
 
