@@ -47,11 +47,11 @@ export const ProgressBar = ({ currentStep, totalSteps, onStepClick }: ProgressBa
                 </motion.button>
                 <span className="text-xs text-gray-500 mt-2 hidden sm:block whitespace-nowrap">
                   {index === 0 && "Vehicle"}
-                  {index === 1 && "Financial"}
-                  {index === 2 && "Personal"}
-                  {index === 3 && "Employment"}
-                  {index === 4 && "Additional"}
-                  {index === 5 && "Account"}
+                  {index === 1 && "Budget"}
+                  {index === 2 && "Credit"}
+                  {index === 3 && "Address"}
+                  {index === 4 && "Employment"}
+                  {index === 5 && "Personal"}
                 </span>
               </div>
 

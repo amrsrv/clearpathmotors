@@ -55,6 +55,18 @@ export const applicationSchema = z.object({
   // Consent
   consent_soft_check: z.boolean(),
   terms_accepted: z.boolean(),
+  
+  // Monthly budget
+  desired_monthly_payment: z.number().min(100, 'Monthly payment must be at least $100'),
+  
+  // Marital status
+  marital_status: z.enum(['single', 'married', 'divorced', 'widowed', 'separated', 'other']).optional(),
+  
+  // Dependents
+  dependents: z.number().int().min(0).optional(),
+  
+  // Contact preferences
+  preferred_contact_method: z.enum(['email', 'phone', 'sms']).optional(),
 });
 
 export const documentSchema = z.object({

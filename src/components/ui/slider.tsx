@@ -1,7 +1,7 @@
 "use client";
 
-import * as SliderPrimitive from "@radix-ui/react-slider";
 import * as React from "react";
+import * as SliderPrimitive from "@radix-ui/react-slider";
 
 import { cn } from "@/lib/utils";
 import {
@@ -16,8 +16,9 @@ const Slider = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root> & {
     showTooltip?: boolean;
     tooltipContent?: (value: number) => React.ReactNode;
+    trackColorClass?: string;
   }
->(({ className, showTooltip = false, tooltipContent, ...props }, ref) => {
+>(({ className, showTooltip = false, tooltipContent, trackColorClass, ...props }, ref) => {
   const [showTooltipState, setShowTooltipState] = React.useState(false);
   const [internalValue, setInternalValue] = React.useState<number[]>(
     (props.defaultValue as number[]) ?? (props.value as number[]) ?? [0],
@@ -92,7 +93,7 @@ const Slider = React.forwardRef<
       {...props}
     >
       <SliderPrimitive.Track className="relative grow overflow-hidden rounded-full bg-gray-200 data-[orientation=horizontal]:h-2 data-[orientation=vertical]:h-full data-[orientation=horizontal]:w-full data-[orientation=vertical]:w-2">
-        <SliderPrimitive.Range className="absolute bg-[#3BAA75] data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full" />
+        <SliderPrimitive.Range className={`absolute ${trackColorClass || 'bg-[#3BAA75]'} data-[orientation=horizontal]:h-full data-[orientation=vertical]:w-full`} />
       </SliderPrimitive.Track>
       {internalValue?.map((value, index) => (
         <React.Fragment key={index}>{renderThumb(value)}</React.Fragment>

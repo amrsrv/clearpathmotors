@@ -25,6 +25,11 @@ const QualificationResults = () => {
   const { user } = useAuth();
   const [prequalificationData, setPrequalificationData] = useState<PrequalificationData | null>(null);
   const [loadingResults, setLoadingResults] = useState(true);
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [email, setEmail] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const { loanRange, vehicleType, monthlyBudget, originalFormData, applicationId, tempUserId } = location.state || {};
 
@@ -86,6 +91,11 @@ const QualificationResults = () => {
             monthlyBudget,
             originalFormData
           });
+          
+          // Set email from form data if available
+          if (originalFormData?.email) {
+            setEmail(originalFormData.email);
+          }
         } else {
           // Fallback to application data if location state is missing
           const fallbackData = {
@@ -99,6 +109,11 @@ const QualificationResults = () => {
             originalFormData: null
           };
           setPrequalificationData(fallbackData);
+          
+          // Set email from application if available
+          if (application.email) {
+            setEmail(application.email);
+          }
         }
 
         setLoadingResults(false);
@@ -138,17 +153,27 @@ const QualificationResults = () => {
   const totalSavings = monthlySavings * 60; // Based on 60-month term
 
   // Handle sign up with the pre-filled data
-  const handleSignUp = async () => {
-    if (!prequalificationData.originalFormData || !prequalificationData.originalFormData.email || !prequalificationData.originalFormData.password) {
-      console.error('Missing required data for sign up');
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError('');
+    
+    if (password !== confirmPassword) {
+      setPasswordError('Passwords do not match');
       return;
     }
+    
+    if (password.length < 8) {
+      setPasswordError('Password must be at least 8 characters');
+      return;
+    }
+    
+    setIsSubmitting(true);
 
     try {
       // Sign up with Supabase Auth
       const { data, error: signUpError } = await supabase.auth.signUp({
-        email: prequalificationData.originalFormData.email,
-        password: prequalificationData.originalFormData.password,
+        email,
+        password,
         options: {
           data: {
             role: 'customer'
@@ -165,7 +190,7 @@ const QualificationResults = () => {
             signUpError.message.includes('already exists') ||
             signUpError.message.includes('user_already_exists') ||
             signUpError.status === 400) {
-          navigate('/login', { state: { email: prequalificationData.originalFormData.email } });
+          navigate('/login', { state: { email } });
           return;
         }
         
@@ -193,7 +218,9 @@ const QualificationResults = () => {
       }
     } catch (error) {
       console.error('Error in handleSignUp:', error);
-      // Show error message to user
+      setPasswordError('An error occurred. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -257,10 +284,102 @@ const QualificationResults = () => {
             </div>
           </ScrollReveal>
 
-          {/* Monthly Payment Comparison */}
+          {/* Claim This Loan Section */}
           <ScrollReveal>
             <div className="bg-white rounded-xl p-4 sm:p-8 shadow-lg">
-              <h2 className="text-xl sm:text-2xl font-semibold mb-4 sm:mb-6 text-gray-900">Monthly Payment Comparison</h2>
+              <h2 className="text-xl sm:text-2xl font-semibold mb-4 text-gray-900">Claim This Loan</h2>
+              <p className="text-gray-600 mb-6">
+                Create your account to access your pre-qualification details and continue with your application.
+              </p>
+              
+              <form onSubmit={handleSignUp} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                    placeholder="you@example.com"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Create Password
+                  </label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                    placeholder="••••••••"
+                    required
+                    minLength={8}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Confirm Password
+                  </label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                    placeholder="••••••••"
+                    required
+                    minLength={8}
+                  />
+                </div>
+                
+                {passwordError && (
+                  <div className="p-3 bg-red-50 text-red-700 rounded-lg flex items-center">
+                    <AlertCircle className="h-5 w-5 mr-2" />
+                    {passwordError}
+                  </div>
+                )}
+                
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full bg-[#3BAA75] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[#2D8259] transition-colors disabled:opacity-70 flex items-center justify-center"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="animate-spin h-5 w-5 mr-2 border-2 border-white border-t-transparent rounded-full"></div>
+                      Creating Account...
+                    </>
+                  ) : (
+                    <>
+                      Create Account & Continue
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </>
+                  )}
+                </button>
+                
+                <p className="text-center text-sm text-gray-600">
+                  Already have an account?{' '}
+                  <Link to="/login" className="text-[#3BAA75] hover:underline">
+                    Sign in
+                  </Link>
+                </p>
+              </form>
+            </div>
+          </ScrollReveal>
+
+          {/* Monthly Payment Comparison */}
+          <ScrollReveal>
+            <div className="bg-white rounded-xl p-4 sm:p-8 text-center shadow-lg">
+              <h2 className="text-xl sm:text-2xl font-semibold mb-3 text-gray-900">Monthly Payment Comparison</h2>
+              <p className="text-gray-600 mb-8 max-w-lg mx-auto">
+                See how our competitive rates can save you money over the life of your loan.
+              </p>
+              
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="bg-gray-50 p-6 rounded-lg">
                   <div className="text-center">
@@ -300,105 +419,6 @@ const QualificationResults = () => {
                     </p>
                   </div>
                 </div>
-              </div>
-            </div>
-          </ScrollReveal>
-
-          {/* Sign Up CTA */}
-          <ScrollReveal>
-            <div className="bg-gradient-to-br from-[#2A7A5B] to-[#1F5F3F] rounded-xl p-4 sm:p-8 text-white shadow-xl">
-              <div className="grid md:grid-cols-2 gap-8 items-center">
-                <div>
-                  <h2 className="text-xl sm:text-2xl font-bold mb-6">Create Your Account</h2>
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-white/10 rounded-full p-2">
-                        <User className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Personal Dashboard</p>
-                        <p className="text-sm text-white/80">Track your application progress</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="bg-white/10 rounded-full p-2">
-                        <Mail className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Instant Updates</p>
-                        <p className="text-sm text-white/80">Get notified about your application status</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="bg-white/10 rounded-full p-2">
-                        <Phone className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Direct Support</p>
-                        <p className="text-sm text-white/80">Access to our dedicated support team</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="text-center">
-                  {user ? (
-                    <Link
-                      to="/dashboard"
-                      className="w-full inline-block bg-white text-[#2A7A5B] px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-colors shadow-lg hover:shadow-xl"
-                    >
-                      Go to Dashboard
-                    </Link>
-                  ) : (
-                    <motion.button
-                      onClick={handleSignUp}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="w-full bg-white text-[#2A7A5B] px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-colors shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-                    >
-                      Create Account
-                      <ArrowRight className="h-5 w-5" />
-                    </motion.button>
-                  )}
-                  {!user && (
-                    <p className="mt-4 text-sm text-white/80">
-                      Already have an account?{' '}
-                      <Link to="/login" className="text-white hover:text-white/90 underline">
-                        Sign in
-                      </Link>
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </ScrollReveal>
-
-          {/* CTA Section */}
-          <ScrollReveal>
-            <div className="bg-white rounded-xl p-4 sm:p-8 text-center shadow-lg">
-              <h2 className="text-xl sm:text-2xl font-semibold mb-3 text-gray-900">Ready to Move Forward?</h2>
-              <p className="text-gray-600 mb-8 max-w-lg mx-auto">
-                Schedule your free consultation with our financing expert to discuss your options and get all your questions answered.
-              </p>
-              
-              <a
-                href="https://calendly.com/clearpath/consultation"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center bg-[#2A7A5B] text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-[#15402F] transition-colors group gap-2 shadow-md hover:shadow-xl"
-              >
-                <Calendar className="w-5 h-5" />
-                Schedule Your Consultation
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </a>
-              
-              <div className="mt-6 text-gray-600">
-                <p className="font-medium">What to expect:</p>
-                <ul className="text-sm mt-2 space-y-1">
-                  <li>• 30-minute free consultation</li>
-                  <li>• Detailed review of your options</li>
-                  <li>• No obligation to proceed</li>
-                  <li>• Get all your questions answered</li>
-                </ul>
               </div>
             </div>
           </ScrollReveal>

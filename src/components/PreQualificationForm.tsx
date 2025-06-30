@@ -1,1309 +1,788 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useForm, FormProvider } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Button } from './ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { v4 as uuidv4 } from 'uuid';
+import { supabase } from '../lib/supabaseClient';
+import { toast } from 'react-hot-toast';
 import { Input } from './ui/input';
-import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Slider } from './ui/slider';
+import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
-import { RadioGroup, RadioGroupItem } from './ui/radio-group';
-import { Textarea } from './ui/textarea';
-import { Calendar, CalendarDays, DollarSign, FileText, Home, User, Briefcase, CreditCard, Car, Phone, Mail, MapPin, Shield, CheckCircle } from 'lucide-react';
 import { ProgressBar } from './ProgressBar';
-
-interface FormData {
-  // Personal Information
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  dateOfBirth: string;
-  address: string;
-  city: string;
-  province: string;
-  postalCode: string;
-  maritalStatus: string;
-  dependents: number;
-  
-  // Employment Information
-  employmentStatus: string;
-  employerName: string;
-  occupation: string;
-  employmentDurationYears: number;
-  employmentDurationMonths: number;
-  monthlyIncome: number;
-  otherIncome: number;
-  
-  // Housing Information
-  housingStatus: string;
-  housingPayment: number;
-  residenceDurationYears: number;
-  residenceDurationMonths: number;
-  
-  // Financial Information
-  creditScore: number;
-  desiredLoanAmount: number;
-  downPaymentAmount: number;
-  hasDriverLicense: boolean;
-  collectsGovernmentBenefits: boolean;
-  governmentBenefitTypes: string[];
-  governmentBenefitOther: string;
-  
-  // Debt Discharge History
-  hasDebtDischargeHistory: boolean;
-  debtDischargeType: string;
-  debtDischargeYear: number;
-  debtDischargeStatus: string;
-  debtDischargeComments: string;
-  amountOwed: number;
-  trusteeName: string;
-  
-  // Contact Preferences
-  preferredContactMethod: string;
-  consentSoftCheck: boolean;
-  termsAccepted: boolean;
-  
-  // Account Creation
-  password: string;
-  confirmPassword: string;
-}
+import CurrencyInputField from './CurrencyInputField';
+import { vehicles } from '../pages/Vehicles';
 
 interface PreQualificationFormProps {
-  onComplete?: (applicationId: string, tempUserId: string, formData: FormData) => Promise<void>;
+  onComplete: (applicationId: string, tempUserId: string, formData: any) => void;
 }
 
-const formVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: "easeOut" } },
-  exit: { opacity: 0, y: -20, transition: { duration: 0.3, ease: "easeIn" } }
-};
+// Define the form schema
+const formSchema = z.object({
+  // Step 1: Vehicle Type
+  vehicle_type: z.string().min(1, 'Please select a vehicle type'),
+  
+  // Step 2: Monthly Budget
+  desired_monthly_payment: z.number().min(100, 'Monthly payment must be at least $100'),
+  
+  // Step 3: Credit Score
+  credit_score: z.number().int().min(300, 'Credit score must be at least 300').max(850, 'Credit score cannot exceed 850'),
+  
+  // Step 4: Home Address & Housing Info
+  address: z.string().min(1, 'Address is required'),
+  city: z.string().min(1, 'City is required'),
+  province: z.string().min(1, 'Province is required'),
+  postal_code: z.string().min(1, 'Postal code is required')
+    .regex(/^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/, 'Please enter a valid postal code'),
+  housing_status: z.string().min(1, 'Housing status is required'),
+  housing_payment: z.number().min(0, 'Housing payment must be a positive number'),
+  
+  // Step 5: Employment & Income
+  employment_status: z.string().min(1, 'Employment status is required'),
+  employer_name: z.string().min(1, 'Employer name is required'),
+  annual_income: z.number().min(1, 'Annual income is required'),
+  
+  // Step 6: Personal Information
+  first_name: z.string().min(1, 'First name is required'),
+  last_name: z.string().min(1, 'Last name is required'),
+  email: z.string().email('Please enter a valid email address'),
+  phone: z.string().min(10, 'Please enter a valid phone number'),
+  
+  // Terms and consent
+  consent_soft_check: z.boolean().refine(val => val === true, {
+    message: 'You must consent to a soft credit check',
+  }),
+  terms_accepted: z.boolean().refine(val => val === true, {
+    message: 'You must accept the terms and conditions',
+  }),
+  
+  // Password fields for account creation (will be used in the final step)
+  password: z.string().min(8, 'Password must be at least 8 characters').optional(),
+  confirmPassword: z.string().optional(),
+});
+
+type FormValues = z.infer<typeof formSchema>;
 
 const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete }) => {
   const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState<FormData>({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    dateOfBirth: '',
-    address: '',
-    city: '',
-    province: '',
-    postalCode: '',
-    maritalStatus: '',
-    dependents: 0,
-    employmentStatus: '',
-    employerName: '',
-    occupation: '',
-    employmentDurationYears: 0,
-    employmentDurationMonths: 0,
-    monthlyIncome: 0,
-    otherIncome: 0,
-    housingStatus: '',
-    housingPayment: 0,
-    residenceDurationYears: 0,
-    residenceDurationMonths: 0,
-    creditScore: 650,
-    desiredLoanAmount: 25000,
-    downPaymentAmount: 0,
-    hasDriverLicense: false,
-    collectsGovernmentBenefits: false,
-    governmentBenefitTypes: [],
-    governmentBenefitOther: '',
-    hasDebtDischargeHistory: false,
-    debtDischargeType: '',
-    debtDischargeYear: new Date().getFullYear(),
-    debtDischargeStatus: '',
-    debtDischargeComments: '',
-    amountOwed: 0,
-    trusteeName: '',
-    preferredContactMethod: '',
-    consentSoftCheck: false,
-    termsAccepted: false,
-    password: '',
-    confirmPassword: ''
-  });
+  const totalSteps = 6;
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-
-  const totalSteps = 7;
-
-  const updateFormData = (field: keyof FormData, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  
+  // Initialize form with default values
+  const methods = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      vehicle_type: '',
+      desired_monthly_payment: 500,
+      credit_score: 650,
+      address: '',
+      city: '',
+      province: '',
+      postal_code: '',
+      housing_status: '',
+      housing_payment: 0,
+      employment_status: '',
+      employer_name: '',
+      annual_income: 0,
+      first_name: '',
+      last_name: '',
+      email: '',
+      phone: '',
+      consent_soft_check: false,
+      terms_accepted: false,
+    },
+    mode: 'onChange',
+  });
+  
+  const { handleSubmit, trigger, watch, setValue, control, formState: { errors } } = methods;
+  
+  // Watch values for validation and UI updates
+  const vehicleType = watch('vehicle_type');
+  const creditScore = watch('credit_score');
+  
+  // Function to handle next step
+  const handleNextStep = async () => {
+    // Define fields to validate for each step
+    const fieldsToValidate = {
+      1: ['vehicle_type'],
+      2: ['desired_monthly_payment'],
+      3: ['credit_score'],
+      4: ['address', 'city', 'province', 'postal_code', 'housing_status', 'housing_payment'],
+      5: ['employment_status', 'employer_name', 'annual_income'],
+      6: ['first_name', 'last_name', 'email', 'phone', 'consent_soft_check', 'terms_accepted'],
+    };
     
-    // Clear validation error for this field if it exists
-    if (validationErrors[field]) {
-      setValidationErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[field];
-        return newErrors;
-      });
-    }
-  };
-
-  const validateCurrentStep = (): boolean => {
-    const newErrors: Record<string, string> = {};
+    // Validate current step fields
+    const isStepValid = await trigger(fieldsToValidate[currentStep as keyof typeof fieldsToValidate]);
     
-    switch (currentStep) {
-      case 1: // Personal Information
-        if (!formData.firstName) newErrors.firstName = 'First name is required';
-        if (!formData.lastName) newErrors.lastName = 'Last name is required';
-        if (!formData.email) newErrors.email = 'Email is required';
-        else if (!/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(formData.email)) {
-          newErrors.email = 'Invalid email address';
-        }
-        if (!formData.phone) newErrors.phone = 'Phone number is required';
-        if (!formData.dateOfBirth) newErrors.dateOfBirth = 'Date of birth is required';
-        if (!formData.address) newErrors.address = 'Address is required';
-        if (!formData.city) newErrors.city = 'City is required';
-        if (!formData.province) newErrors.province = 'Province is required';
-        if (!formData.postalCode) newErrors.postalCode = 'Postal code is required';
-        break;
-        
-      case 2: // Employment Information
-        if (!formData.employmentStatus) newErrors.employmentStatus = 'Employment status is required';
-        if (formData.employmentStatus === 'employed' || formData.employmentStatus === 'self_employed') {
-          if (!formData.employerName) newErrors.employerName = 'Employer name is required';
-          if (!formData.occupation) newErrors.occupation = 'Occupation is required';
-        }
-        if (!formData.monthlyIncome) newErrors.monthlyIncome = 'Monthly income is required';
-        break;
-        
-      case 3: // Housing Information
-        if (!formData.housingStatus) newErrors.housingStatus = 'Housing status is required';
-        if (formData.housingStatus === 'own' || formData.housingStatus === 'rent') {
-          if (!formData.housingPayment) newErrors.housingPayment = 'Housing payment is required';
-        }
-        break;
-        
-      case 4: // Financial Information
-        // Credit score and desired loan amount have defaults, so no validation needed
-        break;
-        
-      case 5: // Debt Discharge History
-        if (formData.hasDebtDischargeHistory) {
-          if (!formData.debtDischargeType) newErrors.debtDischargeType = 'Discharge type is required';
-          if (!formData.debtDischargeStatus) newErrors.debtDischargeStatus = 'Discharge status is required';
-          if (formData.debtDischargeStatus === 'active') {
-            if (!formData.amountOwed) newErrors.amountOwed = 'Amount owed is required';
-          }
-        }
-        break;
-        
-      case 6: // Contact Preferences
-        if (!formData.preferredContactMethod) newErrors.preferredContactMethod = 'Contact method is required';
-        break;
-        
-      case 7: // Consent & Terms
-        if (!formData.consentSoftCheck) newErrors.consentSoftCheck = 'You must consent to a soft credit check';
-        if (!formData.termsAccepted) newErrors.termsAccepted = 'You must accept the terms of service';
-        if (!formData.password) newErrors.password = 'Password is required';
-        else if (formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters';
-        if (!formData.confirmPassword) newErrors.confirmPassword = 'Please confirm your password';
-        else if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
-        break;
-    }
-    
-    setValidationErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const nextStep = () => {
-    if (validateCurrentStep()) {
+    if (isStepValid) {
       if (currentStep < totalSteps) {
         setCurrentStep(currentStep + 1);
-        window.scrollTo(0, 0);
+      } else {
+        // Final step submission
+        handleSubmit(onSubmit)();
       }
     }
   };
-
-  const prevStep = () => {
+  
+  // Function to handle previous step
+  const handlePrevStep = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
-      window.scrollTo(0, 0);
     }
   };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateCurrentStep()) return;
-    
+  
+  // Function to handle form submission
+  const onSubmit = async (data: FormValues) => {
     setIsSubmitting(true);
     
     try {
-      // In a real implementation, you would submit the form data to your backend
-      // For now, we'll simulate a successful submission
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Generate a temporary user ID for anonymous submissions
+      const tempUserId = uuidv4();
       
-      // Generate a fake application ID and temp user ID
-      const applicationId = `app-${Math.random().toString(36).substring(2, 10)}`;
-      const tempUserId = `user-${Math.random().toString(36).substring(2, 10)}`;
+      // Calculate loan amount range based on monthly payment
+      // This is a simplified calculation and should be replaced with your actual business logic
+      const interestRate = 5.99;
+      const loanTerm = 60; // 5 years in months
+      const monthlyRate = interestRate / 1200;
+      const paymentFactor = (monthlyRate * Math.pow(1 + monthlyRate, loanTerm)) / (Math.pow(1 + monthlyRate, loanTerm) - 1);
       
-      // Call the onComplete callback if provided
-      if (onComplete) {
-        await onComplete(applicationId, tempUserId, formData);
+      // Calculate loan amount based on desired monthly payment
+      const loanAmount = data.desired_monthly_payment / paymentFactor;
+      
+      // Set loan range (min and max)
+      const loanAmountMin = Math.round(loanAmount * 0.8);
+      const loanAmountMax = Math.round(loanAmount * 1.2);
+      
+      // Prepare application data
+      const applicationData = {
+        temp_user_id: tempUserId,
+        vehicle_type: data.vehicle_type,
+        desired_monthly_payment: data.desired_monthly_payment,
+        credit_score: data.credit_score,
+        address: data.address,
+        city: data.city,
+        province: data.province,
+        postal_code: data.postal_code,
+        housing_status: data.housing_status,
+        housing_payment: data.housing_payment,
+        employment_status: data.employment_status,
+        employer_name: data.employer_name,
+        annual_income: data.annual_income,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        email: data.email,
+        phone: data.phone,
+        loan_amount_min: loanAmountMin,
+        loan_amount_max: loanAmountMax,
+        interest_rate: interestRate,
+        loan_term: loanTerm,
+        status: 'submitted',
+        current_stage: 1,
+        consent_soft_check: data.consent_soft_check,
+        terms_accepted: data.terms_accepted,
+      };
+      
+      // Insert application into Supabase
+      const { data: application, error } = await supabase
+        .from('applications')
+        .insert(applicationData)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error submitting application:', error);
+        toast.error('Failed to submit application. Please try again.');
+        setIsSubmitting(false);
+        return;
       }
-    } catch (error) {
-      console.error('Error submitting form:', error);
-      setValidationErrors({
-        submit: 'An error occurred while submitting your application. Please try again.'
+      
+      // Create initial application stage
+      await supabase
+        .from('application_stages')
+        .insert({
+          application_id: application.id,
+          stage_number: 1,
+          status: 'completed',
+          notes: 'Application submitted successfully',
+        });
+      
+      // Call onComplete with the application ID, temp user ID, and form data
+      onComplete(application.id, tempUserId, {
+        ...data,
+        email: data.email,
+        password: data.password || '', // Password will be set in the claim page
       });
+      
+    } catch (error) {
+      console.error('Error in form submission:', error);
+      toast.error('An error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
-
-  const renderStep = () => {
-    switch (currentStep) {
-      case 1:
-        return (
-          <motion.div
-            key="step1"
-            variants={formVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            className="space-y-6"
-          >
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center p-2 bg-[#3BAA75]/10 rounded-full mb-4">
-                <User className="w-6 h-6 text-[#3BAA75]" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900">Personal Information</h2>
-              <p className="text-gray-600 mt-2">Let's start with your basic information</p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <Label htmlFor="firstName" className={validationErrors.firstName ? "text-red-500" : ""}>
-                  First Name <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="firstName"
-                  value={formData.firstName}
-                  onChange={(e) => updateFormData('firstName', e.target.value)}
-                  placeholder="Enter your first name"
-                  required
-                  className={validationErrors.firstName ? "border-red-500 focus-visible:ring-red-500" : ""}
-                />
-                {validationErrors.firstName && (
-                  <p className="mt-1 text-xs text-red-500">{validationErrors.firstName}</p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="lastName" className={validationErrors.lastName ? "text-red-500" : ""}>
-                  Last Name <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="lastName"
-                  value={formData.lastName}
-                  onChange={(e) => updateFormData('lastName', e.target.value)}
-                  placeholder="Enter your last name"
-                  required
-                  className={validationErrors.lastName ? "border-red-500 focus-visible:ring-red-500" : ""}
-                />
-                {validationErrors.lastName && (
-                  <p className="mt-1 text-xs text-red-500">{validationErrors.lastName}</p>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <Label htmlFor="email" className={validationErrors.email ? "text-red-500" : ""}>
-                  Email Address <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => updateFormData('email', e.target.value)}
-                  placeholder="your.email@example.com"
-                  required
-                  className={validationErrors.email ? "border-red-500 focus-visible:ring-red-500" : ""}
-                />
-                {validationErrors.email && (
-                  <p className="mt-1 text-xs text-red-500">{validationErrors.email}</p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="phone" className={validationErrors.phone ? "text-red-500" : ""}>
-                  Phone Number <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => updateFormData('phone', e.target.value)}
-                  placeholder="(555) 123-4567"
-                  required
-                  className={validationErrors.phone ? "border-red-500 focus-visible:ring-red-500" : ""}
-                />
-                {validationErrors.phone && (
-                  <p className="mt-1 text-xs text-red-500">{validationErrors.phone}</p>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="dateOfBirth" className={validationErrors.dateOfBirth ? "text-red-500" : ""}>
-                Date of Birth <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="dateOfBirth"
-                type="date"
-                value={formData.dateOfBirth}
-                onChange={(e) => updateFormData('dateOfBirth', e.target.value)}
-                required
-                className={validationErrors.dateOfBirth ? "border-red-500 focus-visible:ring-red-500" : ""}
-              />
-              {validationErrors.dateOfBirth && (
-                <p className="mt-1 text-xs text-red-500">{validationErrors.dateOfBirth}</p>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="address" className={validationErrors.address ? "text-red-500" : ""}>
-                Street Address <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="address"
-                value={formData.address}
-                onChange={(e) => updateFormData('address', e.target.value)}
-                placeholder="123 Main Street"
-                required
-                className={validationErrors.address ? "border-red-500 focus-visible:ring-red-500" : ""}
-              />
-              {validationErrors.address && (
-                <p className="mt-1 text-xs text-red-500">{validationErrors.address}</p>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <Label htmlFor="city" className={validationErrors.city ? "text-red-500" : ""}>
-                  City <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="city"
-                  value={formData.city}
-                  onChange={(e) => updateFormData('city', e.target.value)}
-                  placeholder="Toronto"
-                  required
-                  className={validationErrors.city ? "border-red-500 focus-visible:ring-red-500" : ""}
-                />
-                {validationErrors.city && (
-                  <p className="mt-1 text-xs text-red-500">{validationErrors.city}</p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="province" className={validationErrors.province ? "text-red-500" : ""}>
-                  Province <span className="text-red-500">*</span>
-                </Label>
-                <Select 
-                  value={formData.province} 
-                  onValueChange={(value) => updateFormData('province', value)}
-                >
-                  <SelectTrigger 
-                    id="province"
-                    className={validationErrors.province ? "border-red-500 focus-visible:ring-red-500" : ""}
-                  >
-                    <SelectValue placeholder="Select province" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ON">Ontario</SelectItem>
-                    <SelectItem value="BC">British Columbia</SelectItem>
-                    <SelectItem value="AB">Alberta</SelectItem>
-                    <SelectItem value="MB">Manitoba</SelectItem>
-                    <SelectItem value="SK">Saskatchewan</SelectItem>
-                    <SelectItem value="QC">Quebec</SelectItem>
-                    <SelectItem value="NB">New Brunswick</SelectItem>
-                    <SelectItem value="NS">Nova Scotia</SelectItem>
-                    <SelectItem value="PE">Prince Edward Island</SelectItem>
-                    <SelectItem value="NL">Newfoundland and Labrador</SelectItem>
-                    <SelectItem value="YT">Yukon</SelectItem>
-                    <SelectItem value="NT">Northwest Territories</SelectItem>
-                    <SelectItem value="NU">Nunavut</SelectItem>
-                  </SelectContent>
-                </Select>
-                {validationErrors.province && (
-                  <p className="mt-1 text-xs text-red-500">{validationErrors.province}</p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="postalCode" className={validationErrors.postalCode ? "text-red-500" : ""}>
-                  Postal Code <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="postalCode"
-                  value={formData.postalCode}
-                  onChange={(e) => updateFormData('postalCode', e.target.value)}
-                  placeholder="M5V 3A8"
-                  required
-                  className={validationErrors.postalCode ? "border-red-500 focus-visible:ring-red-500" : ""}
-                />
-                {validationErrors.postalCode && (
-                  <p className="mt-1 text-xs text-red-500">{validationErrors.postalCode}</p>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <Label htmlFor="maritalStatus" className={validationErrors.maritalStatus ? "text-red-500" : ""}>
-                  Marital Status <span className="text-red-500">*</span>
-                </Label>
-                <Select 
-                  value={formData.maritalStatus} 
-                  onValueChange={(value) => updateFormData('maritalStatus', value)}
-                >
-                  <SelectTrigger 
-                    id="maritalStatus"
-                    className={validationErrors.maritalStatus ? "border-red-500 focus-visible:ring-red-500" : ""}
-                  >
-                    <SelectValue placeholder="Select marital status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="single">Single</SelectItem>
-                    <SelectItem value="married">Married</SelectItem>
-                    <SelectItem value="divorced">Divorced</SelectItem>
-                    <SelectItem value="separated">Separated</SelectItem>
-                    <SelectItem value="widowed">Widowed</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-                {validationErrors.maritalStatus && (
-                  <p className="mt-1 text-xs text-red-500">{validationErrors.maritalStatus}</p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="dependents">
-                  Number of Dependents
-                </Label>
-                <Input
-                  id="dependents"
-                  type="number"
-                  min="0"
-                  value={formData.dependents}
-                  onChange={(e) => updateFormData('dependents', parseInt(e.target.value) || 0)}
-                  placeholder="0"
-                />
-              </div>
-            </div>
-          </motion.div>
-        );
-
-      case 2:
-        return (
-          <motion.div
-            key="step2"
-            variants={formVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            className="space-y-6"
-          >
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center p-2 bg-[#3BAA75]/10 rounded-full mb-4">
-                <Briefcase className="w-6 h-6 text-[#3BAA75]" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900">Employment Information</h2>
-              <p className="text-gray-600 mt-2">Tell us about your employment situation</p>
-            </div>
-
-            <div>
-              <Label htmlFor="employmentStatus" className={validationErrors.employmentStatus ? "text-red-500" : ""}>
-                Employment Status <span className="text-red-500">*</span>
-              </Label>
-              <Select 
-                value={formData.employmentStatus} 
-                onValueChange={(value) => updateFormData('employmentStatus', value)}
+  
+  // Function to get credit score color class
+  const getCreditScoreColorClass = (score: number) => {
+    if (score < 580) return 'bg-red-500';
+    if (score < 670) return 'bg-orange-500';
+    if (score < 740) return 'bg-yellow-500';
+    if (score < 800) return 'bg-green-500';
+    return 'bg-emerald-500';
+  };
+  
+  // Function to get credit score text
+  const getCreditScoreText = (score: number) => {
+    if (score < 580) return 'Poor';
+    if (score < 670) return 'Fair';
+    if (score < 740) return 'Good';
+    if (score < 800) return 'Very Good';
+    return 'Excellent';
+  };
+  
+  // Animation variants for step transitions
+  const variants = {
+    hidden: { opacity: 0, x: 50 },
+    visible: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: -50 },
+  };
+  
+  return (
+    <FormProvider {...methods}>
+      <div className="w-full max-w-3xl mx-auto">
+        {/* Progress Bar */}
+        <ProgressBar currentStep={currentStep} totalSteps={totalSteps} />
+        
+        <form className="bg-white rounded-xl shadow-lg p-6 md:p-8">
+          <AnimatePresence mode="wait">
+            {/* Step 1: Vehicle Type */}
+            {currentStep === 1 && (
+              <motion.div
+                key="step1"
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                variants={variants}
+                transition={{ duration: 0.3 }}
+                className="space-y-6"
               >
-                <SelectTrigger 
-                  id="employmentStatus"
-                  className={validationErrors.employmentStatus ? "border-red-500 focus-visible:ring-red-500" : ""}
-                >
-                  <SelectValue placeholder="Select employment status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="employed">Employed</SelectItem>
-                  <SelectItem value="self_employed">Self-Employed</SelectItem>
-                  <SelectItem value="unemployed">Unemployed</SelectItem>
-                  <SelectItem value="retired">Retired</SelectItem>
-                  <SelectItem value="student">Student</SelectItem>
-                </SelectContent>
-              </Select>
-              {validationErrors.employmentStatus && (
-                <p className="mt-1 text-xs text-red-500">{validationErrors.employmentStatus}</p>
-              )}
-            </div>
-
-            {(formData.employmentStatus === 'employed' || formData.employmentStatus === 'self_employed') && (
-              <>
-                <div>
-                  <Label htmlFor="employerName" className={validationErrors.employerName ? "text-red-500" : ""}>
-                    Employer Name <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="employerName"
-                    value={formData.employerName}
-                    onChange={(e) => updateFormData('employerName', e.target.value)}
-                    placeholder="Company name"
-                    required
-                    className={validationErrors.employerName ? "border-red-500 focus-visible:ring-red-500" : ""}
-                  />
-                  {validationErrors.employerName && (
-                    <p className="mt-1 text-xs text-red-500">{validationErrors.employerName}</p>
-                  )}
+                <h2 className="text-2xl font-semibold text-gray-900">Select Your Vehicle Type</h2>
+                <p className="text-gray-600">Choose the type of vehicle you're interested in financing.</p>
+                
+                <div className="grid grid-cols-1 gap-4">
+                  {vehicles.map((vehicle) => (
+                    <button
+                      key={vehicle.type}
+                      type="button"
+                      onClick={() => setValue('vehicle_type', vehicle.type)}
+                      className={`relative overflow-hidden rounded-lg transition-all duration-200 ${
+                        vehicleType === vehicle.type
+                          ? 'ring-4 ring-[#3BAA75] ring-opacity-50 transform scale-[1.02]'
+                          : 'hover:shadow-md'
+                      }`}
+                    >
+                      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-lg">
+                        <img
+                          src={vehicle.image}
+                          alt={vehicle.type}
+                          className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                        <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+                          <h3 className="text-xl font-bold">{vehicle.type}</h3>
+                          <p className="text-sm text-white/80">{vehicle.description}</p>
+                        </div>
+                      </div>
+                      {vehicleType === vehicle.type && (
+                        <div className="absolute top-2 right-2 bg-[#3BAA75] text-white p-1 rounded-full">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      )}
+                    </button>
+                  ))}
                 </div>
-
-                <div>
-                  <Label htmlFor="occupation" className={validationErrors.occupation ? "text-red-500" : ""}>
-                    Occupation <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="occupation"
-                    value={formData.occupation}
-                    onChange={(e) => updateFormData('occupation', e.target.value)}
-                    placeholder="Your job title"
-                    required
-                    className={validationErrors.occupation ? "border-red-500 focus-visible:ring-red-500" : ""}
-                  />
-                  {validationErrors.occupation && (
-                    <p className="mt-1 text-xs text-red-500">{validationErrors.occupation}</p>
-                  )}
-                </div>
-
-                <div>
-                  <Label>Employment Duration <span className="text-red-500">*</span></Label>
-                  <div className="grid grid-cols-2 gap-6 mt-2">
-                    <div>
-                      <Label htmlFor="employmentYears">Years</Label>
-                      <Input
-                        id="employmentYears"
-                        type="number"
-                        min="0"
-                        value={formData.employmentDurationYears}
-                        onChange={(e) => updateFormData('employmentDurationYears', parseInt(e.target.value) || 0)}
-                        placeholder="0"
+                
+                {errors.vehicle_type && (
+                  <p className="text-red-500 text-sm">{errors.vehicle_type.message}</p>
+                )}
+              </motion.div>
+            )}
+            
+            {/* Step 2: Monthly Budget */}
+            {currentStep === 2 && (
+              <motion.div
+                key="step2"
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                variants={variants}
+                transition={{ duration: 0.3 }}
+                className="space-y-6"
+              >
+                <h2 className="text-2xl font-semibold text-gray-900">Monthly Budget</h2>
+                <p className="text-gray-600">What's your monthly budget for a vehicle?</p>
+                
+                <CurrencyInputField
+                  control={control}
+                  name="desired_monthly_payment"
+                  label="Monthly Payment"
+                  placeholder="Enter your desired monthly payment"
+                  min={100}
+                  max={2000}
+                />
+                
+                <div className="mt-8">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Adjust your monthly payment
+                  </label>
+                  <Controller
+                    control={control}
+                    name="desired_monthly_payment"
+                    render={({ field }) => (
+                      <Slider
+                        value={[field.value]}
+                        onValueChange={(values) => field.onChange(values[0])}
+                        min={100}
+                        max={2000}
+                        step={50}
+                        className="py-4"
                       />
+                    )}
+                  />
+                  <div className="flex justify-between text-sm text-gray-500 mt-2">
+                    <span>$100</span>
+                    <span>$2,000+</span>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+            
+            {/* Step 3: Credit Score */}
+            {currentStep === 3 && (
+              <motion.div
+                key="step3"
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                variants={variants}
+                transition={{ duration: 0.3 }}
+                className="space-y-6"
+              >
+                <h2 className="text-2xl font-semibold text-gray-900">Credit Score</h2>
+                <p className="text-gray-600">Estimate your current credit score.</p>
+                
+                <div className="mt-8">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Your estimated credit score
+                    </label>
+                    <div className="flex items-center">
+                      <span className="text-lg font-semibold">{creditScore}</span>
+                      <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full text-white ${getCreditScoreColorClass(creditScore)}`}>
+                        {getCreditScoreText(creditScore)}
+                      </span>
                     </div>
-                    <div>
-                      <Label htmlFor="employmentMonths">Months</Label>
-                      <Input
-                        id="employmentMonths"
-                        type="number"
-                        min="0"
-                        max="11"
-                        value={formData.employmentDurationMonths}
-                        onChange={(e) => updateFormData('employmentDurationMonths', parseInt(e.target.value) || 0)}
-                        placeholder="0"
+                  </div>
+                  
+                  <Controller
+                    control={control}
+                    name="credit_score"
+                    render={({ field }) => (
+                      <Slider
+                        value={[field.value]}
+                        onValueChange={(values) => field.onChange(values[0])}
+                        min={300}
+                        max={850}
+                        step={10}
+                        className="py-4"
                       />
+                    )}
+                  />
+                  
+                  <div className="flex justify-between text-sm mt-2">
+                    <div className="space-y-1">
+                      <div className="h-2 w-16 bg-red-500 rounded-l-full"></div>
+                      <span className="text-xs text-gray-500">Poor<br/>300-579</span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="h-2 w-16 bg-orange-500"></div>
+                      <span className="text-xs text-gray-500">Fair<br/>580-669</span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="h-2 w-16 bg-yellow-500"></div>
+                      <span className="text-xs text-gray-500">Good<br/>670-739</span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="h-2 w-16 bg-green-500"></div>
+                      <span className="text-xs text-gray-500">Very Good<br/>740-799</span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="h-2 w-16 bg-emerald-500 rounded-r-full"></div>
+                      <span className="text-xs text-gray-500">Excellent<br/>800-850</span>
                     </div>
                   </div>
                 </div>
-              </>
+              </motion.div>
             )}
-
-            <div>
-              <Label htmlFor="monthlyIncome" className={validationErrors.monthlyIncome ? "text-red-500" : ""}>
-                Monthly Income <span className="text-red-500">*</span>
-              </Label>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-5 w-5" />
-                <Input
-                  id="monthlyIncome"
-                  type="number"
-                  min="0"
-                  value={formData.monthlyIncome}
-                  onChange={(e) => updateFormData('monthlyIncome', parseFloat(e.target.value) || 0)}
-                  placeholder="5000"
-                  required
-                  className={`pl-10 ${validationErrors.monthlyIncome ? "border-red-500 focus-visible:ring-red-500" : ""}`}
-                />
-              </div>
-              {validationErrors.monthlyIncome && (
-                <p className="mt-1 text-xs text-red-500">{validationErrors.monthlyIncome}</p>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="otherIncome">
-                Other Monthly Income
-              </Label>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-5 w-5" />
-                <Input
-                  id="otherIncome"
-                  type="number"
-                  min="0"
-                  value={formData.otherIncome}
-                  onChange={(e) => updateFormData('otherIncome', parseFloat(e.target.value) || 0)}
-                  placeholder="0"
-                  className="pl-10"
-                />
-              </div>
-            </div>
-          </motion.div>
-        );
-
-      case 3:
-        return (
-          <motion.div
-            key="step3"
-            variants={formVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            className="space-y-6"
-          >
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center p-2 bg-[#3BAA75]/10 rounded-full mb-4">
-                <Home className="w-6 h-6 text-[#3BAA75]" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900">Housing Information</h2>
-              <p className="text-gray-600 mt-2">Tell us about your living situation</p>
-            </div>
-
-            <div>
-              <Label htmlFor="housingStatus" className={validationErrors.housingStatus ? "text-red-500" : ""}>
-                Housing Status <span className="text-red-500">*</span>
-              </Label>
-              <Select 
-                value={formData.housingStatus} 
-                onValueChange={(value) => updateFormData('housingStatus', value)}
-              >
-                <SelectTrigger 
-                  id="housingStatus"
-                  className={validationErrors.housingStatus ? "border-red-500 focus-visible:ring-red-500" : ""}
-                >
-                  <SelectValue placeholder="Select housing status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="own">Own</SelectItem>
-                  <SelectItem value="rent">Rent</SelectItem>
-                  <SelectItem value="live_with_parents">Live with Parents</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-              {validationErrors.housingStatus && (
-                <p className="mt-1 text-xs text-red-500">{validationErrors.housingStatus}</p>
-              )}
-            </div>
-
-            {(formData.housingStatus === 'own' || formData.housingStatus === 'rent') && (
-              <div>
-                <Label htmlFor="housingPayment" className={validationErrors.housingPayment ? "text-red-500" : ""}>
-                  Monthly {formData.housingStatus === 'own' ? 'Mortgage' : 'Rent'} Payment <span className="text-red-500">*</span>
-                </Label>
-                <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-5 w-5" />
-                  <Input
-                    id="housingPayment"
-                    type="number"
-                    min="0"
-                    value={formData.housingPayment}
-                    onChange={(e) => updateFormData('housingPayment', parseFloat(e.target.value) || 0)}
-                    placeholder="1500"
-                    required
-                    className={`pl-10 ${validationErrors.housingPayment ? "border-red-500 focus-visible:ring-red-500" : ""}`}
-                  />
-                </div>
-                {validationErrors.housingPayment && (
-                  <p className="mt-1 text-xs text-red-500">{validationErrors.housingPayment}</p>
-                )}
-              </div>
-            )}
-
-            <div>
-              <Label>How long have you lived at your current address? <span className="text-red-500">*</span></Label>
-              <div className="grid grid-cols-2 gap-6 mt-2">
-                <div>
-                  <Label htmlFor="residenceYears">Years</Label>
-                  <Input
-                    id="residenceYears"
-                    type="number"
-                    min="0"
-                    value={formData.residenceDurationYears}
-                    onChange={(e) => updateFormData('residenceDurationYears', parseInt(e.target.value) || 0)}
-                    placeholder="0"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="residenceMonths">Months</Label>
-                  <Input
-                    id="residenceMonths"
-                    type="number"
-                    min="0"
-                    max="11"
-                    value={formData.residenceDurationMonths}
-                    onChange={(e) => updateFormData('residenceDurationMonths', parseInt(e.target.value) || 0)}
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        );
-
-      case 4:
-        return (
-          <motion.div
-            key="step4"
-            variants={formVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            className="space-y-6"
-          >
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center p-2 bg-[#3BAA75]/10 rounded-full mb-4">
-                <DollarSign className="w-6 h-6 text-[#3BAA75]" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900">Financial Information</h2>
-              <p className="text-gray-600 mt-2">Help us understand your financial situation</p>
-            </div>
-
-            <div className="bg-[#F9FAFB] p-6 rounded-xl border border-gray-100">
-              <Label htmlFor="creditScore">Estimated Credit Score</Label>
-              <div className="mt-4">
-                <Slider
-                  id="creditScore"
-                  value={[formData.creditScore]}
-                  onValueChange={(value) => updateFormData('creditScore', value[0])}
-                  max={900}
-                  min={300}
-                  step={10}
-                  className="w-full"
-                  showTooltip
-                  tooltipContent={(value) => `${value}`}
-                />
-                <div className="flex justify-between text-sm text-gray-500 mt-2">
-                  <span>300</span>
-                  <span className="font-medium text-[#3BAA75]">{formData.creditScore}</span>
-                  <span>900</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-[#F9FAFB] p-6 rounded-xl border border-gray-100">
-              <Label htmlFor="desiredLoanAmount">Desired Loan Amount</Label>
-              <div className="mt-4">
-                <Slider
-                  id="desiredLoanAmount"
-                  value={[formData.desiredLoanAmount]}
-                  onValueChange={(value) => updateFormData('desiredLoanAmount', value[0])}
-                  max={100000}
-                  min={5000}
-                  step={1000}
-                  className="w-full"
-                  showTooltip
-                  tooltipContent={(value) => `$${value.toLocaleString()}`}
-                />
-                <div className="flex justify-between text-sm text-gray-500 mt-2">
-                  <span>$5,000</span>
-                  <span className="font-medium text-[#3BAA75]">${formData.desiredLoanAmount.toLocaleString()}</span>
-                  <span>$100,000</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="downPaymentAmount">Down Payment Amount</Label>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-5 w-5" />
-                <Input
-                  id="downPaymentAmount"
-                  type="number"
-                  min="0"
-                  value={formData.downPaymentAmount}
-                  onChange={(e) => updateFormData('downPaymentAmount', parseFloat(e.target.value) || 0)}
-                  placeholder="0"
-                  className="pl-10"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-2 p-4 bg-[#F9FAFB] rounded-lg border border-gray-100">
-              <Checkbox
-                id="hasDriverLicense"
-                checked={formData.hasDriverLicense}
-                onCheckedChange={(checked) => updateFormData('hasDriverLicense', checked)}
-              />
-              <Label htmlFor="hasDriverLicense" className="text-sm font-medium cursor-pointer">
-                I have a valid driver's license
-              </Label>
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex items-center space-x-2 p-4 bg-[#F9FAFB] rounded-lg border border-gray-100">
-                <Checkbox
-                  id="collectsGovernmentBenefits"
-                  checked={formData.collectsGovernmentBenefits}
-                  onCheckedChange={(checked) => updateFormData('collectsGovernmentBenefits', checked)}
-                />
-                <Label htmlFor="collectsGovernmentBenefits" className="text-sm font-medium cursor-pointer">
-                  I collect government benefits
-                </Label>
-              </div>
-
-              {formData.collectsGovernmentBenefits && (
-                <div className="ml-6 space-y-3 p-4 bg-white rounded-lg border border-gray-100 shadow-sm">
-                  <Label>Select all that apply:</Label>
-                  {['cpp', 'ei', 'odsp', 'ontario_works', 'child_tax_benefit', 'other'].map((benefit) => (
-                    <div key={benefit} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={benefit}
-                        checked={formData.governmentBenefitTypes.includes(benefit)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            updateFormData('governmentBenefitTypes', [...formData.governmentBenefitTypes, benefit]);
-                          } else {
-                            updateFormData('governmentBenefitTypes', formData.governmentBenefitTypes.filter(b => b !== benefit));
-                          }
-                        }}
-                      />
-                      <Label htmlFor={benefit} className="capitalize text-sm cursor-pointer">
-                        {benefit.replace('_', ' ')}
-                      </Label>
-                    </div>
-                  ))}
-                  
-                  {formData.governmentBenefitTypes.includes('other') && (
-                    <div className="mt-3">
-                      <Label htmlFor="governmentBenefitOther">Please specify:</Label>
-                      <Input
-                        id="governmentBenefitOther"
-                        value={formData.governmentBenefitOther}
-                        onChange={(e) => updateFormData('governmentBenefitOther', e.target.value)}
-                        placeholder="Other benefit type"
-                        className="mt-1"
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </motion.div>
-        );
-
-      case 5:
-        return (
-          <motion.div
-            key="step5"
-            variants={formVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            className="space-y-6"
-          >
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center p-2 bg-[#3BAA75]/10 rounded-full mb-4">
-                <FileText className="w-6 h-6 text-[#3BAA75]" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900">Debt Discharge History</h2>
-              <p className="text-gray-600 mt-2">Information about any previous debt discharge</p>
-            </div>
-
-            <div className="flex items-center space-x-2 p-4 bg-[#F9FAFB] rounded-lg border border-gray-100">
-              <Checkbox
-                id="hasDebtDischargeHistory"
-                checked={formData.hasDebtDischargeHistory}
-                onCheckedChange={(checked) => updateFormData('hasDebtDischargeHistory', checked)}
-              />
-              <Label htmlFor="hasDebtDischargeHistory" className="text-sm font-medium cursor-pointer">
-                I have a history of debt discharge
-              </Label>
-            </div>
-
-            {formData.hasDebtDischargeHistory && (
-              <div className="space-y-6 ml-6 p-6 bg-white rounded-lg border border-gray-100 shadow-sm">
-                <div>
-                  <Label htmlFor="debtDischargeType" className={validationErrors.debtDischargeType ? "text-red-500" : ""}>
-                    Type of Debt Discharge <span className="text-red-500">*</span>
-                  </Label>
-                  <Select 
-                    value={formData.debtDischargeType} 
-                    onValueChange={(value) => updateFormData('debtDischargeType', value)}
-                  >
-                    <SelectTrigger 
-                      id="debtDischargeType"
-                      className={validationErrors.debtDischargeType ? "border-red-500 focus-visible:ring-red-500" : ""}
-                    >
-                      <SelectValue placeholder="Select discharge type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="bankruptcy">Bankruptcy</SelectItem>
-                      <SelectItem value="consumer_proposal">Consumer Proposal</SelectItem>
-                      <SelectItem value="informal_settlement">Informal Settlement</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {validationErrors.debtDischargeType && (
-                    <p className="mt-1 text-xs text-red-500">{validationErrors.debtDischargeType}</p>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="debtDischargeYear" className={validationErrors.debtDischargeYear ? "text-red-500" : ""}>
-                    Year of Discharge <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="debtDischargeYear"
-                    type="number"
-                    min="1980"
-                    max={new Date().getFullYear()}
-                    value={formData.debtDischargeYear}
-                    onChange={(e) => updateFormData('debtDischargeYear', parseInt(e.target.value) || new Date().getFullYear())}
-                    required
-                    className={validationErrors.debtDischargeYear ? "border-red-500 focus-visible:ring-red-500" : ""}
-                  />
-                  {validationErrors.debtDischargeYear && (
-                    <p className="mt-1 text-xs text-red-500">{validationErrors.debtDischargeYear}</p>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="debtDischargeStatus" className={validationErrors.debtDischargeStatus ? "text-red-500" : ""}>
-                    Current Status <span className="text-red-500">*</span>
-                  </Label>
-                  <Select 
-                    value={formData.debtDischargeStatus} 
-                    onValueChange={(value) => updateFormData('debtDischargeStatus', value)}
-                  >
-                    <SelectTrigger 
-                      id="debtDischargeStatus"
-                      className={validationErrors.debtDischargeStatus ? "border-red-500 focus-visible:ring-red-500" : ""}
-                    >
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="discharged">Discharged</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="not_sure">Not Sure</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {validationErrors.debtDischargeStatus && (
-                    <p className="mt-1 text-xs text-red-500">{validationErrors.debtDischargeStatus}</p>
-                  )}
-                </div>
-
-                {formData.debtDischargeStatus === 'active' && (
-                  <>
-                    <div>
-                      <Label htmlFor="amountOwed" className={validationErrors.amountOwed ? "text-red-500" : ""}>
-                        Amount Still Owed <span className="text-red-500">*</span>
-                      </Label>
-                      <div className="relative">
-                        <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 h-5 w-5" />
-                        <Input
-                          id="amountOwed"
-                          type="number"
-                          min="0"
-                          value={formData.amountOwed}
-                          onChange={(e) => updateFormData('amountOwed', parseFloat(e.target.value) || 0)}
-                          placeholder="0"
-                          className={`pl-10 ${validationErrors.amountOwed ? "border-red-500 focus-visible:ring-red-500" : ""}`}
-                        />
-                      </div>
-                      {validationErrors.amountOwed && (
-                        <p className="mt-1 text-xs text-red-500">{validationErrors.amountOwed}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <Label htmlFor="trusteeName">
-                        Trustee Name
-                      </Label>
-                      <Input
-                        id="trusteeName"
-                        value={formData.trusteeName}
-                        onChange={(e) => updateFormData('trusteeName', e.target.value)}
-                        placeholder="Trustee or administrator name"
-                      />
-                    </div>
-                  </>
-                )}
-
-                <div>
-                  <Label htmlFor="debtDischargeComments">
-                    Additional Comments
-                  </Label>
-                  <Textarea
-                    id="debtDischargeComments"
-                    value={formData.debtDischargeComments}
-                    onChange={(e) => updateFormData('debtDischargeComments', e.target.value)}
-                    placeholder="Any additional information about your debt discharge history"
-                    rows={3}
-                  />
-                </div>
-              </div>
-            )}
-          </motion.div>
-        );
-
-      case 6:
-        return (
-          <motion.div
-            key="step6"
-            variants={formVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            className="space-y-6"
-          >
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center p-2 bg-[#3BAA75]/10 rounded-full mb-4">
-                <Phone className="w-6 h-6 text-[#3BAA75]" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900">Contact Preferences</h2>
-              <p className="text-gray-600 mt-2">How would you like us to contact you?</p>
-            </div>
-
-            <div className="bg-[#F9FAFB] p-6 rounded-xl border border-gray-100">
-              <Label className={validationErrors.preferredContactMethod ? "text-red-500" : ""}>
-                Preferred Contact Method <span className="text-red-500">*</span>
-              </Label>
-              <RadioGroup
-                value={formData.preferredContactMethod}
-                onValueChange={(value) => updateFormData('preferredContactMethod', value)}
-                className="mt-4 space-y-4"
-              >
-                <div className="flex items-center space-x-3 p-3 bg-white rounded-lg border border-gray-100 shadow-sm transition-all duration-200 hover:border-[#3BAA75]/50 hover:shadow-md">
-                  <RadioGroupItem value="email" id="email-contact" />
-                  <Label htmlFor="email-contact" className="flex items-center cursor-pointer">
-                    <Mail className="w-5 h-5 mr-3 text-[#3BAA75]" />
-                    <div>
-                      <div className="font-medium">Email</div>
-                      <div className="text-xs text-gray-500">Receive updates via email</div>
-                    </div>
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-3 p-3 bg-white rounded-lg border border-gray-100 shadow-sm transition-all duration-200 hover:border-[#3BAA75]/50 hover:shadow-md">
-                  <RadioGroupItem value="phone" id="phone-contact" />
-                  <Label htmlFor="phone-contact" className="flex items-center cursor-pointer">
-                    <Phone className="w-5 h-5 mr-3 text-[#3BAA75]" />
-                    <div>
-                      <div className="font-medium">Phone Call</div>
-                      <div className="text-xs text-gray-500">Receive updates via phone call</div>
-                    </div>
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-3 p-3 bg-white rounded-lg border border-gray-100 shadow-sm transition-all duration-200 hover:border-[#3BAA75]/50 hover:shadow-md">
-                  <RadioGroupItem value="sms" id="sms-contact" />
-                  <Label htmlFor="sms-contact" className="flex items-center cursor-pointer">
-                    <Phone className="w-5 h-5 mr-3 text-[#3BAA75]" />
-                    <div>
-                      <div className="font-medium">Text Message (SMS)</div>
-                      <div className="text-xs text-gray-500">Receive updates via text message</div>
-                    </div>
-                  </Label>
-                </div>
-              </RadioGroup>
-              {validationErrors.preferredContactMethod && (
-                <p className="mt-3 text-xs text-red-500">{validationErrors.preferredContactMethod}</p>
-              )}
-            </div>
-          </motion.div>
-        );
-
-      case 7:
-        return (
-          <motion.div
-            key="step7"
-            variants={formVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            className="space-y-6"
-          >
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center p-2 bg-[#3BAA75]/10 rounded-full mb-4">
-                <Shield className="w-6 h-6 text-[#3BAA75]" />
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900">Create Your Account</h2>
-              <p className="text-gray-600 mt-2">Set up your account and review terms</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <Label htmlFor="password" className={validationErrors.password ? "text-red-500" : ""}>
-                  Password <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => updateFormData('password', e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className={validationErrors.password ? "border-red-500 focus-visible:ring-red-500" : ""}
-                />
-                {validationErrors.password && (
-                  <p className="mt-1 text-xs text-red-500">{validationErrors.password}</p>
-                )}
-              </div>
-              <div>
-                <Label htmlFor="confirmPassword" className={validationErrors.confirmPassword ? "text-red-500" : ""}>
-                  Confirm Password <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={(e) => updateFormData('confirmPassword', e.target.value)}
-                  placeholder="••••••••"
-                  required
-                  className={validationErrors.confirmPassword ? "border-red-500 focus-visible:ring-red-500" : ""}
-                />
-                {validationErrors.confirmPassword && (
-                  <p className="mt-1 text-xs text-red-500">{validationErrors.confirmPassword}</p>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className={`flex items-start space-x-3 p-4 bg-[#F9FAFB] rounded-lg border ${validationErrors.consentSoftCheck ? "border-red-500" : "border-gray-100"}`}>
-                <Checkbox
-                  id="consentSoftCheck"
-                  checked={formData.consentSoftCheck}
-                  onCheckedChange={(checked) => updateFormData('consentSoftCheck', checked)}
-                  className={validationErrors.consentSoftCheck ? "border-red-500" : ""}
-                />
-                <Label htmlFor="consentSoftCheck" className="text-sm leading-relaxed cursor-pointer">
-                  I consent to a soft credit check being performed. This will not affect my credit score and helps us provide you with the best loan options.
-                </Label>
-              </div>
-              {validationErrors.consentSoftCheck && (
-                <p className="text-xs text-red-500">{validationErrors.consentSoftCheck}</p>
-              )}
-
-              <div className={`flex items-start space-x-3 p-4 bg-[#F9FAFB] rounded-lg border ${validationErrors.termsAccepted ? "border-red-500" : "border-gray-100"}`}>
-                <Checkbox
-                  id="termsAccepted"
-                  checked={formData.termsAccepted}
-                  onCheckedChange={(checked) => updateFormData('termsAccepted', checked)}
-                  className={validationErrors.termsAccepted ? "border-red-500" : ""}
-                />
-                <Label htmlFor="termsAccepted" className="text-sm leading-relaxed cursor-pointer">
-                  I have read and agree to the <a href="/terms" className="text-[#3BAA75] hover:underline">Terms of Service</a> and <a href="/privacy" className="text-[#3BAA75] hover:underline">Privacy Policy</a>. I understand that submitting this application does not guarantee loan approval.
-                </Label>
-              </div>
-              {validationErrors.termsAccepted && (
-                <p className="text-xs text-red-500">{validationErrors.termsAccepted}</p>
-              )}
-            </div>
-
-            <div className="bg-blue-50 border border-blue-100 rounded-lg p-6 mt-6">
-              <h3 className="font-semibold text-blue-900 mb-3 flex items-center">
-                <CheckCircle className="h-5 w-5 mr-2 text-blue-500" />
-                What happens next?
-              </h3>
-              <ul className="text-sm text-blue-800 space-y-2">
-                <li className="flex items-start">
-                  <span className="mr-2">•</span>
-                  <span>We'll review your application within 24 hours</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="mr-2">•</span>
-                  <span>You'll receive a pre-qualification decision via your preferred contact method</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="mr-2">•</span>
-                  <span>If pre-qualified, we'll help you find the perfect vehicle</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="mr-2">•</span>
-                  <span>Our team will guide you through the final approval process</span>
-                </li>
-              </ul>
-            </div>
             
-            {validationErrors.submit && (
-              <div className="p-4 bg-red-50 text-red-700 rounded-lg flex items-center">
-                <AlertCircle className="h-5 w-5 mr-2" />
-                <span>{validationErrors.submit}</span>
-              </div>
+            {/* Step 4: Home Address & Housing Info */}
+            {currentStep === 4 && (
+              <motion.div
+                key="step4"
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                variants={variants}
+                transition={{ duration: 0.3 }}
+                className="space-y-6"
+              >
+                <h2 className="text-2xl font-semibold text-gray-900">Home Address & Housing</h2>
+                <p className="text-gray-600">Tell us about where you live.</p>
+                
+                <div className="space-y-4">
+                  <Controller
+                    control={control}
+                    name="address"
+                    render={({ field, fieldState: { error } }) => (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Street Address
+                        </label>
+                        <Input
+                          {...field}
+                          placeholder="123 Main St"
+                          className={error ? 'border-red-500' : ''}
+                        />
+                        {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
+                      </div>
+                    )}
+                  />
+                  
+                  <Controller
+                    control={control}
+                    name="city"
+                    render={({ field, fieldState: { error } }) => (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          City
+                        </label>
+                        <Input
+                          {...field}
+                          placeholder="Toronto"
+                          className={error ? 'border-red-500' : ''}
+                        />
+                        {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
+                      </div>
+                    )}
+                  />
+                  
+                  <Controller
+                    control={control}
+                    name="province"
+                    render={({ field, fieldState: { error } }) => (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Province
+                        </label>
+                        <Input
+                          {...field}
+                          placeholder="Ontario"
+                          className={error ? 'border-red-500' : ''}
+                        />
+                        {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
+                      </div>
+                    )}
+                  />
+                  
+                  <Controller
+                    control={control}
+                    name="postal_code"
+                    render={({ field, fieldState: { error } }) => (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Postal Code
+                        </label>
+                        <Input
+                          {...field}
+                          placeholder="M5V 2H1"
+                          className={error ? 'border-red-500' : ''}
+                        />
+                        {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
+                      </div>
+                    )}
+                  />
+                  
+                  <Controller
+                    control={control}
+                    name="housing_status"
+                    render={({ field, fieldState: { error } }) => (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Housing Status
+                        </label>
+                        <Input
+                          {...field}
+                          placeholder="Own or Rent?"
+                          className={error ? 'border-red-500' : ''}
+                        />
+                        {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
+                      </div>
+                    )}
+                  />
+                  
+                  <CurrencyInputField
+                    control={control}
+                    name="housing_payment"
+                    label="Monthly Rent or Mortgage Payment"
+                    placeholder="Enter your monthly housing payment"
+                  />
+                </div>
+              </motion.div>
             )}
-          </motion.div>
-        );
-
-      default:
-        return null;
-    }
-  };
-
-  return (
-    <div className="max-w-4xl mx-auto p-6">
-      <Card className="shadow-card overflow-hidden">
-        <CardHeader className="text-center pb-2">
-          <CardTitle className="text-3xl font-bold text-gray-900">Vehicle Loan Pre-Qualification</CardTitle>
-          <CardDescription className="text-lg text-gray-600">
-            Get pre-qualified for your vehicle loan in just a few minutes
-          </CardDescription>
+            
+            {/* Step 5: Employment & Income */}
+            {currentStep === 5 && (
+              <motion.div
+                key="step5"
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                variants={variants}
+                transition={{ duration: 0.3 }}
+                className="space-y-6"
+              >
+                <h2 className="text-2xl font-semibold text-gray-900">Employment & Income</h2>
+                <p className="text-gray-600">Tell us about your employment and income.</p>
+                
+                <div className="space-y-4">
+                  <Controller
+                    control={control}
+                    name="employment_status"
+                    render={({ field, fieldState: { error } }) => (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Employment Status
+                        </label>
+                        <Input
+                          {...field}
+                          placeholder="Employed, Self-employed, Student, etc."
+                          className={error ? 'border-red-500' : ''}
+                        />
+                        {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
+                      </div>
+                    )}
+                  />
+                  
+                  <Controller
+                    control={control}
+                    name="employer_name"
+                    render={({ field, fieldState: { error } }) => (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Employer Name or Business Name
+                        </label>
+                        <Input
+                          {...field}
+                          placeholder="Where do you work?"
+                          className={error ? 'border-red-500' : ''}
+                        />
+                        {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
+                      </div>
+                    )}
+                  />
+                  
+                  <CurrencyInputField
+                    control={control}
+                    name="annual_income"
+                    label="Annual Income"
+                    placeholder="Enter your annual income"
+                  />
+                </div>
+              </motion.div>
+            )}
+            
+            {/* Step 6: Personal Information */}
+            {currentStep === 6 && (
+              <motion.div
+                key="step6"
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                variants={variants}
+                transition={{ duration: 0.3 }}
+                className="space-y-6"
+              >
+                <h2 className="text-2xl font-semibold text-gray-900">Personal Information</h2>
+                <p className="text-gray-600">Tell us about yourself.</p>
+                
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Controller
+                      control={control}
+                      name="first_name"
+                      render={({ field, fieldState: { error } }) => (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            First Name
+                          </label>
+                          <Input
+                            {...field}
+                            placeholder="John"
+                            className={error ? 'border-red-500' : ''}
+                          />
+                          {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
+                        </div>
+                      )}
+                    />
+                    
+                    <Controller
+                      control={control}
+                      name="last_name"
+                      render={({ field, fieldState: { error } }) => (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Last Name
+                          </label>
+                          <Input
+                            {...field}
+                            placeholder="Doe"
+                            className={error ? 'border-red-500' : ''}
+                          />
+                          {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
+                        </div>
+                      )}
+                    />
+                  </div>
+                  
+                  <Controller
+                    control={control}
+                    name="email"
+                    render={({ field, fieldState: { error } }) => (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Email Address
+                        </label>
+                        <Input
+                          {...field}
+                          type="email"
+                          placeholder="you@example.com"
+                          className={error ? 'border-red-500' : ''}
+                        />
+                        {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
+                      </div>
+                    )}
+                  />
+                  
+                  <Controller
+                    control={control}
+                    name="phone"
+                    render={({ field, fieldState: { error } }) => (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Phone Number
+                        </label>
+                        <Input
+                          {...field}
+                          placeholder="(123) 456-7890"
+                          className={error ? 'border-red-500' : ''}
+                        />
+                        {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
+                      </div>
+                    )}
+                  />
+                  
+                  <div className="space-y-2 pt-4">
+                    <div className="flex items-start">
+                      <Controller
+                        control={control}
+                        name="consent_soft_check"
+                        render={({ field }) => (
+                          <div className="flex items-start">
+                            <Checkbox
+                              id="consent_soft_check"
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              className="mt-1"
+                            />
+                            <label
+                              htmlFor="consent_soft_check"
+                              className="ml-2 text-sm text-gray-600"
+                            >
+                              I consent to a soft credit check that won't affect my credit score
+                            </label>
+                          </div>
+                        )}
+                      />
+                    </div>
+                    {errors.consent_soft_check && (
+                      <p className="text-red-500 text-sm">{errors.consent_soft_check.message}</p>
+                    )}
+                    
+                    <div className="flex items-start">
+                      <Controller
+                        control={control}
+                        name="terms_accepted"
+                        render={({ field }) => (
+                          <div className="flex items-start">
+                            <Checkbox
+                              id="terms_accepted"
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              className="mt-1"
+                            />
+                            <label
+                              htmlFor="terms_accepted"
+                              className="ml-2 text-sm text-gray-600"
+                            >
+                              I accept the <a href="/terms" className="text-[#3BAA75] hover:underline">terms and conditions</a> and <a href="/privacy" className="text-[#3BAA75] hover:underline">privacy policy</a>
+                            </label>
+                          </div>
+                        )}
+                      />
+                    </div>
+                    {errors.terms_accepted && (
+                      <p className="text-red-500 text-sm">{errors.terms_accepted.message}</p>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
           
-          {/* Progress Bar */}
-          <div className="mt-8">
-            <ProgressBar currentStep={currentStep} totalSteps={totalSteps} onStepClick={(step) => {
-              if (step <= currentStep) {
-                setCurrentStep(step);
-              }
-            }} />
-          </div>
-        </CardHeader>
-
-        <CardContent>
-          <form onSubmit={handleSubmit}>
-            <AnimatePresence mode="wait">
-              {renderStep()}
-            </AnimatePresence>
-
-            <div className="flex justify-between mt-10 pt-6 border-t border-gray-100">
+          {/* Navigation Buttons */}
+          <div className="flex justify-between mt-8">
+            {currentStep > 1 ? (
               <Button
                 type="button"
                 variant="outline"
-                onClick={prevStep}
-                disabled={currentStep === 1 || isSubmitting}
-                className="px-6 transition-all duration-200"
+                onClick={handlePrevStep}
+                disabled={isSubmitting}
               >
-                Previous
+                Back
               </Button>
-              
-              {currentStep < totalSteps ? (
-                <Button
-                  type="button"
-                  onClick={nextStep}
-                  className="px-6"
-                  disabled={isSubmitting}
-                >
-                  Next Step
-                </Button>
+            ) : (
+              <div></div> // Empty div to maintain flex spacing
+            )}
+            
+            <Button
+              type="button"
+              onClick={handleNextStep}
+              disabled={isSubmitting}
+              className="bg-[#3BAA75] hover:bg-[#2D8259]"
+            >
+              {currentStep === totalSteps ? (
+                isSubmitting ? 'Submitting...' : 'Submit Application'
               ) : (
-                <Button
-                  type="submit"
-                  className="px-6"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Submitting...
-                    </>
-                  ) : (
-                    'Submit Application'
-                  )}
-                </Button>
+                'Next'
               )}
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+            </Button>
+          </div>
+        </form>
+      </div>
+    </FormProvider>
   );
 };
 
