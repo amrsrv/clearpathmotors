@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mail, Lock, User, Phone, DollarSign, CreditCard, Briefcase, Calculator, AlertCircle } from 'lucide-react';
+import { Mail, Lock as LucideLock, User, Phone, DollarSign, CreditCard, Briefcase, Calculator, AlertCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
 import { GoogleSignInButton } from '../components/GoogleSignInButton';
+
+// Wrapper component to fix constructor issue
+const Lock = (props: any) => <LucideLock {...props} />;
 
 const Signup = () => {
   const navigate = useNavigate();

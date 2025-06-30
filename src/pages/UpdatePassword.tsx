@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Lock, AlertCircle, CheckCircle } from 'lucide-react';
+import { Lock as LucideLock, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
+
+// Wrapper component to fix constructor issue
+const Lock = (props: any) => <LucideLock {...props} />;
 
 const UpdatePassword = () => {
   const navigate = useNavigate();
