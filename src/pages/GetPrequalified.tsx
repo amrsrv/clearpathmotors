@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { PreQualificationForm } from '../components/PreQualificationForm';
+import PreQualificationForm from '../components/PreQualificationForm';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle, ChevronRight } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
