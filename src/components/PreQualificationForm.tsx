@@ -138,6 +138,8 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
     setIsSubmitting(true);
     
     try {
+      console.log('Submitting application with data:', data);
+      
       // Generate a temporary user ID for anonymous submissions
       const tempUserId = uuidv4();
       
@@ -184,6 +186,8 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         terms_accepted: data.terms_accepted,
       };
       
+      console.log('Prepared application data:', applicationData);
+      
       // Insert application into Supabase
       const { data: application, error } = await supabase
         .from('applications')
@@ -193,20 +197,33 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       
       if (error) {
         console.error('Error submitting application:', error);
+        console.log('Error details:', JSON.stringify(error, null, 2));
         toast.error('Failed to submit application. Please try again.');
         setIsSubmitting(false);
         return;
       }
       
+      console.log('Application submitted successfully:', application);
+      
       // Create initial application stage
-      await supabase
-        .from('application_stages')
-        .insert({
-          application_id: application.id,
-          stage_number: 1,
-          status: 'completed',
-          notes: 'Application submitted successfully',
-        });
+      try {
+        const { error: stageError } = await supabase
+          .from('application_stages')
+          .insert({
+            application_id: application.id,
+            stage_number: 1,
+            status: 'completed',
+            notes: 'Application submitted successfully',
+          });
+          
+        if (stageError) {
+          console.error('Error creating application stage:', stageError);
+          // Continue despite stage error
+        }
+      } catch (stageError) {
+        console.error('Exception creating application stage:', stageError);
+        // Continue despite stage error
+      }
       
       // Call onComplete with the application ID, temp user ID, and form data
       onComplete(application.id, tempUserId, {
@@ -217,6 +234,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       
     } catch (error) {
       console.error('Error in form submission:', error);
+      console.log('Error details:', error instanceof Error ? error.message : JSON.stringify(error));
       toast.error('An error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
