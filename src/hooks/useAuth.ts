@@ -53,73 +53,6 @@ export const useAuth = () => {
   useEffect(() => {
     console.log('useAuth: initializing auth hook');
     
-    const initializeAuth = async () => {
-      try {
-        console.log('useAuth: getting initial session');
-        const { data: { session: currentSession }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('useAuth: Error getting session:', error);
-          
-          // If the error is due to missing or invalid session, clear any stale data
-          if (error.message?.includes('Auth session missing') || 
-              error.message?.includes('session_not_found') ||
-              error.message?.includes('Invalid session')) {
-            console.log('useAuth: Clearing invalid session during initialization');
-            try {
-              await supabase.auth.signOut();
-            } catch (signOutError) {
-              console.error('useAuth: Error signing out during initialization cleanup:', signOutError);
-            }
-          }
-          
-          setUser(null);
-          setSession(null);
-          setLoading(false);
-          setInitialized(true);
-          return;
-        }
-        
-        console.log('useAuth: session result:', { 
-          hasSession: !!currentSession, 
-          user: currentSession?.user ? { 
-            id: currentSession.user.id, 
-            email: currentSession.user.email,
-            app_metadata: currentSession.user.app_metadata
-          } : null 
-        });
-        
-        setUser(currentSession?.user || null);
-        setSession(currentSession);
-        
-        // If user has no role, set default role
-        if (currentSession?.user && !currentSession.user.app_metadata?.role) {
-          try {
-            console.log('useAuth: user has no role, setting default role to customer');
-            await supabase.auth.updateUser({
-              data: { role: 'customer' }
-            });
-            console.log('useAuth: default role set to customer');
-            
-            // Refresh user to get updated metadata
-            await refreshUser();
-          } catch (roleError) {
-            console.error('useAuth: Error setting default role:', roleError);
-          }
-        }
-      } catch (error) {
-        console.error('useAuth: Error in initializeAuth:', error);
-        setUser(null);
-        setSession(null);
-      } finally {
-        console.log('useAuth: completed initial session check, setting loading=false');
-        setLoading(false);
-        setInitialized(true);
-      }
-    };
-
-    initializeAuth();
-
     // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       console.log('useAuth: authStateChange event:', event, {
@@ -134,6 +67,7 @@ export const useAuth = () => {
       setUser(currentSession?.user || null);
       setSession(currentSession);
       setLoading(false);
+      setInitialized(true);
       
       // Handle specific auth events
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
@@ -145,9 +79,7 @@ export const useAuth = () => {
               data: { role: 'customer' }
             });
             console.log('useAuth: default role set to customer');
-            
-            // Refresh user to get updated metadata
-            await refreshUser();
+            // Don't call refreshUser here - the updateUser will trigger another auth state change
           } catch (error) {
             console.error('useAuth: Error setting default role:', error);
           }
@@ -163,7 +95,7 @@ export const useAuth = () => {
       console.log('useAuth: unsubscribing from auth state changes');
       subscription.unsubscribe();
     };
-  }, [refreshUser]);
+  }, []);
 
   const signIn = async (email: string, password: string) => {
     try {

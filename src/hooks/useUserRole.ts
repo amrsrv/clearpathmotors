@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 export type UserRole = 'super_admin' | 'dealer' | 'customer' | null;
 
 export const useUserRole = () => {
-  const { user, loading, refreshUser } = useAuth();
+  const { user, loading } = useAuth();
   const [role, setRole] = useState<UserRole>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -68,17 +68,8 @@ export const useUserRole = () => {
           
           if (error) throw error;
           
-          // Refresh session to get updated metadata
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session) throw new Error('Session refresh failed');
-          
-          // Refresh user data
-          const updatedUser = await refreshUser();
-          if (updatedUser?.app_metadata?.role) {
-            setRole(updatedUser.app_metadata.role as UserRole);
-          } else {
-            setRole('customer'); // Default fallback
-          }
+          // Don't call refreshUser here - the updateUser will trigger auth state change
+          setRole('customer'); // Set role immediately for UI responsiveness
         } catch (clientError) {
           console.error('useUserRole: Client-side role update failed, trying Edge Function:', clientError);
           
@@ -87,13 +78,8 @@ export const useUserRole = () => {
           
           // Refresh session to get updated metadata
           await supabase.auth.refreshSession();
-          const updatedUser = await refreshUser();
-          
-          if (updatedUser?.app_metadata?.role) {
-            setRole(updatedUser.app_metadata.role as UserRole);
-          } else {
-            setRole('customer'); // Default fallback
-          }
+          // Don't call refreshUser here - the session refresh will trigger auth state change
+          setRole('customer'); // Set role immediately for UI responsiveness
         }
       } else {
         console.log('useUserRole: User has valid role:', userRole);
@@ -104,7 +90,7 @@ export const useUserRole = () => {
       toast.error('Error setting user role. Some features may be limited.');
       setRole('customer'); // Default fallback
     }
-  }, [refreshUser]);
+  }, []);
 
   useEffect(() => {
     console.log('useUserRole: effect triggered, loading =', loading, 'user =', user ? {
