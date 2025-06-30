@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Calendar, ArrowRight, CheckCircle, Shield, BadgeCheck, TrendingUp, FileText, Car, DollarSign, Clock, AlertCircle, HelpCircle, User, Mail, Phone } from 'lucide-react';
@@ -8,10 +8,24 @@ import { ScrollReveal } from '../components/ScrollReveal';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
 
+interface PrequalificationData {
+  loanRange: {
+    min: number;
+    max: number;
+    rate: number;
+  };
+  vehicleType: string;
+  monthlyBudget: number;
+  originalFormData?: any;
+}
+
 const QualificationResults = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [prequalificationData, setPrequalificationData] = useState<PrequalificationData | null>(null);
+  const [loadingResults, setLoadingResults] = useState(true);
+  
   const { loanRange, vehicleType, monthlyBudget, originalFormData, applicationId, tempUserId } = location.state || {};
 
   useEffect(() => {
@@ -56,6 +70,31 @@ const QualificationResults = () => {
             return;
           }
         }
+
+        // Set prequalification data from location state or application data
+        if (loanRange && monthlyBudget) {
+          setPrequalificationData({
+            loanRange,
+            vehicleType: vehicleType || 'Any',
+            monthlyBudget,
+            originalFormData
+          });
+        } else {
+          // Fallback to application data if location state is missing
+          const fallbackData = {
+            loanRange: {
+              min: application.loan_amount_min || 15000,
+              max: application.loan_amount_max || 50000,
+              rate: application.interest_rate || 8.99
+            },
+            vehicleType: application.vehicle_type || 'Any',
+            monthlyBudget: application.desired_monthly_payment || 400,
+            originalFormData: null
+          };
+          setPrequalificationData(fallbackData);
+        }
+
+        setLoadingResults(false);
       } catch (error) {
         console.error('Error checking access:', error);
         navigate('/get-approved');
@@ -63,7 +102,19 @@ const QualificationResults = () => {
     };
 
     checkAccess();
-  }, [applicationId, tempUserId, user, navigate, location.state]);
+  }, [applicationId, tempUserId, user, navigate, location.state, loanRange, vehicleType, monthlyBudget, originalFormData]);
+
+  // Show loading state while data is being fetched
+  if (loadingResults || !prequalificationData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#3BAA75]/5 via-white to-[#3BAA75]/10 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#3BAA75] mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your qualification results...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Calculate monthly payments based on loan amount and rate
   const calculateMonthlyPayment = (amount: number, rate: number, term: number = 60) => {
@@ -74,14 +125,14 @@ const QualificationResults = () => {
     );
   };
 
-  const standardMonthlyPayment = calculateMonthlyPayment(loanRange.min, loanRange.rate + 3);
-  const competitiveMonthlyPayment = calculateMonthlyPayment(loanRange.min, loanRange.rate);
+  const standardMonthlyPayment = calculateMonthlyPayment(prequalificationData.loanRange.min, prequalificationData.loanRange.rate + 3);
+  const competitiveMonthlyPayment = calculateMonthlyPayment(prequalificationData.loanRange.min, prequalificationData.loanRange.rate);
   const monthlySavings = standardMonthlyPayment - competitiveMonthlyPayment;
   const totalSavings = monthlySavings * 60; // Based on 60-month term
 
   // Handle sign up with the pre-filled data
   const handleSignUp = async () => {
-    if (!originalFormData || !originalFormData.email || !originalFormData.password) {
+    if (!prequalificationData.originalFormData || !prequalificationData.originalFormData.email || !prequalificationData.originalFormData.password) {
       console.error('Missing required data for sign up');
       return;
     }
@@ -89,8 +140,8 @@ const QualificationResults = () => {
     try {
       // Sign up with Supabase Auth
       const { data, error: signUpError } = await supabase.auth.signUp({
-        email: originalFormData.email,
-        password: originalFormData.password,
+        email: prequalificationData.originalFormData.email,
+        password: prequalificationData.originalFormData.password,
         options: {
           data: {
             role: 'customer'
@@ -107,7 +158,7 @@ const QualificationResults = () => {
             signUpError.message.includes('already exists') ||
             signUpError.message.includes('user_already_exists') ||
             signUpError.status === 400) {
-          navigate('/login', { state: { email: originalFormData.email } });
+          navigate('/login', { state: { email: prequalificationData.originalFormData.email } });
           return;
         }
         
@@ -152,10 +203,10 @@ const QualificationResults = () => {
         </p>
         <div className="py-2">
           <div className="text-2xl font-bold text-[#3BAA75]">
-            ${loanRange.min.toLocaleString()} - ${loanRange.max.toLocaleString()}
+            ${prequalificationData.loanRange.min.toLocaleString()} - ${prequalificationData.loanRange.max.toLocaleString()}
           </div>
           <div className="text-sm text-gray-600">
-            at {loanRange.rate}% APR
+            at {prequalificationData.loanRange.rate}% APR
           </div>
         </div>
       </div>
@@ -183,7 +234,7 @@ const QualificationResults = () => {
               <div className="space-y-4">
                 <h2 className="text-lg sm:text-xl font-medium">Available Loan Amount</h2>
                 <p className="text-white/80 text-sm leading-relaxed md:block hidden">
-                  Based on your desired monthly payment of ${monthlyBudget}, we've calculated a loan range that fits your budget 
+                  Based on your desired monthly payment of ${prequalificationData.monthlyBudget}, we've calculated a loan range that fits your budget 
                   while maintaining comfortable monthly payments. This estimate reflects what you're most likely to be approved 
                   for with a 95% chance of approval.
                 </p>
@@ -191,9 +242,9 @@ const QualificationResults = () => {
               
               <div className="mt-8">
                 <LoanRangeBar
-                  min={loanRange.min}
-                  max={loanRange.max}
-                  rate={loanRange.rate}
+                  min={prequalificationData.loanRange.min}
+                  max={prequalificationData.loanRange.max}
+                  rate={prequalificationData.loanRange.rate}
                 />
               </div>
             </div>
@@ -211,7 +262,7 @@ const QualificationResults = () => {
                       ${standardMonthlyPayment}
                     </div>
                     <div className="text-sm text-gray-600">
-                      at {(loanRange.rate + 3).toFixed(2)}% APR
+                      at {(prequalificationData.loanRange.rate + 3).toFixed(2)}% APR
                     </div>
                   </div>
                 </div>
@@ -223,7 +274,7 @@ const QualificationResults = () => {
                       ${competitiveMonthlyPayment}
                     </div>
                     <div className="text-sm text-[#2A7A5B]/80">
-                      at {loanRange.rate}% APR
+                      at {prequalificationData.loanRange.rate}% APR
                     </div>
                   </div>
                 </div>
