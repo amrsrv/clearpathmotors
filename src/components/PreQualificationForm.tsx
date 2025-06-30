@@ -1282,7 +1282,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       Terms and Conditions <span className="text-red-500">*</span>
                     </label>
                     <p className="text-gray-500">
-                      I agree to the <a href="/terms" target="_blank" className="text-[#3BAA75] hover:underline">Terms and Conditions</a> and <a href="/privacy" target=\"_blank" className="text-[#3BAA75] hover:underline">Privacy Policy</a>.
+                      I agree to the <a href="/terms" target="_blank" className="text-[#3BAA75] hover:underline">Terms and Conditions</a> and <a href="/privacy" target="_blank" className="text-[#3BAA75] hover:underline">Privacy Policy</a>.
                     </p>
                     {errors.terms_accepted && (
                       <p className="text-red-500 text-sm mt-1">{errors.terms_accepted.message as string}</p>
