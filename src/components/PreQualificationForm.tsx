@@ -61,14 +61,16 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
     province: '',
     postalCode: '',
     dateOfBirth: '',
+    monthlyRentMortgage: '',
+    maritalStatus: '',
     
     // Step 4: Employment Information
     employmentStatus: 'employed',
     annualIncome: '',
-    employer: '',
-    occupation: '',
     employmentDurationYears: '',
     employmentDurationMonths: '',
+    employer: '',
+    occupation: '',
     
     // Step 5: Additional Information
     collects_government_benefits: false,
@@ -82,7 +84,6 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
     amount_owed: '',
     
     // Step 6: Account Creation
-    email_account: '',
     password: '',
     confirmPassword: '',
     
@@ -112,26 +113,29 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
       city: z.string().min(1, 'City is required'),
       province: z.string().min(1, 'Province is required'),
       postalCode: z.string().regex(/^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/, 'Please enter a valid postal code'),
-      dateOfBirth: z.string().min(1, 'Date of birth is required')
+      dateOfBirth: z.string().min(1, 'Date of birth is required'),
+      monthlyRentMortgage: z.string().min(1, 'Monthly rent/mortgage is required'),
+      maritalStatus: z.string().min(1, 'Marital status is required')
     }),
     4: z.object({
       employmentStatus: z.string().min(1, 'Please select your employment status'),
       annualIncome: z.string().refine(val => {
         const num = parseFloat(val.replace(/[^0-9.]/g, ''));
         return !isNaN(num) && num > 0;
-      }, 'Please enter a valid annual income')
+      }, 'Please enter a valid annual income'),
+      employmentDurationYears: z.string().min(1, 'Please select employment duration years'),
+      employmentDurationMonths: z.string().min(1, 'Please select employment duration months')
     }),
     5: z.object({
       consentToSoftCheck: z.boolean().refine(val => val === true, 'You must consent to a soft credit check'),
       termsAccepted: z.boolean().refine(val => val === true, 'You must accept the terms and conditions')
     }),
     6: z.object({
-      email_account: z.string().email('Please enter a valid email address'),
       password: z.string().min(8, 'Password must be at least 8 characters'),
-      confirmPassword: z.string()
+      confirmPassword: z.string().min(8, 'Please confirm your password')
     }).refine(data => data.password === data.confirmPassword, {
-      message: 'Passwords do not match',
-      path: ['confirmPassword']
+      message: "Passwords don't match",
+      path: ["confirmPassword"]
     })
   };
 
@@ -326,10 +330,6 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           postal_code: formData.postalCode,
           date_of_birth: formData.dateOfBirth,
           employment_status: formData.employmentStatus,
-          employer_name: formData.employmentStatus === 'self_employed' ? formData.employer : null,
-          occupation: formData.employmentStatus === 'self_employed' ? formData.occupation : null,
-          employment_duration_years: formData.employmentDurationYears ? parseInt(formData.employmentDurationYears) : null,
-          employment_duration_months: formData.employmentDurationMonths ? parseInt(formData.employmentDurationMonths) : null,
           annual_income: parseFloat(formData.annualIncome.replace(/[^0-9.]/g, '')),
           monthly_income: parseFloat(formData.annualIncome.replace(/[^0-9.]/g, '')) / 12,
           credit_score: parseInt(formData.creditScore),
@@ -348,7 +348,13 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           debt_discharge_year: formData.debt_discharge_year ? parseInt(formData.debt_discharge_year) : null,
           amount_owed: formData.amount_owed ? parseFloat(formData.amount_owed.replace(/[^0-9.]/g, '')) : null,
           consent_soft_check: formData.consentToSoftCheck,
-          terms_accepted: formData.termsAccepted
+          terms_accepted: formData.termsAccepted,
+          housing_payment: formData.monthlyRentMortgage ? parseFloat(formData.monthlyRentMortgage.replace(/[^0-9.]/g, '')) : null,
+          marital_status: formData.maritalStatus || null,
+          employment_duration_years: formData.employmentDurationYears ? parseInt(formData.employmentDurationYears) : null,
+          employment_duration_months: formData.employmentDurationMonths ? parseInt(formData.employmentDurationMonths) : null,
+          employer_name: formData.employmentStatus === 'self_employed' ? formData.employer : null,
+          occupation: formData.employmentStatus === 'self_employed' ? formData.occupation : null
         })
         .select()
         .single();
@@ -373,7 +379,8 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
         onComplete(application.id, tempUserId, {
           firstName: formData.firstName,
           lastName: formData.lastName,
-          email: formData.email_account || formData.email
+          email: formData.email,
+          password: formData.password
         });
         
         // Navigate to results page
@@ -392,7 +399,8 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
             originalFormData: {
               firstName: formData.firstName,
               lastName: formData.lastName,
-              email: formData.email_account || formData.email
+              email: formData.email,
+              password: formData.password
             }
           }
         });
@@ -710,6 +718,51 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                   />
                 </div>
               </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="monthlyRentMortgage" className="block text-sm font-medium text-gray-700 mb-2">
+                    Monthly Rent or Mortgage Payment
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <DollarSign className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <CurrencyInput
+                      id="monthlyRentMortgage"
+                      name="monthlyRentMortgage"
+                      value={formData.monthlyRentMortgage}
+                      onValueChange={(value) => handleCurrencyChange(value, 'monthlyRentMortgage')}
+                      placeholder="Enter monthly payment"
+                      prefix="$"
+                      groupSeparator=","
+                      decimalSeparator="."
+                      className="w-full p-3 pl-10 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="maritalStatus" className="block text-sm font-medium text-gray-700 mb-2">
+                    Marital Status
+                  </label>
+                  <select
+                    id="maritalStatus"
+                    name="maritalStatus"
+                    value={formData.maritalStatus}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                  >
+                    <option value="">Select Marital Status</option>
+                    <option value="single">Single</option>
+                    <option value="married">Married</option>
+                    <option value="divorced">Divorced</option>
+                    <option value="separated">Separated</option>
+                    <option value="widowed">Widowed</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
             </div>
           </motion.div>
         );
@@ -773,7 +826,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       </div>
                     </div>
                   </div>
-                  
+
                   <div>
                     <label htmlFor="occupation" className="block text-sm font-medium text-gray-700 mb-2">
                       Occupation
@@ -816,7 +869,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                   />
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <label htmlFor="employmentDurationYears" className="block text-sm font-medium text-gray-700 mb-2">
@@ -827,47 +880,30 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     name="employmentDurationYears"
                     value={formData.employmentDurationYears}
                     onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                   >
                     <option value="">Select Years</option>
-                    <option value="0">Less than 1 year</option>
-                    <option value="1">1 year</option>
-                    <option value="2">2 years</option>
-                    <option value="3">3 years</option>
-                    <option value="4">4 years</option>
-                    <option value="5">5 years</option>
-                    <option value="6">6 years</option>
-                    <option value="7">7 years</option>
-                    <option value="8">8 years</option>
-                    <option value="9">9 years</option>
-                    <option value="10">10+ years</option>
+                    {Array.from({ length: 51 }, (_, i) => (
+                      <option key={i} value={i}>{i} {i === 1 ? 'year' : 'years'}</option>
+                    ))}
                   </select>
                 </div>
                 
                 <div>
                   <label htmlFor="employmentDurationMonths" className="block text-sm font-medium text-gray-700 mb-2">
-                    Months
+                    Months at Current Job
                   </label>
                   <select
                     id="employmentDurationMonths"
                     name="employmentDurationMonths"
                     value={formData.employmentDurationMonths}
                     onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                   >
                     <option value="">Select Months</option>
-                    <option value="0">0 months</option>
-                    <option value="1">1 month</option>
-                    <option value="2">2 months</option>
-                    <option value="3">3 months</option>
-                    <option value="4">4 months</option>
-                    <option value="5">5 months</option>
-                    <option value="6">6 months</option>
-                    <option value="7">7 months</option>
-                    <option value="8">8 months</option>
-                    <option value="9">9 months</option>
-                    <option value="10">10 months</option>
-                    <option value="11">11 months</option>
+                    {Array.from({ length: 12 }, (_, i) => (
+                      <option key={i} value={i}>{i} {i === 1 ? 'month' : 'months'}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -1132,7 +1168,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
             </div>
           </motion.div>
         );
-      
+
       case 6:
         return (
           <motion.div
@@ -1149,7 +1185,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
             
             <div className="space-y-6">
               <div>
-                <label htmlFor="email_account" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                   Email Address
                 </label>
                 <div className="relative">
@@ -1158,19 +1194,18 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                   </div>
                   <input
                     type="email"
-                    id="email_account"
-                    name="email_account"
-                    value={formData.email_account || formData.email}
-                    onChange={handleChange}
-                    className="w-full p-3 pl-10 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    placeholder="you@example.com"
+                    id="email-display"
+                    value={formData.email}
+                    disabled
+                    className="w-full p-3 pl-10 border border-gray-300 rounded-md shadow-sm bg-gray-50 text-gray-500"
                   />
                 </div>
+                <p className="mt-1 text-xs text-gray-500">You'll use this email to log in to your account.</p>
               </div>
               
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                  Password
+                  Create Password
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -1187,7 +1222,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     minLength={8}
                   />
                 </div>
-                <p className="mt-1 text-xs text-gray-500">Password must be at least 8 characters</p>
+                <p className="mt-1 text-xs text-gray-500">Password must be at least 8 characters long.</p>
               </div>
               
               <div>
@@ -1211,43 +1246,24 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                 </div>
               </div>
               
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200"></div>
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1">
+                    <CheckCircle className="h-5 w-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="text-blue-800 font-medium">
+                      Your account gives you access to:
+                    </p>
+                    <ul className="text-sm text-blue-600 mt-2 space-y-1">
+                      <li>• Track your application status</li>
+                      <li>• Upload required documents</li>
+                      <li>• Receive instant notifications</li>
+                      <li>• Schedule consultations</li>
+                      <li>• Access exclusive offers</li>
+                    </ul>
+                  </div>
                 </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">Or continue with</span>
-                </div>
-              </div>
-              
-              <button
-                type="button"
-                className="w-full flex items-center justify-center gap-2 p-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <svg className="h-5 w-5" viewBox="0 0 24 24">
-                  <path
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    fill="#4285F4"
-                  />
-                  <path
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    fill="#34A853"
-                  />
-                  <path
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                    fill="#FBBC05"
-                  />
-                  <path
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    fill="#EA4335"
-                  />
-                  <path d="M1 1h22v22H1z" fill="none" />
-                </svg>
-                Continue with Google
-              </button>
-              
-              <div className="text-center text-sm text-gray-600">
-                Already have an account? <a href="/login" className="text-[#3BAA75] hover:underline">Sign in</a>
               </div>
             </div>
           </motion.div>
