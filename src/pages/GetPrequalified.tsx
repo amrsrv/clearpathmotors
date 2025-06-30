@@ -3,20 +3,138 @@ import { motion } from 'framer-motion';
 import { PreQualificationForm } from '../components/PreQualificationForm';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle, ChevronRight } from 'lucide-react';
+import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../lib/supabaseClient';
+import toast from 'react-hot-toast';
 
 const GetPrequalified = () => {
   const navigate = useNavigate();
+  const { user, signUp } = useAuth();
 
   const handleFormComplete = async (applicationId: string, tempUserId: string, formData: any) => {
-    // Navigate to qualification results page with the necessary data
-    navigate('/qualification-results', {
-      state: {
-        fromApproval: true,
-        applicationId,
-        tempUserId,
-        originalFormData: formData
+    // If user is already logged in, update the application and redirect to dashboard
+    if (user) {
+      try {
+        // Update the application with the user's ID
+        const { error: updateError } = await supabase
+          .from('applications')
+          .update({
+            user_id: user.id,
+            temp_user_id: null
+          })
+          .eq('id', applicationId);
+
+        if (updateError) {
+          console.error('Error updating application:', updateError);
+          toast.error('Failed to link application to your account');
+          return;
+        }
+
+        // Redirect to dashboard
+        toast.success('Application submitted successfully!');
+        navigate('/dashboard', { replace: true });
+        return;
+      } catch (error) {
+        console.error('Error in handleFormComplete for logged-in user:', error);
+        toast.error('An error occurred. Please try again.');
+        return;
       }
-    });
+    }
+
+    // For non-logged in users, attempt to create an account
+    try {
+      // Ensure we have email and password
+      if (!formData.email || !formData.password) {
+        toast.error('Email and password are required');
+        return;
+      }
+
+      // Attempt to sign up the user
+      const { data, error: signUpError } = await signUp(formData.email, formData.password);
+      
+      if (signUpError) {
+        // Handle case where email already exists
+        if (signUpError.message === 'EMAIL_EXISTS' || 
+            signUpError.message.includes('already registered') || 
+            signUpError.message.includes('already exists') ||
+            signUpError.message.includes('user_already_exists') ||
+            signUpError.status === 400) {
+          
+          toast.error('An account with this email already exists. Please sign in.');
+          navigate('/login', { 
+            state: { 
+              email: formData.email,
+              redirectAfterLogin: '/dashboard'
+            }
+          });
+          return;
+        }
+        
+        // Handle other signup errors
+        console.error('Error signing up:', signUpError);
+        toast.error(signUpError.message || 'Failed to create account');
+        
+        // Still navigate to qualification results as fallback
+        navigate('/qualification-results', {
+          state: {
+            fromApproval: true,
+            applicationId,
+            tempUserId,
+            originalFormData: formData
+          }
+        });
+        return;
+      }
+
+      // If signup was successful and we have a user
+      if (data?.user) {
+        // Update the application with the new user_id
+        const { error: updateError } = await supabase
+          .from('applications')
+          .update({
+            user_id: data.user.id,
+            temp_user_id: null
+          })
+          .eq('id', applicationId)
+          .eq('temp_user_id', tempUserId);
+
+        if (updateError) {
+          console.error('Error updating application:', updateError);
+          toast.error('Failed to link application to your account');
+          
+          // Still navigate to dashboard as the user is created
+          navigate('/dashboard', { replace: true });
+          return;
+        }
+
+        // Success! Redirect to dashboard
+        toast.success('Account created and application submitted successfully!');
+        navigate('/dashboard', { replace: true });
+      } else {
+        // Fallback if user creation succeeded but no user object was returned
+        navigate('/qualification-results', {
+          state: {
+            fromApproval: true,
+            applicationId,
+            tempUserId,
+            originalFormData: formData
+          }
+        });
+      }
+    } catch (error: any) {
+      console.error('Error in handleFormComplete:', error);
+      toast.error('An error occurred. Please try again.');
+      
+      // Navigate to qualification results as fallback
+      navigate('/qualification-results', {
+        state: {
+          fromApproval: true,
+          applicationId,
+          tempUserId,
+          originalFormData: formData
+        }
+      });
+    }
   };
 
   return (
