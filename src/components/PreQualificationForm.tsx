@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useForm, FormProvider } from 'react-hook-form';
+import { useForm, FormProvider, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -744,7 +744,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                       />
                     </div>
                     {errors.terms_accepted && (
-                      <p className="text-red-500 text-sm">{errors.terms_accepted.message}</p>
+                      <p className="text-red-500 text-sm">{errors.terms_accepted.message}</p>}
                     )}
                   </div>
                 </div>
