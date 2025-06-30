@@ -79,14 +79,64 @@ const QualificationResults = () => {
   const monthlySavings = standardMonthlyPayment - competitiveMonthlyPayment;
   const totalSavings = monthlySavings * 60; // Based on 60-month term
 
-  const handleCreateAccount = () => {
-    navigate('/create-account', {
-      state: {
-        applicationId,
-        tempUserId,
-        formData: originalFormData
+  // Handle sign up with the pre-filled data
+  const handleSignUp = async () => {
+    if (!originalFormData || !originalFormData.email || !originalFormData.password) {
+      console.error('Missing required data for sign up');
+      return;
+    }
+
+    try {
+      // Sign up with Supabase Auth
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: originalFormData.email,
+        password: originalFormData.password,
+        options: {
+          data: {
+            role: 'customer'
+          },
+          emailRedirectTo: `${window.location.origin}/auth/callback`
+        }
+      });
+      
+      if (signUpError) {
+        console.error('Error signing up:', signUpError);
+        
+        // If user already exists, redirect to login
+        if (signUpError.message.includes('already registered') || 
+            signUpError.message.includes('already exists') ||
+            signUpError.message.includes('user_already_exists') ||
+            signUpError.status === 400) {
+          navigate('/login', { state: { email: originalFormData.email } });
+          return;
+        }
+        
+        throw signUpError;
       }
-    });
+
+      if (data?.user) {
+        // Update the application with the new user_id
+        const { error: updateError } = await supabase
+          .from('applications')
+          .update({
+            user_id: data.user.id,
+            temp_user_id: null
+          })
+          .eq('id', applicationId)
+          .eq('temp_user_id', tempUserId);
+
+        if (updateError) {
+          console.error('Error updating application:', updateError);
+          throw updateError;
+        }
+
+        // Redirect to dashboard
+        navigate('/dashboard');
+      }
+    } catch (error) {
+      console.error('Error in handleSignUp:', error);
+      // Show error message to user
+    }
   };
 
   return (
@@ -234,7 +284,7 @@ const QualificationResults = () => {
                 </div>
                 <div className="text-center">
                   <motion.button
-                    onClick={handleCreateAccount}
+                    onClick={handleSignUp}
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     className="w-full bg-white text-[#2A7A5B] px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-colors shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
@@ -336,7 +386,7 @@ const QualificationResults = () => {
                   },
                   {
                     q: "What happens next?",
-                    a: "Schedule your consultation to review your options, choose your vehicle, and complete the final approval process."
+                    a: "Create your account to track your application, then schedule your consultation to review your options, choose your vehicle, and complete the final approval process."
                   }
                 ].map((item) => (
                   <div key={item.q}>

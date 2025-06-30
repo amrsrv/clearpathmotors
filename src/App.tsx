@@ -19,7 +19,6 @@ import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
-import CreateAccount from './pages/CreateAccount';
 import ResetPassword from './pages/ResetPassword';
 import UpdatePassword from './pages/UpdatePassword';
 import Dashboard from './pages/Dashboard';
@@ -111,7 +110,6 @@ const App = () => {
             <Route path="/contact" element={<Contact />} />
             <Route path="/get-approved" element={<Navigate to="/get-prequalified" replace />} />
             <Route path="/get-prequalified" element={<GetPrequalified />} />
-            <Route path="/create-account" element={<CreateAccount />} />
             <Route path="/qualification-results" element={<QualificationResults />} />
             <Route path="/blog/:slug" element={<Blog />} />
             <Route path="/privacy" element={<Privacy />} />

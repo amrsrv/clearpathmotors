@@ -8,12 +8,13 @@ const GetPrequalified = () => {
   const navigate = useNavigate();
 
   const handleFormComplete = async (applicationId: string, tempUserId: string, formData: any) => {
-    // Navigate to create account page with the necessary data
-    navigate('/create-account', {
+    // Navigate to qualification results page with the necessary data
+    navigate('/qualification-results', {
       state: {
+        fromApproval: true,
         applicationId,
         tempUserId,
-        formData
+        originalFormData: formData
       }
     });
   };
