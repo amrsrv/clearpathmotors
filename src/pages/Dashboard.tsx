@@ -125,29 +125,20 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         .single();
       
       if (profileError) {
-        // If the error is that the profile doesn't exist, create one
-        if (profileError.code === 'PGRST116') {
-          console.log('User profile not found, creating one');
-          
-          const { data: newProfile, error: createError } = await supabase
-            .from('user_profiles')
-            .insert([{ user_id: user.id }])
-            .select()
-            .single();
-          
-          if (createError) {
-            console.error('Error creating user profile:', createError);
-            throw createError;
-          }
-          
-          setUserProfile(newProfile);
-        } else {
+        // If the error is not that the profile doesn't exist, throw it
+        if (profileError.code !== 'PGRST116') {
           console.error('Error loading user profile:', profileError);
           throw profileError;
         }
-      } else {
-        setUserProfile(profile);
+        
+        // If the profile doesn't exist, we'll just return
+        // The trigger on auth.users should have created it already
+        // If not, it will be created on the next sign-in
+        console.log('User profile not found');
+        return;
       }
+      
+      setUserProfile(profile);
     } catch (error) {
       console.error('Error in loadUserProfile:', error);
       throw error;
@@ -450,26 +441,67 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                       </span>
                     </div>
                     
+                    {application.employer_name && (
+                      <div className="flex items-center gap-2">
+                        <Briefcase className="h-4 w-4 text-gray-400" />
+                        <span className="text-gray-700">Employer: {application.employer_name}</span>
+                      </div>
+                    )}
+                    
+                    {application.occupation && (
+                      <div className="flex items-center gap-2">
+                        <Briefcase className="h-4 w-4 text-gray-400" />
+                        <span className="text-gray-700">Occupation: {application.occupation}</span>
+                      </div>
+                    )}
+                    
+                    {(application.employment_duration_years !== null || application.employment_duration_months !== null) && (
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-gray-400" />
+                        <span className="text-gray-700">
+                          Employment Duration: {formatDuration(application.employment_duration_years, application.employment_duration_months)}
+                        </span>
+                      </div>
+                    )}
+                    
                     <div className="flex items-center gap-2">
                       <DollarSign className="h-4 w-4 text-gray-400" />
-                      <span className="text-gray-700">
-                        Annual Income: ${application.annual_income?.toLocaleString() || 'Not specified'}
-                      </span>
+                      <span className="text-gray-700">Annual Income: ${application.annual_income?.toLocaleString()}</span>
                     </div>
+                    
+                    {application.other_income !== null && application.other_income > 0 && (
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-gray-400" />
+                        <span className="text-gray-700">Other Income: ${application.other_income?.toLocaleString()}</span>
+                      </div>
+                    )}
                     
                     <div className="flex items-center gap-2">
                       <CreditCard className="h-4 w-4 text-gray-400" />
-                      <span className="text-gray-700">
-                        Credit Score: {application.credit_score || 'Not specified'}
-                      </span>
+                      <span className="text-gray-700">Credit Score: {application.credit_score}</span>
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                      <Car className="h-4 w-4 text-gray-400" />
-                      <span className="text-gray-700">
-                        Vehicle Type: {application.vehicle_type || 'Not specified'}
-                      </span>
-                    </div>
+                    {application.collects_government_benefits && (
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-gray-400" />
+                        <span className="text-gray-700">
+                          Collects Government Benefits: {application.government_benefit_types?.map(type => 
+                            type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+                          ).join(', ')}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {application.has_debt_discharge_history && (
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-gray-400" />
+                        <span className="text-gray-700">
+                          Debt Discharge: {application.debt_discharge_type?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} 
+                          ({application.debt_discharge_status?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())})
+                          {application.debt_discharge_year ? ` - ${application.debt_discharge_year}` : ''}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -852,6 +884,20 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       </div>
     </div>
   );
+};
+
+// Helper function to format duration
+const formatDuration = (years: number | null, months: number | null): string => {
+  if (years === null && months === null) return 'Not specified';
+  
+  const yearText = years ? `${years} year${years !== 1 ? 's' : ''}` : '';
+  const monthText = months ? `${months} month${months !== 1 ? 's' : ''}` : '';
+  
+  if (yearText && monthText) {
+    return `${yearText}, ${monthText}`;
+  }
+  
+  return yearText || monthText;
 };
 
 export default Dashboard;
