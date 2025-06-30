@@ -1,32 +1,99 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../lib/supabaseClient';
+import { useAuth } from '../hooks/useAuth';
 import { ProgressBar } from './ProgressBar';
 import { ProcessingAnimation } from './ProcessingAnimation';
-import { vehicles } from '../pages/Vehicles';
-import { Slider } from '@/components/ui/slider';
 import { 
   Car, 
   DollarSign, 
   CreditCard, 
-  Briefcase, 
-  ChevronRight, 
-  ChevronLeft, 
-  Calendar, 
-  MapPin, 
-  Phone, 
-  Mail, 
   User, 
-  Home, 
-  AlertCircle,
+  MapPin, 
+  Briefcase, 
+  FileText, 
+  Lock, 
+  CheckCircle, 
+  AlertCircle, 
+  ChevronRight, 
+  ChevronLeft,
+  Mail,
+  Phone,
+  Calendar,
+  Home,
   Building,
   Clock,
-  FileText
+  HelpCircle,
+  Eye,
+  EyeOff
 } from 'lucide-react';
-import CurrencyInput from 'react-currency-input-field';
-import { z } from 'zod';
+
+// Define validation schemas for each step
+const stepValidationSchema = {
+  1: z.object({
+    vehicleType: z.string().min(1, 'Please select a vehicle type'),
+  }),
+  2: z.object({
+    monthlyBudget: z.string().min(1, 'Please enter your monthly budget'),
+    downPayment: z.string(),
+    creditScore: z.string().min(1, 'Please select your credit score range'),
+  }),
+  3: z.object({
+    firstName: z.string().min(1, 'First name is required'),
+    lastName: z.string().min(1, 'Last name is required'),
+    email: z.string().email('Valid email is required'),
+    phone: z.string().min(10, 'Valid phone number is required').refine(
+      (val) => /^\+?1?\d{10,}$/.test(val.replace(/\D/g, '')),
+      'Please enter a valid phone number'
+    ),
+    dateOfBirth: z.string().min(1, 'Date of birth is required'),
+    address: z.string().min(1, 'Address is required'),
+    city: z.string().min(1, 'City is required'),
+    province: z.string().min(1, 'Province is required'),
+    postalCode: z.string().regex(/^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/, 'Valid postal code is required'),
+  }),
+  4: z.object({
+    employmentStatus: z.string().min(1, 'Please select your employment status'),
+    annualIncome: z.string().min(1, 'Annual income is required'),
+    employerName: z.string().optional(),
+    occupation: z.string().optional(),
+    employmentDurationYears: z.string(),
+    employmentDurationMonths: z.string(),
+    housingStatus: z.string().min(1, 'Please select your housing status'),
+    housingPayment: z.string(),
+    residenceDurationYears: z.string(),
+    residenceDurationMonths: z.string(),
+    hasDriverLicense: z.boolean().default(true),
+  }),
+  5: z.object({
+    collectsGovernmentBenefits: z.boolean().optional(),
+    governmentBenefitTypes: z.array(z.string()).optional(),
+    governmentBenefitOther: z.string().optional(),
+    hasDebtDischargeHistory: z.boolean().optional(),
+    debtDischargeType: z.string().optional(),
+    debtDischargeYear: z.string().optional(),
+    debtDischargeStatus: z.string().optional(),
+    amountOwed: z.string().optional(),
+    trusteeName: z.string().optional(),
+    debtDischargeComments: z.string().optional(),
+    consentSoftCheck: z.boolean().refine(val => val === true, {
+      message: 'You must consent to a soft credit check',
+    }),
+    termsAccepted: z.boolean().refine(val => val === true, {
+      message: 'You must accept the terms and conditions',
+    }),
+  }),
+  6: z.object({
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    confirmPassword: z.string(),
+  }).refine(data => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword'],
+  }),
+};
 
 interface PreQualificationFormProps {
   onComplete: (applicationId: string, tempUserId: string, formData: any) => void;
@@ -34,19 +101,16 @@ interface PreQualificationFormProps {
 
 export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete }) => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [tempUserId] = useState(uuidv4());
-  
-  // Form data state
   const [formData, setFormData] = useState({
-    // Step 1: Vehicle Type
-    vehicleType: searchParams.get('vehicle') || '',
+    // Step 1: Vehicle Information
+    vehicleType: '',
     
     // Step 2: Financial Information
-    desiredMonthlyPayment: searchParams.get('budget') ? parseInt(searchParams.get('budget')!) : 500,
+    monthlyBudget: '',
+    downPayment: '0',
     creditScore: '',
     
     // Step 3: Personal Information
@@ -54,329 +118,333 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
     lastName: '',
     email: '',
     phone: '',
+    dateOfBirth: '',
     address: '',
     city: '',
     province: '',
     postalCode: '',
-    dateOfBirth: '',
     
     // Step 4: Employment Information
-    employmentStatus: 'employed',
+    employmentStatus: '',
+    annualIncome: '',
     employerName: '',
     occupation: '',
-    employmentDurationYears: '',
-    employmentDurationMonths: '',
-    annualIncome: '',
-    otherIncome: '',
-    
-    // Housing Information
-    housingStatus: 'rent',
-    housingPayment: '',
-    residenceDurationYears: '',
-    residenceDurationMonths: '',
+    employmentDurationYears: '0',
+    employmentDurationMonths: '0',
+    housingStatus: '',
+    housingPayment: '0',
+    residenceDurationYears: '0',
+    residenceDurationMonths: '0',
+    hasDriverLicense: true,
     
     // Step 5: Additional Information
-    hasDriverLicense: false,
-    collects_government_benefits: false,
-    government_benefit_types: [] as string[],
-    government_benefit_other: '',
-    government_benefit_amount: '',
-    has_debt_discharge_history: false,
-    debt_discharge_type: '',
-    debt_discharge_status: '',
-    debt_discharge_year: '',
-    amount_owed: '',
-    trustee_name: '',
-    
-    // Consent
-    consentToSoftCheck: false,
+    collectsGovernmentBenefits: false,
+    governmentBenefitTypes: [] as string[],
+    governmentBenefitOther: '',
+    hasDebtDischargeHistory: false,
+    debtDischargeType: '',
+    debtDischargeYear: '',
+    debtDischargeStatus: '',
+    amountOwed: '',
+    trusteeName: '',
+    debtDischargeComments: '',
+    consentSoftCheck: false,
     termsAccepted: false,
     
-    // For account creation
+    // Step 6: Account Creation
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
   });
+  
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  // Validation schema for each step
-  const stepValidationSchema = {
-    1: z.object({
-      vehicleType: z.string().min(1, 'Please select a vehicle type')
-    }),
-    2: z.object({
-      desiredMonthlyPayment: z.number().min(100, 'Monthly payment must be at least $100').max(2000, 'Monthly payment cannot exceed $2000'),
-      creditScore: z.string().refine(val => {
-        const num = parseInt(val);
-        return !isNaN(num) && num >= 300 && num <= 900;
-      }, 'Credit score must be between 300 and 900')
-    }),
-    3: z.object({
-      firstName: z.string().min(1, 'First name is required'),
-      lastName: z.string().min(1, 'Last name is required'),
-      email: z.string().email('Please enter a valid email address'),
-      phone: z.string().min(10, 'Please enter a valid phone number'),
-      address: z.string().min(1, 'Address is required'),
-      city: z.string().min(1, 'City is required'),
-      province: z.string().min(1, 'Province is required'),
-      postalCode: z.string().regex(/^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/, 'Please enter a valid postal code'),
-      dateOfBirth: z.string().min(1, 'Date of birth is required')
-    }),
-    4: z.object({
-      employmentStatus: z.string().min(1, 'Please select your employment status'),
-      annualIncome: z.string().refine(val => {
-        const num = parseFloat(val.replace(/[^0-9.]/g, ''));
-        return !isNaN(num) && num > 0;
-      }, 'Please enter a valid annual income'),
-      housingStatus: z.string().min(1, 'Please select your housing status'),
-      housingPayment: z.string().refine(val => {
-        if (!val) return true; // Optional
-        const num = parseFloat(val.replace(/[^0-9.]/g, ''));
-        return !isNaN(num) && num >= 0;
-      }, 'Please enter a valid housing payment')
-    }),
-    5: z.object({
-      consentToSoftCheck: z.boolean().refine(val => val === true, 'You must consent to a soft credit check'),
-      termsAccepted: z.boolean().refine(val => val === true, 'You must accept the terms and conditions')
-    }),
-    6: z.object({
-      password: z.string().min(8, 'Password must be at least 8 characters'),
-      confirmPassword: z.string().min(8, 'Please confirm your password')
-    }).refine(data => data.password === data.confirmPassword, {
-      message: "Passwords don't match",
-      path: ["confirmPassword"]
-    })
-  };
-
-  // Handle form field changes
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
+  // Parse query parameters for pre-filled data
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const vehicleParam = searchParams.get('vehicle');
+    const budgetParam = searchParams.get('budget');
+    const amountParam = searchParams.get('amount');
+    const termParam = searchParams.get('term');
+    const rateParam = searchParams.get('rate');
     
-    if (type === 'checkbox') {
-      const checked = (e.target as HTMLInputElement).checked;
-      setFormData(prev => ({ ...prev, [name]: checked }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+    const updatedFormData = { ...formData };
+    
+    if (vehicleParam) {
+      updatedFormData.vehicleType = vehicleParam;
     }
     
-    setError(null);
-  };
+    if (budgetParam) {
+      updatedFormData.monthlyBudget = budgetParam;
+    }
+    
+    if (amountParam) {
+      // This would be used for loan amount calculation
+    }
+    
+    if (termParam) {
+      // This would be used for loan term
+    }
+    
+    if (rateParam) {
+      // This would be used for interest rate
+    }
+    
+    setFormData(updatedFormData);
+  }, [location.search]);
 
-  // Handle slider change for monthly payment
-  const handleSliderChange = (value: number[]) => {
-    if (value && value.length > 0) {
+  // Pre-fill form with user data if logged in
+  useEffect(() => {
+    if (user && user.email) {
       setFormData(prev => ({
         ...prev,
-        desiredMonthlyPayment: value[0]
+        email: user.email || prev.email
       }));
     }
-    setError(null);
-  };
+  }, [user]);
 
-  // Handle currency input changes
-  const handleCurrencyChange = (value: string | undefined, name: string) => {
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: value || '' 
-    }));
-    setError(null);
-  };
-
-  // Handle radio button changes
-  const handleRadioChange = (name: string, value: boolean) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
-    
-    // Reset related fields when changing radio buttons
-    if (name === 'collects_government_benefits' && !value) {
-      setFormData(prev => ({ 
-        ...prev, 
-        government_benefit_types: [],
-        government_benefit_other: '',
-        government_benefit_amount: ''
-      }));
-    }
-    
-    if (name === 'has_debt_discharge_history' && !value) {
-      setFormData(prev => ({ 
-        ...prev, 
-        debt_discharge_type: '',
-        debt_discharge_status: '',
-        debt_discharge_year: '',
-        amount_owed: '',
-        trustee_name: ''
-      }));
-    }
-    
-    if (name === 'hasDriverLicense') {
-      setFormData(prev => ({ ...prev, hasDriverLicense: value }));
-    }
-    
-    setError(null);
-  };
-
-  // Handle multi-select changes for government benefits
-  const handleBenefitTypeChange = (type: string) => {
-    setFormData(prev => {
-      const currentTypes = [...prev.government_benefit_types];
-      
-      if (currentTypes.includes(type)) {
-        // Remove the type if it's already selected
-        return {
-          ...prev,
-          government_benefit_types: currentTypes.filter(t => t !== type)
-        };
-      } else {
-        // Add the type if it's not already selected
-        return {
-          ...prev,
-          government_benefit_types: [...currentTypes, type]
-        };
-      }
-    });
-    
-    setError(null);
-  };
-
-  // Validate current step
-  const validateStep = () => {
+  const validateStep = (step: number) => {
     try {
-      const schema = stepValidationSchema[currentStep as keyof typeof stepValidationSchema];
+      const schema = stepValidationSchema[step as keyof typeof stepValidationSchema];
       
-      // Create an object with only the fields for the current step
+      // Extract only the fields relevant to the current step
       const stepData: any = {};
-      Object.keys(schema.shape).forEach(key => {
-        stepData[key] = formData[key as keyof typeof formData];
+      Object.keys(formData).forEach(key => {
+        if (key in schema.shape) {
+          stepData[key] = formData[key as keyof typeof formData];
+        }
       });
       
-      // Additional validation for step 5
-      if (currentStep === 5) {
-        // Validate government benefits fields if selected
-        if (formData.collects_government_benefits) {
-          if (formData.government_benefit_types.length === 0) {
-            throw new Error('Please select at least one government benefit type');
-          }
-          if (!formData.government_benefit_amount) {
-            throw new Error('Please enter the amount you receive from government benefits');
-          }
-        }
-        
-        // Validate bankruptcy/consumer proposal fields if selected
-        if (formData.has_debt_discharge_history) {
-          if (!formData.debt_discharge_type) {
-            throw new Error('Please select the type of debt discharge');
-          }
-          if (!formData.debt_discharge_status) {
-            throw new Error('Please select the status of your debt discharge');
-          }
-          if (!formData.debt_discharge_year) {
-            throw new Error('Please enter the year of your debt discharge');
-          }
-          if (formData.debt_discharge_status === 'active' && !formData.amount_owed) {
-            throw new Error('Please enter the amount owed');
-          }
-        }
-      }
-      
       schema.parse(stepData);
+      setErrors({});
       return true;
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        setError(err.errors[0].message);
-      } else if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Validation failed. Please check your inputs.');
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const newErrors: Record<string, string> = {};
+        error.errors.forEach(err => {
+          const field = err.path[0].toString();
+          newErrors[field] = err.message;
+        });
+        setErrors(newErrors);
       }
       return false;
     }
   };
 
-  // Handle next step
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
+      setFormData(prev => ({
+        ...prev,
+        [name]: checked
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+    
+    // Clear error for this field
+    if (errors[name]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  };
+
+  const handleMultiCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, checked } = e.target;
+    
+    setFormData(prev => {
+      const currentValues = prev.governmentBenefitTypes || [];
+      
+      if (checked) {
+        return {
+          ...prev,
+          [name]: [...currentValues, value]
+        };
+      } else {
+        return {
+          ...prev,
+          [name]: currentValues.filter(v => v !== value)
+        };
+      }
+    });
+  };
+
   const handleNext = () => {
-    if (validateStep()) {
+    if (validateStep(currentStep)) {
       if (currentStep < 6) {
-        setCurrentStep(currentStep + 1);
+        setCurrentStep(prev => prev + 1);
+        window.scrollTo(0, 0);
       } else {
         handleSubmit();
       }
     }
   };
 
-  // Handle previous step
-  const handlePrevious = () => {
+  const handleBack = () => {
     if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
+      setCurrentStep(prev => prev - 1);
+      window.scrollTo(0, 0);
     }
   };
 
-  // Handle form submission
+  const handleStepClick = (step: number) => {
+    if (step < currentStep) {
+      setCurrentStep(step);
+      window.scrollTo(0, 0);
+    } else if (step === currentStep + 1) {
+      handleNext();
+    }
+  };
+
   const handleSubmit = async () => {
+    if (!validateStep(currentStep)) {
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
     try {
+      // Generate a temporary user ID for anonymous users
+      const tempUserId = uuidv4();
+      
+      // Calculate loan amount range based on monthly budget
+      const monthlyBudget = parseFloat(formData.monthlyBudget);
+      const downPayment = parseFloat(formData.downPayment) || 0;
+      const creditScoreRange = formData.creditScore;
+      
+      // Determine interest rate based on credit score
+      let interestRate = 5.99;
+      if (creditScoreRange === '750+') {
+        interestRate = 4.99;
+      } else if (creditScoreRange === '700-749') {
+        interestRate = 5.49;
+      } else if (creditScoreRange === '650-699') {
+        interestRate = 5.99;
+      } else if (creditScoreRange === '600-649') {
+        interestRate = 7.99;
+      } else if (creditScoreRange === '550-599') {
+        interestRate = 9.99;
+      } else if (creditScoreRange === 'below-550') {
+        interestRate = 12.99;
+      }
+      
+      // Calculate loan amount range
+      const monthlyRate = interestRate / 1200;
+      const term = 60; // 5 years
+      
+      // Formula: A = P * [r(1+r)^n] / [(1+r)^n - 1]
+      // Solving for P: P = A * [(1+r)^n - 1] / [r(1+r)^n]
+      const numerator = Math.pow(1 + monthlyRate, term) - 1;
+      const denominator = monthlyRate * Math.pow(1 + monthlyRate, term);
+      
+      const maxLoanAmount = Math.round((monthlyBudget * numerator) / denominator);
+      const minLoanAmount = Math.round(maxLoanAmount * 0.7);
+      
+      // Determine credit score number from range
+      let creditScore = 650;
+      if (creditScoreRange === '750+') {
+        creditScore = 750;
+      } else if (creditScoreRange === '700-749') {
+        creditScore = 725;
+      } else if (creditScoreRange === '650-699') {
+        creditScore = 675;
+      } else if (creditScoreRange === '600-649') {
+        creditScore = 625;
+      } else if (creditScoreRange === '550-599') {
+        creditScore = 575;
+      } else if (creditScoreRange === 'below-550') {
+        creditScore = 525;
+      }
+      
+      // Show processing animation
       setIsProcessing(true);
       
-      // Calculate loan amount range based on monthly payment
-      const monthlyPayment = formData.desiredMonthlyPayment;
-      const interestRate = 5.99; // Default interest rate
-      const term = 60; // Default term in months
+      // Simulate processing time
+      await new Promise(resolve => setTimeout(resolve, 3000));
       
-      // Calculate loan amount using the formula: PV = PMT * ((1 - (1 + r)^-n) / r)
-      const monthlyRate = interestRate / 1200;
-      const loanAmount = monthlyPayment * ((1 - Math.pow(1 + monthlyRate, -term)) / monthlyRate);
-      
-      // Set loan range with +/- 20%
-      const loanMin = Math.round(loanAmount * 0.8);
-      const loanMax = Math.round(loanAmount * 1.2);
-      
-      // Create application in Supabase
+      // Create application in database
       const { data: application, error } = await supabase
         .from('applications')
         .insert({
-          temp_user_id: tempUserId,
-          status: 'pending_documents',
-          current_stage: 1,
+          // User identification
+          user_id: user?.id || null,
+          temp_user_id: !user ? tempUserId : null,
+          
+          // Vehicle information
+          vehicle_type: formData.vehicleType,
+          
+          // Financial information
+          desired_monthly_payment: parseFloat(formData.monthlyBudget),
+          down_payment: downPayment,
+          loan_amount_min: minLoanAmount,
+          loan_amount_max: maxLoanAmount,
+          interest_rate: interestRate,
+          loan_term: term,
+          credit_score: creditScore,
+          
+          // Personal information
           first_name: formData.firstName,
           last_name: formData.lastName,
           email: formData.email,
           phone: formData.phone,
+          date_of_birth: formData.dateOfBirth,
           address: formData.address,
           city: formData.city,
           province: formData.province,
           postal_code: formData.postalCode,
-          date_of_birth: formData.dateOfBirth,
+          
+          // Employment information
           employment_status: formData.employmentStatus,
-          employer_name: formData.employerName,
-          occupation: formData.occupation,
-          employment_duration_years: formData.employmentDurationYears ? parseInt(formData.employmentDurationYears) : null,
-          employment_duration_months: formData.employmentDurationMonths ? parseInt(formData.employmentDurationMonths) : null,
-          annual_income: parseFloat(formData.annualIncome.replace(/[^0-9.]/g, '')),
-          monthly_income: parseFloat(formData.annualIncome.replace(/[^0-9.]/g, '')) / 12,
-          other_income: formData.otherIncome ? parseFloat(formData.otherIncome.replace(/[^0-9.]/g, '')) : 0,
-          credit_score: parseInt(formData.creditScore),
-          vehicle_type: formData.vehicleType,
-          desired_monthly_payment: formData.desiredMonthlyPayment,
-          loan_amount_min: loanMin,
-          loan_amount_max: loanMax,
-          interest_rate: interestRate,
-          loan_term: term,
+          annual_income: parseFloat(formData.annualIncome),
+          employer_name: formData.employmentStatus === 'self_employed' ? null : formData.employerName,
+          occupation: formData.employmentStatus === 'self_employed' ? null : formData.occupation,
+          employment_duration_years: parseInt(formData.employmentDurationYears),
+          employment_duration_months: parseInt(formData.employmentDurationMonths),
+          
+          // Housing information
           housing_status: formData.housingStatus,
-          housing_payment: formData.housingPayment ? parseFloat(formData.housingPayment.replace(/[^0-9.]/g, '')) : null,
-          residence_duration_years: formData.residenceDurationYears ? parseInt(formData.residenceDurationYears) : null,
-          residence_duration_months: formData.residenceDurationMonths ? parseInt(formData.residenceDurationMonths) : null,
+          housing_payment: parseFloat(formData.housingPayment) || 0,
+          residence_duration_years: parseInt(formData.residenceDurationYears),
+          residence_duration_months: parseInt(formData.residenceDurationMonths),
+          
+          // Additional information
           has_driver_license: formData.hasDriverLicense,
-          collects_government_benefits: formData.collects_government_benefits,
-          government_benefit_types: formData.government_benefit_types.length > 0 ? formData.government_benefit_types : null,
-          government_benefit_other: formData.government_benefit_other || null,
-          has_debt_discharge_history: formData.has_debt_discharge_history,
-          debt_discharge_type: formData.debt_discharge_type || null,
-          debt_discharge_status: formData.debt_discharge_status || null,
-          debt_discharge_year: formData.debt_discharge_year ? parseInt(formData.debt_discharge_year) : null,
-          amount_owed: formData.amount_owed ? parseFloat(formData.amount_owed.replace(/[^0-9.]/g, '')) : null,
-          trustee_name: formData.trustee_name || null,
-          consent_soft_check: formData.consentToSoftCheck,
-          terms_accepted: formData.termsAccepted
+          collects_government_benefits: formData.collectsGovernmentBenefits,
+          government_benefit_types: formData.governmentBenefitTypes.length > 0 ? formData.governmentBenefitTypes : null,
+          government_benefit_other: formData.governmentBenefitOther || null,
+          has_debt_discharge_history: formData.hasDebtDischargeHistory,
+          debt_discharge_type: formData.debtDischargeType || null,
+          debt_discharge_year: formData.debtDischargeYear ? parseInt(formData.debtDischargeYear) : null,
+          debt_discharge_status: formData.debtDischargeStatus || null,
+          amount_owed: formData.amountOwed ? parseFloat(formData.amountOwed) : null,
+          trustee_name: formData.trusteeName || null,
+          debt_discharge_comments: formData.debtDischargeComments || null,
+          
+          // Consent
+          consent_soft_check: formData.consentSoftCheck,
+          terms_accepted: formData.termsAccepted,
+          
+          // Application status
+          status: 'submitted',
+          current_stage: 1
         })
         .select()
         .single();
       
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
       
       // Create initial application stage
       await supabase
@@ -388,940 +456,993 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           notes: 'Application submitted successfully'
         });
       
-      // Wait a moment to simulate processing
-      setTimeout(() => {
-        setIsProcessing(false);
-        
-        // Call the onComplete callback with the application ID and temp user ID
-        onComplete(application.id, tempUserId, {
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          password: formData.password
-        });
-      }, 3000);
-    } catch (err) {
+      // If user is not logged in and provided password, create account
+      if (!user && formData.password && currentStep === 6) {
+        try {
+          // Sign up with Supabase Auth
+          const { data: authData, error: signUpError } = await supabase.auth.signUp({
+            email: formData.email,
+            password: formData.password,
+            options: {
+              data: {
+                role: 'customer'
+              },
+              emailRedirectTo: `${window.location.origin}/auth/callback`
+            }
+          });
+          
+          if (signUpError) {
+            throw signUpError;
+          }
+          
+          if (authData?.user) {
+            // Update the application with the new user_id
+            await supabase
+              .from('applications')
+              .update({
+                user_id: authData.user.id,
+                temp_user_id: null
+              })
+              .eq('id', application.id);
+          }
+        } catch (signUpError) {
+          console.error('Error signing up:', signUpError);
+          // Continue with the flow even if sign-up fails
+          // The user can sign up later using the temp user ID
+        }
+      }
+      
+      // Call the onComplete callback with the application ID and temp user ID
+      onComplete(
+        application.id, 
+        !user ? tempUserId : '', 
+        {
+          ...formData,
+          loanRange: {
+            min: minLoanAmount,
+            max: maxLoanAmount,
+            rate: interestRate
+          },
+          term: term
+        }
+      );
+      
+    } catch (error) {
+      console.error('Error submitting application:', error);
+      setErrors({
+        submit: 'An error occurred while submitting your application. Please try again.'
+      });
       setIsProcessing(false);
-      console.error('Error submitting application:', err);
-      setError('An error occurred while submitting your application. Please try again.');
+      setIsSubmitting(false);
     }
   };
 
-  // Render the current step
+  // Render different form steps based on currentStep
   const renderStep = () => {
     switch (currentStep) {
       case 1:
         return (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-8"
-          >
-            <div className="text-center">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">What type of vehicle are you looking for?</h2>
-              <p className="text-lg text-gray-600 mb-8">Select the type of vehicle you're interested in financing.</p>
-            </div>
+          <div className="space-y-6">
+            <h2 className="text-2xl font-semibold">Vehicle Information</h2>
+            <p className="text-gray-600">Tell us about the type of vehicle you're looking for.</p>
             
-            <div className="grid grid-cols-2 gap-6">
-              {vehicles.map((vehicle) => (
-                <motion.div
-                  key={vehicle.type}
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.98 }}
-                  className={`
-                    border-2 rounded-md p-4 cursor-pointer transition-all duration-300 hover:shadow-lg hover:border-[#3BAA75]
-                    flex flex-col items-center text-center
-                    ${formData.vehicleType === vehicle.type 
-                      ? 'border-[#3BAA75] bg-[#3BAA75]/5 shadow-md' 
-                      : 'border-gray-200'
-                    }
-                  `}
-                  onClick={() => setFormData({ ...formData, vehicleType: vehicle.type })}
-                >
-                  <div className="w-full h-32 mb-4 rounded-md overflow-hidden">
-                    <img 
-                      src={vehicle.image} 
-                      alt={vehicle.type} 
-                      className="w-full h-full object-contain"
-                    />
-                  </div>
-                  <h3 className="font-medium text-gray-800">{vehicle.type}</h3>
-                  <p className="text-sm text-gray-600 mt-1">{vehicle.description}</p>
-                </motion.div>
-              ))}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Vehicle Type <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="vehicleType"
+                value={formData.vehicleType}
+                onChange={handleChange}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+              >
+                <option value="">Select vehicle type</option>
+                <option value="Car">Car</option>
+                <option value="SUV">SUV</option>
+                <option value="Truck">Truck</option>
+                <option value="Van">Van</option>
+              </select>
+              {errors.vehicleType && (
+                <p className="mt-1 text-sm text-red-600">{errors.vehicleType}</p>
+              )}
             </div>
-          </motion.div>
+          </div>
         );
       
       case 2:
         return (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-8"
-          >
-            <div className="text-center">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">Financial Information</h2>
-              <p className="text-lg text-gray-600 mb-8">Help us understand your budget and credit situation.</p>
+          <div className="space-y-6">
+            <h2 className="text-2xl font-semibold">Financial Information</h2>
+            <p className="text-gray-600">Help us understand your budget and financial situation.</p>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Desired Monthly Payment <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <DollarSign className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="number"
+                  name="monthlyBudget"
+                  value={formData.monthlyBudget}
+                  onChange={handleChange}
+                  placeholder="500"
+                  className="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                />
+              </div>
+              {errors.monthlyBudget && (
+                <p className="mt-1 text-sm text-red-600">{errors.monthlyBudget}</p>
+              )}
             </div>
             
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  What's your ideal monthly car payment?
-                </label>
-                <div className="space-y-4">
-                  <Slider
-                    value={[formData.desiredMonthlyPayment]}
-                    onValueChange={handleSliderChange}
-                    min={100}
-                    max={2000}
-                    step={50}
-                    showTooltip
-                    tooltipContent={(value) => `$${value}`}
-                    className="w-full"
-                  />
-                  <div className="flex justify-between text-sm text-gray-500">
-                    <span>$100</span>
-                    <span>$2000</span>
-                  </div>
-                  <div className="text-center">
-                    <span className="text-2xl font-bold text-[#3BAA75]">${formData.desiredMonthlyPayment}</span>
-                    <span className="text-gray-500 text-sm ml-1">per month</span>
-                  </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Down Payment
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <DollarSign className="h-5 w-5 text-gray-400" />
                 </div>
+                <input
+                  type="number"
+                  name="downPayment"
+                  value={formData.downPayment}
+                  onChange={handleChange}
+                  placeholder="0"
+                  className="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                />
               </div>
-              
-              <div>
-                <label htmlFor="creditScore" className="block text-sm font-medium text-gray-700 mb-2">
-                  What's your credit score?
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    id="creditScore"
-                    name="creditScore"
-                    min="300"
-                    max="900"
-                    value={formData.creditScore}
-                    onChange={handleChange}
-                    placeholder="Enter your credit score (300-900)"
-                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                  />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <CreditCard className="h-5 w-5 text-gray-400" />
-                  </div>
-                </div>
-                <p className="mt-1 text-xs text-gray-500">Don't know your score? Enter your best estimate.</p>
-              </div>
+              {errors.downPayment && (
+                <p className="mt-1 text-sm text-red-600">{errors.downPayment}</p>
+              )}
             </div>
-          </motion.div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Credit Score Range <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="creditScore"
+                value={formData.creditScore}
+                onChange={handleChange}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+              >
+                <option value="">Select credit score range</option>
+                <option value="750+">Excellent (750+)</option>
+                <option value="700-749">Very Good (700-749)</option>
+                <option value="650-699">Good (650-699)</option>
+                <option value="600-649">Fair (600-649)</option>
+                <option value="550-599">Poor (550-599)</option>
+                <option value="below-550">Very Poor (Below 550)</option>
+                <option value="no-score">No Credit Score</option>
+              </select>
+              {errors.creditScore && (
+                <p className="mt-1 text-sm text-red-600">{errors.creditScore}</p>
+              )}
+            </div>
+          </div>
         );
       
       case 3:
         return (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-8"
-          >
-            <div className="text-center">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">Personal Information</h2>
-              <p className="text-lg text-gray-600 mb-8">Tell us a bit about yourself so we can personalize your options.</p>
-            </div>
+          <div className="space-y-6">
+            <h2 className="text-2xl font-semibold">Personal Information</h2>
+            <p className="text-gray-600">Tell us about yourself so we can tailor our offer to you.</p>
             
-            <div className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
-                    First Name
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      id="firstName"
-                      name="firstName"
-                      value={formData.firstName}
-                      onChange={handleChange}
-                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    />
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <User className="h-5 w-5 text-gray-400" />
-                    </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  First Name <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-gray-400" />
                   </div>
+                  <input
+                    type="text"
+                    name="firstName"
+                    value={formData.firstName}
+                    onChange={handleChange}
+                    className="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                  />
                 </div>
-                
-                <div>
-                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
-                    Last Name
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      id="lastName"
-                      name="lastName"
-                      value={formData.lastName}
-                      onChange={handleChange}
-                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    />
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <User className="h-5 w-5 text-gray-400" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    />
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <Mail className="h-5 w-5 text-gray-400" />
-                    </div>
-                  </div>
-                </div>
-                
-                <div>
-                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                    Phone Number
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="tel"
-                      id="phone"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleChange}
-                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    />
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <Phone className="h-5 w-5 text-gray-400" />
-                    </div>
-                  </div>
-                </div>
+                {errors.firstName && (
+                  <p className="mt-1 text-sm text-red-600">{errors.firstName}</p>
+                )}
               </div>
               
               <div>
-                <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700 mb-2">
-                  Date of Birth
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Last Name <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    name="lastName"
+                    value={formData.lastName}
+                    onChange={handleChange}
+                    className="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                  />
+                </div>
+                {errors.lastName && (
+                  <p className="mt-1 text-sm text-red-600">{errors.lastName}</p>
+                )}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                  />
+                </div>
+                {errors.email && (
+                  <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                )}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Phone className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    className="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                    placeholder="(123) 456-7890"
+                  />
+                </div>
+                {errors.phone && (
+                  <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
+                )}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Date of Birth <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Calendar className="h-5 w-5 text-gray-400" />
+                  </div>
                   <input
                     type="date"
-                    id="dateOfBirth"
                     name="dateOfBirth"
                     value={formData.dateOfBirth}
                     onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                    className="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
                   />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <Calendar className="h-5 w-5 text-gray-400" />
-                  </div>
                 </div>
+                {errors.dateOfBirth && (
+                  <p className="mt-1 text-sm text-red-600">{errors.dateOfBirth}</p>
+                )}
               </div>
-              
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Address <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <MapPin className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  name="address"
+                  value={formData.address}
+                  onChange={handleChange}
+                  className="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                  placeholder="123 Main St"
+                />
+              </div>
+              {errors.address && (
+                <p className="mt-1 text-sm text-red-600">{errors.address}</p>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
-                  Street Address
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  City <span className="text-red-500">*</span>
                 </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    id="address"
-                    name="address"
-                    value={formData.address}
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                  />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <Home className="h-5 w-5 text-gray-400" />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="grid md:grid-cols-3 gap-6">
-                <div>
-                  <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2">
-                    City
-                  </label>
-                  <input
-                    type="text"
-                    id="city"
-                    name="city"
-                    value={formData.city}
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                  />
-                </div>
-                
-                <div>
-                  <label htmlFor="province" className="block text-sm font-medium text-gray-700 mb-2">
-                    Province
-                  </label>
-                  <select
-                    id="province"
-                    name="province"
-                    value={formData.province}
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                  >
-                    <option value="">Select Province</option>
-                    <option value="AB">Alberta</option>
-                    <option value="BC">British Columbia</option>
-                    <option value="MB">Manitoba</option>
-                    <option value="NB">New Brunswick</option>
-                    <option value="NL">Newfoundland and Labrador</option>
-                    <option value="NT">Northwest Territories</option>
-                    <option value="NS">Nova Scotia</option>
-                    <option value="NU">Nunavut</option>
-                    <option value="ON">Ontario</option>
-                    <option value="PE">Prince Edward Island</option>
-                    <option value="QC">Quebec</option>
-                    <option value="SK">Saskatchewan</option>
-                    <option value="YT">Yukon</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-2">
-                    Postal Code
-                  </label>
-                  <input
-                    type="text"
-                    id="postalCode"
-                    name="postalCode"
-                    value={formData.postalCode}
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    placeholder="A1A 1A1"
-                  />
-                </div>
+                <input
+                  type="text"
+                  name="city"
+                  value={formData.city}
+                  onChange={handleChange}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                />
+                {errors.city && (
+                  <p className="mt-1 text-sm text-red-600">{errors.city}</p>
+                )}
               </div>
               
               <div>
-                <label htmlFor="housingStatus" className="block text-sm font-medium text-gray-700 mb-2">
-                  Housing Status
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Province <span className="text-red-500">*</span>
                 </label>
                 <select
-                  id="housingStatus"
-                  name="housingStatus"
-                  value={formData.housingStatus}
+                  name="province"
+                  value={formData.province}
                   onChange={handleChange}
-                  className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
                 >
-                  <option value="own">Own</option>
-                  <option value="rent">Rent</option>
-                  <option value="live_with_parents">Live with Parents</option>
-                  <option value="subsidized_housing">Subsidized Housing</option>
-                  <option value="military">Military Housing</option>
-                  <option value="student">Student Housing</option>
+                  <option value="">Select province</option>
+                  <option value="AB">Alberta</option>
+                  <option value="BC">British Columbia</option>
+                  <option value="MB">Manitoba</option>
+                  <option value="NB">New Brunswick</option>
+                  <option value="NL">Newfoundland and Labrador</option>
+                  <option value="NS">Nova Scotia</option>
+                  <option value="NT">Northwest Territories</option>
+                  <option value="NU">Nunavut</option>
+                  <option value="ON">Ontario</option>
+                  <option value="PE">Prince Edward Island</option>
+                  <option value="QC">Quebec</option>
+                  <option value="SK">Saskatchewan</option>
+                  <option value="YT">Yukon</option>
                 </select>
+                {errors.province && (
+                  <p className="mt-1 text-sm text-red-600">{errors.province}</p>
+                )}
               </div>
               
-              {(formData.housingStatus === 'own' || formData.housingStatus === 'rent') && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Postal Code <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="postalCode"
+                  value={formData.postalCode}
+                  onChange={handleChange}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                  placeholder="A1A 1A1"
+                />
+                {errors.postalCode && (
+                  <p className="mt-1 text-sm text-red-600">{errors.postalCode}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      
+      case 4:
+        return (
+          <div className="space-y-6">
+            <h2 className="text-2xl font-semibold">Employment & Housing</h2>
+            <p className="text-gray-600">Tell us about your employment and housing situation.</p>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Employment Status <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="employmentStatus"
+                value={formData.employmentStatus}
+                onChange={handleChange}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+              >
+                <option value="">Select employment status</option>
+                <option value="employed">Employed</option>
+                <option value="self_employed">Self-employed</option>
+                <option value="unemployed">Unemployed</option>
+                <option value="student">Student</option>
+                <option value="retired">Retired</option>
+              </select>
+              {errors.employmentStatus && (
+                <p className="mt-1 text-sm text-red-600">{errors.employmentStatus}</p>
+              )}
+            </div>
+            
+            {formData.employmentStatus && formData.employmentStatus !== 'unemployed' && (
+              <div className="space-y-4">
                 <div>
-                  <label htmlFor="housingPayment" className="block text-sm font-medium text-gray-700 mb-2">
-                    Monthly Housing Payment
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Annual Income <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <DollarSign className="h-5 w-5 text-gray-400" />
                     </div>
-                    <CurrencyInput
-                      id="housingPayment"
-                      name="housingPayment"
-                      value={formData.housingPayment}
-                      onValueChange={(value) => handleCurrencyChange(value, 'housingPayment')}
-                      placeholder="Enter your monthly payment"
-                      prefix="$"
-                      groupSeparator=","
-                      decimalSeparator="."
-                      className="w-full p-3 pl-10 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                    <input
+                      type="number"
+                      name="annualIncome"
+                      value={formData.annualIncome}
+                      onChange={handleChange}
+                      className="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                      placeholder="50000"
                     />
                   </div>
-                </div>
-              )}
-              
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="residenceDurationYears" className="block text-sm font-medium text-gray-700 mb-2">
-                    Years at Current Address
-                  </label>
-                  <input
-                    type="number"
-                    id="residenceDurationYears"
-                    name="residenceDurationYears"
-                    value={formData.residenceDurationYears}
-                    onChange={handleChange}
-                    min="0"
-                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                  />
+                  {errors.annualIncome && (
+                    <p className="mt-1 text-sm text-red-600">{errors.annualIncome}</p>
+                  )}
                 </div>
                 
-                <div>
-                  <label htmlFor="residenceDurationMonths" className="block text-sm font-medium text-gray-700 mb-2">
-                    Months at Current Address
-                  </label>
-                  <input
-                    type="number"
-                    id="residenceDurationMonths"
-                    name="residenceDurationMonths"
-                    value={formData.residenceDurationMonths}
-                    onChange={handleChange}
-                    min="0"
-                    max="11"
-                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                  />
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        );
-      
-      case 4:
-        return (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-8"
-          >
-            <div className="text-center">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">Employment Information</h2>
-              <p className="text-lg text-gray-600 mb-8">Tell us about your employment situation.</p>
-            </div>
-            
-            <div className="space-y-6">
-              <div>
-                <label htmlFor="employmentStatus" className="block text-sm font-medium text-gray-700 mb-2">
-                  What's your employment status?
-                </label>
-                <div className="relative">
-                  <select
-                    id="employmentStatus"
-                    name="employmentStatus"
-                    value={formData.employmentStatus}
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                  >
-                    <option value="employed">Employed</option>
-                    <option value="self_employed">Self-Employed</option>
-                    <option value="unemployed">Unemployed</option>
-                    <option value="student">Student</option>
-                    <option value="retired">Retired</option>
-                  </select>
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <Briefcase className="h-5 w-5 text-gray-400" />
-                  </div>
-                </div>
-              </div>
-              
-              {(formData.employmentStatus === 'employed' || formData.employmentStatus === 'self_employed') && (
-                <>
-                  <div>
-                    <label htmlFor="employerName" className="block text-sm font-medium text-gray-700 mb-2">
-                      {formData.employmentStatus === 'self_employed' ? 'Business Name' : 'Employer Name'}
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="text"
-                        id="employerName"
-                        name="employerName"
-                        value={formData.employerName}
-                        onChange={handleChange}
-                        className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                      />
-                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                        <Building className="h-5 w-5 text-gray-400" />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label htmlFor="occupation" className="block text-sm font-medium text-gray-700 mb-2">
-                      Job Title / Occupation
-                    </label>
-                    <input
-                      type="text"
-                      id="occupation"
-                      name="occupation"
-                      value={formData.occupation}
-                      onChange={handleChange}
-                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    />
-                  </div>
-                  
-                  <div className="grid md:grid-cols-2 gap-6">
+                {formData.employmentStatus === 'employed' && (
+                  <>
                     <div>
-                      <label htmlFor="employmentDurationYears" className="block text-sm font-medium text-gray-700 mb-2">
-                        Years at Current {formData.employmentStatus === 'self_employed' ? 'Business' : 'Employer'}
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Employer Name
                       </label>
-                      <input
-                        type="number"
-                        id="employmentDurationYears"
-                        name="employmentDurationYears"
-                        value={formData.employmentDurationYears}
-                        onChange={handleChange}
-                        min="0"
-                        className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                      />
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <Building className="h-5 w-5 text-gray-400" />
+                        </div>
+                        <input
+                          type="text"
+                          name="employerName"
+                          value={formData.employerName}
+                          onChange={handleChange}
+                          className="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                        />
+                      </div>
                     </div>
                     
                     <div>
-                      <label htmlFor="employmentDurationMonths" className="block text-sm font-medium text-gray-700 mb-2">
-                        Months at Current {formData.employmentStatus === 'self_employed' ? 'Business' : 'Employer'}
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Job Title
                       </label>
-                      <input
-                        type="number"
-                        id="employmentDurationMonths"
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <Briefcase className="h-5 w-5 text-gray-400" />
+                        </div>
+                        <input
+                          type="text"
+                          name="occupation"
+                          value={formData.occupation}
+                          onChange={handleChange}
+                          className="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    How long have you been {formData.employmentStatus === 'employed' ? 'with this employer' : 'self-employed'}?
+                  </label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <select
+                        name="employmentDurationYears"
+                        value={formData.employmentDurationYears}
+                        onChange={handleChange}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                      >
+                        <option value="0">0 Years</option>
+                        <option value="1">1 Year</option>
+                        <option value="2">2 Years</option>
+                        <option value="3">3 Years</option>
+                        <option value="4">4 Years</option>
+                        <option value="5">5 Years</option>
+                        <option value="6">6 Years</option>
+                        <option value="7">7 Years</option>
+                        <option value="8">8 Years</option>
+                        <option value="9">9 Years</option>
+                        <option value="10">10+ Years</option>
+                      </select>
+                    </div>
+                    <div>
+                      <select
                         name="employmentDurationMonths"
                         value={formData.employmentDurationMonths}
                         onChange={handleChange}
-                        min="0"
-                        max="11"
-                        className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                      />
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                      >
+                        <option value="0">0 Months</option>
+                        <option value="1">1 Month</option>
+                        <option value="2">2 Months</option>
+                        <option value="3">3 Months</option>
+                        <option value="4">4 Months</option>
+                        <option value="5">5 Months</option>
+                        <option value="6">6 Months</option>
+                        <option value="7">7 Months</option>
+                        <option value="8">8 Months</option>
+                        <option value="9">9 Months</option>
+                        <option value="10">10 Months</option>
+                        <option value="11">11 Months</option>
+                      </select>
                     </div>
                   </div>
-                </>
+                </div>
+              </div>
+            )}
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Housing Status <span className="text-red-500">*</span>
+              </label>
+              <select
+                name="housingStatus"
+                value={formData.housingStatus}
+                onChange={handleChange}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+              >
+                <option value="">Select housing status</option>
+                <option value="own">Own</option>
+                <option value="rent">Rent</option>
+                <option value="live_with_parents">Live with Parents</option>
+                <option value="other">Other</option>
+              </select>
+              {errors.housingStatus && (
+                <p className="mt-1 text-sm text-red-600">{errors.housingStatus}</p>
               )}
-              
+            </div>
+            
+            {formData.housingStatus && formData.housingStatus !== 'live_with_parents' && (
               <div>
-                <label htmlFor="annualIncome" className="block text-sm font-medium text-gray-700 mb-2">
-                  What's your annual income?
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Monthly Housing Payment
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <DollarSign className="h-5 w-5 text-gray-400" />
                   </div>
-                  <CurrencyInput
-                    id="annualIncome"
-                    name="annualIncome"
-                    value={formData.annualIncome}
-                    onValueChange={(value) => handleCurrencyChange(value, 'annualIncome')}
-                    placeholder="Enter your annual income"
-                    prefix="$"
-                    groupSeparator=","
-                    decimalSeparator="."
-                    className="w-full p-3 pl-10 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                  <input
+                    type="number"
+                    name="housingPayment"
+                    value={formData.housingPayment}
+                    onChange={handleChange}
+                    className="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                    placeholder="1200"
                   />
                 </div>
               </div>
-              
-              <div>
-                <label htmlFor="otherIncome" className="block text-sm font-medium text-gray-700 mb-2">
-                  Other Income (Optional)
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <DollarSign className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <CurrencyInput
-                    id="otherIncome"
-                    name="otherIncome"
-                    value={formData.otherIncome}
-                    onValueChange={(value) => handleCurrencyChange(value, 'otherIncome')}
-                    placeholder="Enter any additional income"
-                    prefix="$"
-                    groupSeparator=","
-                    decimalSeparator="."
-                    className="w-full p-3 pl-10 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                  />
+            )}
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                How long have you lived at your current address?
+              </label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <select
+                    name="residenceDurationYears"
+                    value={formData.residenceDurationYears}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                  >
+                    <option value="0">0 Years</option>
+                    <option value="1">1 Year</option>
+                    <option value="2">2 Years</option>
+                    <option value="3">3 Years</option>
+                    <option value="4">4 Years</option>
+                    <option value="5">5 Years</option>
+                    <option value="6">6 Years</option>
+                    <option value="7">7 Years</option>
+                    <option value="8">8 Years</option>
+                    <option value="9">9 Years</option>
+                    <option value="10">10+ Years</option>
+                  </select>
                 </div>
-                <p className="mt-1 text-xs text-gray-500">Include alimony, child support, rental income, etc.</p>
-              </div>
-              
-              <div>
-                <p className="text-sm text-gray-700 mb-2">Do you have a valid driver's license?</p>
-                <div className="flex gap-4">
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      checked={formData.hasDriverLicense === true}
-                      onChange={() => handleRadioChange('hasDriverLicense', true)}
-                      className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75]"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">Yes</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      checked={formData.hasDriverLicense === false}
-                      onChange={() => handleRadioChange('hasDriverLicense', false)}
-                      className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75]"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">No</span>
-                  </label>
+                <div>
+                  <select
+                    name="residenceDurationMonths"
+                    value={formData.residenceDurationMonths}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                  >
+                    <option value="0">0 Months</option>
+                    <option value="1">1 Month</option>
+                    <option value="2">2 Months</option>
+                    <option value="3">3 Months</option>
+                    <option value="4">4 Months</option>
+                    <option value="5">5 Months</option>
+                    <option value="6">6 Months</option>
+                    <option value="7">7 Months</option>
+                    <option value="8">8 Months</option>
+                    <option value="9">9 Months</option>
+                    <option value="10">10 Months</option>
+                    <option value="11">11 Months</option>
+                  </select>
                 </div>
               </div>
             </div>
-          </motion.div>
+            
+            <div>
+              <div className="flex items-center mb-1">
+                <input
+                  type="checkbox"
+                  id="hasDriverLicense"
+                  name="hasDriverLicense"
+                  checked={formData.hasDriverLicense}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    hasDriverLicense: e.target.checked
+                  }))}
+                  className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                />
+                <label htmlFor="hasDriverLicense" className="ml-2 block text-sm font-medium text-gray-700">
+                  I have a valid driver's license
+                </label>
+              </div>
+              <p className="text-xs text-gray-500">Uncheck if you do not have a valid driver's license</p>
+            </div>
+          </div>
         );
       
       case 5:
         return (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-8"
-          >
-            <div className="text-center">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">Additional Information</h2>
-              <p className="text-lg text-gray-600 mb-8">Help us understand your financial situation better.</p>
+          <div className="space-y-6">
+            <h2 className="text-2xl font-semibold">Additional Information</h2>
+            <p className="text-gray-600">A few more details to help us find the best options for you.</p>
+            
+            <div>
+              <div className="flex items-center mb-1">
+                <input
+                  type="checkbox"
+                  id="collectsGovernmentBenefits"
+                  name="collectsGovernmentBenefits"
+                  checked={formData.collectsGovernmentBenefits}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    collectsGovernmentBenefits: e.target.checked
+                  }))}
+                  className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                />
+                <label htmlFor="collectsGovernmentBenefits" className="ml-2 block text-sm font-medium text-gray-700">
+                  I collect government benefits
+                </label>
+              </div>
             </div>
             
-            <div className="space-y-8">
-              {/* Government Benefits Section */}
-              <div className="bg-gray-50 p-6 rounded-lg">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Government Benefits</h3>
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm text-gray-700 mb-2">Do you collect any government benefits?</p>
-                    <div className="flex gap-4">
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          checked={formData.collects_government_benefits === true}
-                          onChange={() => handleRadioChange('collects_government_benefits', true)}
-                          className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75]"
-                        />
-                        <span className="ml-2 text-sm text-gray-700">Yes</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          checked={formData.collects_government_benefits === false}
-                          onChange={() => handleRadioChange('collects_government_benefits', false)}
-                          className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75]"
-                        />
-                        <span className="ml-2 text-sm text-gray-700">No</span>
-                      </label>
-                    </div>
-                  </div>
-                  
-                  {formData.collects_government_benefits && (
-                    <div className="space-y-4 pl-4 border-l-2 border-gray-200">
-                      <div>
-                        <p className="text-sm text-gray-700 mb-2">Which benefits do you receive? (Select all that apply)</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          {[
-                            { id: 'ontario_works', label: 'Ontario Works' },
-                            { id: 'odsp', label: 'ODSP' },
-                            { id: 'cpp', label: 'CPP' },
-                            { id: 'ei', label: 'EI' },
-                            { id: 'child_tax_benefit', label: 'Child Tax Benefit' },
-                            { id: 'other', label: 'Other' }
-                          ].map(benefit => (
-                            <label key={benefit.id} className="flex items-center">
-                              <input
-                                type="checkbox"
-                                checked={formData.government_benefit_types.includes(benefit.id)}
-                                onChange={() => handleBenefitTypeChange(benefit.id)}
-                                className="h-4 w-4 rounded text-[#3BAA75] focus:ring-[#3BAA75]"
-                              />
-                              <span className="ml-2 text-sm text-gray-700">{benefit.label}</span>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      {formData.government_benefit_types.includes('other') && (
-                        <div>
-                          <label htmlFor="government_benefit_other" className="block text-sm text-gray-700 mb-1">
-                            Please specify other benefit
-                          </label>
-                          <input
-                            type="text"
-                            id="government_benefit_other"
-                            name="government_benefit_other"
-                            value={formData.government_benefit_other}
-                            onChange={handleChange}
-                            className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
-                          />
-                        </div>
-                      )}
-                      
-                      <div>
-                        <label htmlFor="government_benefit_amount" className="block text-sm text-gray-700 mb-1">
-                          Monthly benefit amount
-                        </label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <DollarSign className="h-4 w-4 text-gray-400" />
-                          </div>
-                          <CurrencyInput
-                            id="government_benefit_amount"
-                            name="government_benefit_amount"
-                            value={formData.government_benefit_amount}
-                            onValueChange={(value) => handleCurrencyChange(value, 'government_benefit_amount')}
-                            placeholder="Enter monthly amount"
-                            prefix="$"
-                            groupSeparator=","
-                            decimalSeparator="."
-                            className="w-full p-2 pl-8 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              {/* Bankruptcy/Consumer Proposal Section */}
-              <div className="bg-gray-50 p-6 rounded-lg">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Debt Discharge History</h3>
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm text-gray-700 mb-2">Have you ever filed for bankruptcy or a consumer proposal?</p>
-                    <div className="flex gap-4">
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          checked={formData.has_debt_discharge_history === true}
-                          onChange={() => handleRadioChange('has_debt_discharge_history', true)}
-                          className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75]"
-                        />
-                        <span className="ml-2 text-sm text-gray-700">Yes</span>
-                      </label>
-                      <label className="flex items-center">
-                        <input
-                          type="radio"
-                          checked={formData.has_debt_discharge_history === false}
-                          onChange={() => handleRadioChange('has_debt_discharge_history', false)}
-                          className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75]"
-                        />
-                        <span className="ml-2 text-sm text-gray-700">No</span>
-                      </label>
-                    </div>
-                  </div>
-                  
-                  {formData.has_debt_discharge_history && (
-                    <div className="space-y-4 pl-4 border-l-2 border-gray-200">
-                      <div>
-                        <label htmlFor="debt_discharge_type" className="block text-sm text-gray-700 mb-1">
-                          Type
-                        </label>
-                        <select
-                          id="debt_discharge_type"
-                          name="debt_discharge_type"
-                          value={formData.debt_discharge_type}
-                          onChange={handleChange}
-                          className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
-                        >
-                          <option value="">Select type</option>
-                          <option value="bankruptcy">Bankruptcy</option>
-                          <option value="consumer_proposal">Consumer Proposal</option>
-                          <option value="informal_settlement">Informal Settlement</option>
-                          <option value="other">Other</option>
-                        </select>
-                      </div>
-                      
-                      <div>
-                        <label htmlFor="debt_discharge_status" className="block text-sm text-gray-700 mb-1">
-                          Status
-                        </label>
-                        <select
-                          id="debt_discharge_status"
-                          name="debt_discharge_status"
-                          value={formData.debt_discharge_status}
-                          onChange={handleChange}
-                          className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
-                        >
-                          <option value="">Select status</option>
-                          <option value="active">Active</option>
-                          <option value="discharged">Discharged</option>
-                          <option value="not_sure">Not Sure</option>
-                        </select>
-                      </div>
-                      
-                      <div>
-                        <label htmlFor="debt_discharge_year" className="block text-sm text-gray-700 mb-1">
-                          Year
-                        </label>
-                        <input
-                          type="number"
-                          id="debt_discharge_year"
-                          name="debt_discharge_year"
-                          value={formData.debt_discharge_year}
-                          onChange={handleChange}
-                          min="1980"
-                          max={new Date().getFullYear()}
-                          className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
-                          placeholder="YYYY"
-                        />
-                      </div>
-                      
-                      {formData.debt_discharge_status === 'active' && (
-                        <>
-                          <div>
-                            <label htmlFor="amount_owed" className="block text-sm text-gray-700 mb-1">
-                              Amount Owed
-                            </label>
-                            <div className="relative">
-                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <DollarSign className="h-4 w-4 text-gray-400" />
-                              </div>
-                              <CurrencyInput
-                                id="amount_owed"
-                                name="amount_owed"
-                                value={formData.amount_owed}
-                                onValueChange={(value) => handleCurrencyChange(value, 'amount_owed')}
-                                placeholder="Enter amount owed"
-                                prefix="$"
-                                groupSeparator=","
-                                decimalSeparator="."
-                                className="w-full p-2 pl-8 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
-                              />
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <label htmlFor="trustee_name" className="block text-sm text-gray-700 mb-1">
-                              Trustee Name (Optional)
-                            </label>
-                            <input
-                              type="text"
-                              id="trustee_name"
-                              name="trustee_name"
-                              value={formData.trustee_name}
-                              onChange={handleChange}
-                              className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
-                              placeholder="Enter trustee name"
-                            />
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              {/* Consent Section */}
-              <div className="bg-gray-50 p-6 rounded-lg">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Consent</h3>
-                <div className="space-y-4">
-                  <label className="flex items-start">
-                    <input
-                      type="checkbox"
-                      name="consentToSoftCheck"
-                      checked={formData.consentToSoftCheck}
-                      onChange={(e) => setFormData(prev => ({ ...prev, consentToSoftCheck: e.target.checked }))}
-                      className="h-5 w-5 mt-0.5 rounded text-[#3BAA75] focus:ring-[#3BAA75]"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">
-                      I consent to a soft credit check, which will not affect my credit score. This allows Clearpath Motors to provide me with accurate pre-qualification options.
-                    </span>
+            {formData.collectsGovernmentBenefits && (
+              <div className="pl-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Select all that apply:
                   </label>
-                  
-                  <label className="flex items-start">
-                    <input
-                      type="checkbox"
-                      name="termsAccepted"
-                      checked={formData.termsAccepted}
-                      onChange={(e) => setFormData(prev => ({ ...prev, termsAccepted: e.target.checked }))}
-                      className="h-5 w-5 mt-0.5 rounded text-[#3BAA75] focus:ring-[#3BAA75]"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">
-                      I agree to the <a href="/terms" target="_blank" className="text-[#3BAA75] hover:underline">Terms of Service</a> and <a href="/privacy" target="_blank" className="text-[#3BAA75] hover:underline">Privacy Policy</a>. I understand that my information will be used to process my application and may be shared with lenders and dealerships in Clearpath's network.
-                    </span>
-                  </label>
+                  <div className="space-y-2">
+                    {['ontario_works', 'odsp', 'cpp', 'ei', 'child_tax_benefit', 'other'].map((benefit) => (
+                      <div key={benefit} className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id={benefit}
+                          name="governmentBenefitTypes"
+                          value={benefit}
+                          checked={formData.governmentBenefitTypes.includes(benefit)}
+                          onChange={handleMultiCheckboxChange}
+                          className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                        />
+                        <label htmlFor={benefit} className="ml-2 block text-sm text-gray-700">
+                          {benefit === 'ontario_works' && 'Ontario Works'}
+                          {benefit === 'odsp' && 'ODSP (Ontario Disability Support Program)'}
+                          {benefit === 'cpp' && 'CPP (Canada Pension Plan)'}
+                          {benefit === 'ei' && 'EI (Employment Insurance)'}
+                          {benefit === 'child_tax_benefit' && 'Child Tax Benefit'}
+                          {benefit === 'other' && 'Other'}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
+                
+                {formData.governmentBenefitTypes.includes('other') && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Please specify other benefit:
+                    </label>
+                    <input
+                      type="text"
+                      name="governmentBenefitOther"
+                      value={formData.governmentBenefitOther}
+                      onChange={handleChange}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+            
+            <div>
+              <div className="flex items-center mb-1">
+                <input
+                  type="checkbox"
+                  id="hasDebtDischargeHistory"
+                  name="hasDebtDischargeHistory"
+                  checked={formData.hasDebtDischargeHistory}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    hasDebtDischargeHistory: e.target.checked
+                  }))}
+                  className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                />
+                <label htmlFor="hasDebtDischargeHistory" className="ml-2 block text-sm font-medium text-gray-700">
+                  I have filed for bankruptcy, consumer proposal, or debt settlement in the past
+                </label>
               </div>
             </div>
-          </motion.div>
+            
+            {formData.hasDebtDischargeHistory && (
+              <div className="pl-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Type of Debt Discharge
+                  </label>
+                  <select
+                    name="debtDischargeType"
+                    value={formData.debtDischargeType}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                  >
+                    <option value="">Select type</option>
+                    <option value="bankruptcy">Bankruptcy</option>
+                    <option value="consumer_proposal">Consumer Proposal</option>
+                    <option value="division_1_proposal">Division 1 Proposal</option>
+                    <option value="informal_settlement">Informal Debt Settlement</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Year of Filing
+                  </label>
+                  <select
+                    name="debtDischargeYear"
+                    value={formData.debtDischargeYear}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                  >
+                    <option value="">Select year</option>
+                    {Array.from({ length: 11 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                    <option value={new Date().getFullYear() - 11}>Earlier than {new Date().getFullYear() - 10}</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Current Status
+                  </label>
+                  <select
+                    name="debtDischargeStatus"
+                    value={formData.debtDischargeStatus}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                  >
+                    <option value="">Select status</option>
+                    <option value="active">Active (Still in process)</option>
+                    <option value="discharged">Discharged (Completed)</option>
+                    <option value="not_sure">Not Sure</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Amount Owed (if active)
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <DollarSign className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="number"
+                      name="amountOwed"
+                      value={formData.amountOwed}
+                      onChange={handleChange}
+                      className="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Trustee Name (if applicable)
+                  </label>
+                  <input
+                    type="text"
+                    name="trusteeName"
+                    value={formData.trusteeName}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Additional Comments
+                  </label>
+                  <textarea
+                    name="debtDischargeComments"
+                    value={formData.debtDischargeComments}
+                    onChange={handleChange}
+                    rows={3}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                    placeholder="Any additional details about your debt discharge..."
+                  />
+                </div>
+              </div>
+            )}
+            
+            <div className="pt-4 border-t border-gray-200">
+              <div className="flex items-center mb-4">
+                <input
+                  type="checkbox"
+                  id="consentSoftCheck"
+                  name="consentSoftCheck"
+                  checked={formData.consentSoftCheck}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    consentSoftCheck: e.target.checked
+                  }))}
+                  className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                />
+                <label htmlFor="consentSoftCheck" className="ml-2 block text-sm text-gray-700">
+                  I consent to a soft credit check to determine my pre-qualification status. This will not affect my credit score. <span className="text-red-500">*</span>
+                </label>
+              </div>
+              {errors.consentSoftCheck && (
+                <p className="mt-1 text-sm text-red-600">{errors.consentSoftCheck}</p>
+              )}
+              
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="termsAccepted"
+                  name="termsAccepted"
+                  checked={formData.termsAccepted}
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    termsAccepted: e.target.checked
+                  }))}
+                  className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+                />
+                <label htmlFor="termsAccepted" className="ml-2 block text-sm text-gray-700">
+                  I agree to the <a href="/terms" target="_blank" className="text-[#3BAA75] hover:underline">Terms of Service</a> and <a href="/privacy" target="_blank" className="text-[#3BAA75] hover:underline">Privacy Policy</a>. <span className="text-red-500">*</span>
+                </label>
+              </div>
+              {errors.termsAccepted && (
+                <p className="mt-1 text-sm text-red-600">{errors.termsAccepted}</p>
+              )}
+            </div>
+          </div>
         );
       
       case 6:
         return (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-8"
-          >
-            <div className="text-center">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">Create Your Account</h2>
-              <p className="text-lg text-gray-600 mb-8">Set up your account to track your application and get updates.</p>
-            </div>
+          <div className="space-y-6">
+            <h2 className="text-2xl font-semibold">Create Your Account</h2>
+            <p className="text-gray-600">Set up your account to track your application and get updates.</p>
             
-            <div className="space-y-6">
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                  Create Password
-                </label>
-                <div className="relative">
-                  <input
-                    type="password"
-                    id="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    placeholder="••••••••"
-                    minLength={8}
-                  />
-                </div>
-                <p className="mt-1 text-xs text-gray-500">Password must be at least 8 characters</p>
-              </div>
-              
-              <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                  Confirm Password
-                </label>
-                <div className="relative">
-                  <input
-                    type="password"
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    placeholder="••••••••"
-                    minLength={8}
-                  />
+            {user ? (
+              <div className="bg-green-50 p-4 rounded-lg">
+                <div className="flex items-center">
+                  <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
+                  <p className="text-green-700">
+                    You're already signed in as {user.email}. Click "Submit" to complete your application.
+                  </p>
                 </div>
               </div>
-              
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <div className="mt-1">
-                    <FileText className="h-5 w-5 text-blue-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-blue-700">
-                      By creating an account, you'll be able to:
-                    </p>
-                    <ul className="text-sm text-blue-600 mt-2 space-y-1 list-disc pl-4">
-                      <li>Track your application status</li>
-                      <li>Upload required documents</li>
-                      <li>Receive notifications about your application</li>
-                      <li>Communicate with our support team</li>
-                    </ul>
+            ) : (
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Mail className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      className="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                      readOnly
+                    />
                   </div>
                 </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Password <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Lock className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      className="pl-10 pr-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                      placeholder="••••••••"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-5 w-5 text-gray-400" />
+                      ) : (
+                        <Eye className="h-5 w-5 text-gray-400" />
+                      )}
+                    </button>
+                  </div>
+                  {errors.password && (
+                    <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Confirm Password <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Lock className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      className="pl-10 pr-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
+                      placeholder="••••••••"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    >
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-5 w-5 text-gray-400" />
+                      ) : (
+                        <Eye className="h-5 w-5 text-gray-400" />
+                      )}
+                    </button>
+                  </div>
+                  {errors.confirmPassword && (
+                    <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>
+                  )}
+                </div>
+                
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <div className="flex items-start">
+                    <HelpCircle className="h-5 w-5 text-blue-500 mt-0.5 mr-2" />
+                    <div className="text-sm text-blue-700">
+                      <p className="font-medium">Why create an account?</p>
+                      <ul className="list-disc pl-5 mt-1 space-y-1">
+                        <li>Track your application status</li>
+                        <li>Receive important updates</li>
+                        <li>Upload required documents</li>
+                        <li>Communicate with our team</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          </motion.div>
+            )}
+          </div>
         );
       
       default:
@@ -1329,64 +1450,76 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
     }
   };
 
+  if (isProcessing) {
+    return <ProcessingAnimation onComplete={() => setIsProcessing(false)} />;
+  }
+
   return (
-    <div className="w-full max-w-4xl mx-auto">
-      {isProcessing ? (
-        <ProcessingAnimation />
-      ) : (
-        <div className="bg-white rounded-xl shadow-lg p-6 md:p-8">
-          {/* Progress Bar */}
-          <ProgressBar 
-            currentStep={currentStep} 
-            totalSteps={6} 
-            onStepClick={(step) => {
-              // Only allow going back to previous steps
-              if (step < currentStep) {
-                setCurrentStep(step);
-              }
-            }}
-          />
+    <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+      <div className="p-6">
+        <ProgressBar 
+          currentStep={currentStep} 
+          totalSteps={6} 
+          onStepClick={handleStepClick}
+        />
+        
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          handleNext();
+        }}>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentStep}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              {renderStep()}
+            </motion.div>
+          </AnimatePresence>
           
-          {/* Error Message */}
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-lg flex items-center gap-2">
-              <AlertCircle className="h-5 w-5" />
-              <span>{error}</span>
+          {errors.submit && (
+            <div className="mt-4 p-3 bg-red-50 text-red-600 rounded-lg flex items-center">
+              <AlertCircle className="h-5 w-5 mr-2" />
+              <span>{errors.submit}</span>
             </div>
           )}
           
-          {/* Step Content */}
-          <AnimatePresence mode="wait">
-            {renderStep()}
-          </AnimatePresence>
-          
-          {/* Navigation Buttons */}
-          <div className="flex justify-between mt-8">
-            <button
-              type="button"
-              onClick={handlePrevious}
-              disabled={currentStep === 1}
-              className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
-                currentStep === 1
-                  ? 'opacity-0 pointer-events-none'
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <ChevronLeft className="h-5 w-5" />
-              Back
-            </button>
+          <div className="mt-8 flex justify-between">
+            {currentStep > 1 ? (
+              <button
+                type="button"
+                onClick={handleBack}
+                className="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center"
+              >
+                <ChevronLeft className="h-5 w-5 mr-1" />
+                Back
+              </button>
+            ) : (
+              <div></div>
+            )}
             
             <button
-              type="button"
-              onClick={handleNext}
-              className="flex items-center gap-2 px-6 py-3 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors"
+              type="submit"
+              disabled={isSubmitting}
+              className="px-6 py-3 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors flex items-center disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              {currentStep === 6 ? 'Submit' : 'Next'}
-              <ChevronRight className="h-5 w-5" />
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
+                  {currentStep === 6 ? 'Creating Account...' : 'Processing...'}
+                </>
+              ) : (
+                <>
+                  {currentStep === 6 ? (user ? 'Submit' : 'Create Account') : 'Continue'}
+                  <ChevronRight className="h-5 w-5 ml-1" />
+                </>
+              )}
             </button>
           </div>
-        </div>
-      )}
+        </form>
+      </div>
     </div>
   );
 };

@@ -23,7 +23,7 @@ export const applicationSchema = z.object({
   postal_code: z.string().regex(/^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/, 'Valid postal code is required'),
   
   // Housing information
-  housing_status: z.enum(['own', 'rent', 'live_with_parents', 'subsidized_housing', 'military', 'student']),
+  housing_status: z.enum(['own', 'rent', 'live_with_parents', 'other']),
   housing_payment: z.number().min(0, 'Housing payment must be positive').optional(),
   residence_duration_years: z.number().int().min(0).optional(),
   residence_duration_months: z.number().int().min(0).max(11).optional(),
@@ -42,12 +42,15 @@ export const applicationSchema = z.object({
   
   // Debt discharge history
   has_debt_discharge_history: z.boolean().optional(),
-  debt_discharge_type: z.enum(['bankruptcy', 'consumer_proposal', 'informal_settlement', 'other']).optional(),
+  debt_discharge_type: z.enum(['bankruptcy', 'consumer_proposal', 'division_1_proposal', 'informal_settlement', 'other']).optional(),
   debt_discharge_status: z.enum(['active', 'discharged', 'not_sure']).optional(),
   debt_discharge_year: z.number().int().min(1980).max(new Date().getFullYear()).optional(),
   amount_owed: z.number().optional(),
   trustee_name: z.string().optional(),
   debt_discharge_comments: z.string().optional(),
+  
+  // Driver's license
+  has_driver_license: z.boolean().default(true),
   
   // Consent
   consent_soft_check: z.boolean(),

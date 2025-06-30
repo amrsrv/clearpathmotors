@@ -283,21 +283,32 @@ const QualificationResults = () => {
                   </div>
                 </div>
                 <div className="text-center">
-                  <motion.button
-                    onClick={handleSignUp}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full bg-white text-[#2A7A5B] px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-colors shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-                  >
-                    Create Account
-                    <ArrowRight className="h-5 w-5" />
-                  </motion.button>
-                  <p className="mt-4 text-sm text-white/80">
-                    Already have an account?{' '}
-                    <Link to="/login" className="text-white hover:text-white/90 underline">
-                      Sign in
+                  {user ? (
+                    <Link
+                      to="/dashboard"
+                      className="w-full inline-block bg-white text-[#2A7A5B] px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-colors shadow-lg hover:shadow-xl"
+                    >
+                      Go to Dashboard
                     </Link>
-                  </p>
+                  ) : (
+                    <motion.button
+                      onClick={handleSignUp}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      className="w-full bg-white text-[#2A7A5B] px-8 py-4 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-colors shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                    >
+                      Create Account
+                      <ArrowRight className="h-5 w-5" />
+                    </motion.button>
+                  )}
+                  {!user && (
+                    <p className="mt-4 text-sm text-white/80">
+                      Already have an account?{' '}
+                      <Link to="/login" className="text-white hover:text-white/90 underline">
+                        Sign in
+                      </Link>
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
