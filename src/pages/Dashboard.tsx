@@ -45,8 +45,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       setLoading(true);
       setError(null);
       
-      // Load user profile
-      await loadUserProfile();
+      // Load user profile with retry mechanism
+      await loadUserProfileWithRetry();
       
       // Load application data
       const { data: applications, error: applicationError } = await supabase
@@ -113,6 +113,32 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
     }
   };
 
+  // Function to load user profile with retry mechanism
+  const loadUserProfileWithRetry = async (maxRetries = 3, delay = 1000) => {
+    let retries = 0;
+    
+    while (retries < maxRetries) {
+      try {
+        await loadUserProfile();
+        return; // Success, exit the retry loop
+      } catch (error) {
+        console.warn(`Attempt ${retries + 1}/${maxRetries} to load user profile failed:`, error);
+        
+        // If we've reached max retries, throw the error
+        if (retries === maxRetries - 1) {
+          throw error;
+        }
+        
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        // Increase delay for next retry (exponential backoff)
+        delay *= 1.5;
+        retries++;
+      }
+    }
+  };
+
   const loadUserProfile = async () => {
     if (!user) return;
     
@@ -131,10 +157,21 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
           throw profileError;
         }
         
-        // If the profile doesn't exist, we'll just return
-        // The trigger on auth.users should have created it already
-        // If not, it will be created on the next sign-in
-        console.log('User profile not found');
+        // If the profile doesn't exist, we'll try to create it
+        console.log('User profile not found, creating one');
+        
+        const { data: newProfile, error: createError } = await supabase
+          .from('user_profiles')
+          .insert([{ user_id: user.id }])
+          .select()
+          .single();
+        
+        if (createError) {
+          console.error('Error creating user profile:', createError);
+          throw createError;
+        }
+        
+        setUserProfile(newProfile);
         return;
       }
       
