@@ -42,9 +42,9 @@ export default {
         }
       },
       borderRadius: {
-        lg: '0.5rem',
-        md: '0.375rem',
-        sm: '0.25rem'
+        lg: '1rem',
+        md: '0.75rem',
+        sm: '0.5rem'
       },
       keyframes: {
         'accordion-down': {
@@ -54,11 +54,27 @@ export default {
         'accordion-up': {
           from: { height: 'var(--radix-accordion-content-height)' },
           to: { height: '0' }
+        },
+        'float': {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-5px)' }
+        },
+        'pulse-subtle': {
+          '0%, 100%': { opacity: 1 },
+          '50%': { opacity: 0.8 }
         }
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
-        'accordion-up': 'accordion-up 0.2s ease-out'
+        'accordion-up': 'accordion-up 0.2s ease-out',
+        'float': 'float 3s ease-in-out infinite',
+        'pulse-subtle': 'pulse-subtle 2s ease-in-out infinite'
+      },
+      boxShadow: {
+        'card': '0 4px 20px rgba(0, 0, 0, 0.05)',
+        'card-hover': '0 10px 25px rgba(0, 0, 0, 0.07)',
+        'button': '0 2px 10px rgba(59, 170, 117, 0.2)',
+        'button-hover': '0 4px 15px rgba(59, 170, 117, 0.3)'
       }
     }
   },

@@ -14,32 +14,38 @@ export const ProgressBar = ({ currentStep, totalSteps, onStepClick }: ProgressBa
   const isMobile = window.innerWidth < 640;
 
   return (
-    <div className="w-full max-w-md mx-auto px-2 mb-6" role="region" aria-label="Application progress">
+    <div className="w-full max-w-md mx-auto px-2 mb-8" role="region" aria-label="Application progress">
       <progress value={currentStep} max={totalSteps} className="sr-only" />
       
       <div className="relative">
-        <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center justify-between mb-2">
           {Array.from({ length: totalSteps }).map((_, index) => (
             <React.Fragment key={index}>
               <div className="flex flex-col items-center relative">
                 <motion.button
                   onClick={() => onStepClick?.(index + 1)}
-                  disabled={index + 1 >= currentStep}
+                  disabled={index + 1 > currentStep}
                   initial={false}
                   animate={{
-                    scale: currentStep >= index + 1 ? 1 : 0.8,
-                    backgroundColor: currentStep >= index + 1 ? '#3BAA75' : '#E5E7EB'
+                    scale: currentStep >= index + 1 ? 1 : 0.85,
+                    backgroundColor: currentStep >= index + 1 ? '#3BAA75' : '#E5E7EB',
+                    boxShadow: currentStep >= index + 1 ? '0 2px 8px rgba(59, 170, 117, 0.2)' : 'none'
                   }}
+                  whileHover={index + 1 <= currentStep ? { scale: 1.05 } : {}}
+                  whileTap={index + 1 <= currentStep ? { scale: 0.95 } : {}}
+                  transition={{ duration: 0.2 }}
                   className={`
-                    w-6 h-6 sm:w-8 sm:h-8 rounded-md flex items-center justify-center
-                    transition-colors duration-300
+                    w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center
+                    transition-all duration-300
                     ${currentStep >= index + 1 ? 'text-white' : 'text-gray-500'}
                     ${index + 1 < currentStep ? 'cursor-pointer hover:bg-[#2D8259]' : 'cursor-default'}
                   `}
                   aria-current={currentStep === index + 1 ? 'step' : undefined}
                   aria-label={`Step ${index + 1}`}
-                />
-                <span className="text-xs text-gray-500 mt-1 hidden sm:block whitespace-nowrap">
+                >
+                  {index + 1}
+                </motion.button>
+                <span className="text-xs text-gray-500 mt-2 hidden sm:block whitespace-nowrap">
                   {index === 0 && "Vehicle"}
                   {index === 1 && "Financial"}
                   {index === 2 && "Personal"}
@@ -56,7 +62,7 @@ export const ProgressBar = ({ currentStep, totalSteps, onStepClick }: ProgressBa
                       className="absolute inset-0 bg-[#3BAA75] origin-left"
                       initial={{ scaleX: 0 }}
                       animate={{ scaleX: currentStep > index + 1 ? 1 : 0 }}
-                      transition={{ duration: 0.3 }}
+                      transition={{ duration: 0.3, ease: "easeInOut" }}
                     />
                   </div>
                 </div>
