@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, ArrowRight, Eye, EyeOff, AlertCircle, CheckCircle } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Eye, EyeOff, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { GoogleSignInButton } from '../components/GoogleSignInButton';
+import { verifyAuth } from '../lib/supabaseClient';
+import toast from 'react-hot-toast';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -17,6 +19,27 @@ const Login = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  // Check authentication status on load
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { user: currentUser, error } = await verifyAuth();
+      
+      if (error) {
+        console.error('Login: Error verifying auth:', error);
+      }
+      
+      setAuthChecked(true);
+      
+      // If user is logged in, redirect
+      if (currentUser) {
+        redirectBasedOnRole(currentUser);
+      }
+    };
+    
+    checkAuth();
+  }, []);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -24,21 +47,28 @@ const Login = () => {
       id: user.id,
       email: user.email,
       app_metadata: user.app_metadata
-    } : 'null', 'loading =', loading);
+    } : 'null', 'loading =', loading, 'authChecked =', authChecked);
     
-    if (user && !loading) {
-      console.log('Login: User already logged in, redirecting based on role');
-      // Redirect based on user role
-      const role = user.app_metadata?.role;
-      if (role === 'super_admin') {
-        navigate('/admin');
-      } else if (role === 'dealer') {
-        navigate('/dealer');
-      } else {
-        navigate('/dashboard');
-      }
+    if (user && !loading && authChecked) {
+      redirectBasedOnRole(user);
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, authChecked]);
+
+  const redirectBasedOnRole = (user) => {
+    console.log('Login: Redirecting based on role:', user?.app_metadata?.role);
+    
+    // Redirect based on user role
+    const role = user.app_metadata?.role;
+    if (role === 'super_admin') {
+      navigate('/admin');
+    } else if (role === 'dealer') {
+      navigate('/dealer');
+    } else {
+      // Get the intended destination, or default to dashboard
+      const from = location.state?.from?.pathname || '/dashboard';
+      navigate(from);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
@@ -72,27 +102,33 @@ const Login = () => {
     }
   };
 
-  if (loading) {
+  if (loading && !authChecked) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent"
-        />
+          className="flex flex-col items-center"
+        >
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent mb-4" />
+          <p className="text-gray-600">Checking authentication status...</p>
+        </motion.div>
       </div>
     );
   }
 
-  // Don't render the login form if already logged in
-  if (user) {
+  // Don't render the login form if already logged in and we've checked auth status
+  if (user && authChecked) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent"
-        />
+          className="flex flex-col items-center"
+        >
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent mb-4" />
+          <p className="text-gray-600">You're already signed in. Redirecting...</p>
+        </motion.div>
       </div>
     );
   }
@@ -132,7 +168,7 @@ const Login = () => {
                 exit={{ opacity: 0, y: -10 }}
                 className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-lg mb-6"
               >
-                <AlertCircle className="h-5 w-5" />
+                <AlertCircle className="h-5 w-5 flex-shrink-0" />
                 <span className="text-sm">{error}</span>
               </motion.div>
             )}
@@ -210,8 +246,17 @@ const Login = () => {
                 className="relative w-full flex items-center justify-center py-3 px-4 rounded-lg text-white bg-gradient-to-r from-[#3BAA75] to-[#2D8259] hover:from-[#2D8259] hover:to-[#1F5F3F] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3BAA75] disabled:opacity-75 disabled:cursor-not-allowed transition-all duration-300 overflow-hidden shadow-lg hover:shadow-xl"
               >
                 <span className="relative z-10 flex items-center font-medium">
-                  {isLoading ? 'Signing in...' : 'Sign in'}
-                  <ArrowRight className={`ml-2 h-5 w-5 transition-transform duration-300 ${isHovered ? 'translate-x-1' : ''}`} />
+                  {isLoading ? (
+                    <>
+                      <RefreshCw className="h-5 w-5 animate-spin mr-2" />
+                      Signing in...
+                    </>
+                  ) : (
+                    <>
+                      Sign in
+                      <ArrowRight className={`ml-2 h-5 w-5 transition-transform duration-300 ${isHovered ? 'translate-x-1' : ''}`} />
+                    </>
+                  )}
                 </span>
                 {isHovered && (
                   <motion.div
@@ -235,7 +280,7 @@ const Login = () => {
             </div>
 
             <div className="grid grid-cols-1 gap-4">
-              <GoogleSignInButton />
+              <GoogleSignInButton redirectTo={location.state?.from?.pathname} />
             </div>
 
             <p className="mt-8 text-center text-sm text-gray-600">

@@ -138,7 +138,12 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
     setIsSubmitting(true);
     
     try {
-      console.log('Submitting application with data:', data);
+      console.log('Submitting application with data:', {
+        ...data, 
+        // Mask sensitive data in logs
+        password: data.password ? '********' : undefined,
+        confirmPassword: data.confirmPassword ? '********' : undefined
+      });
       
       // Generate a temporary user ID for anonymous submissions
       const tempUserId = uuidv4();
@@ -186,7 +191,15 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         terms_accepted: data.terms_accepted,
       };
       
-      console.log('Prepared application data:', applicationData);
+      console.log('Prepared application data:', {
+        ...applicationData,
+        // Avoid logging personal data in production
+        first_name: '***',
+        last_name: '***',
+        email: '***@***.com',
+        phone: '***********',
+        address: '************'
+      });
       
       // Insert application into Supabase
       const { data: application, error } = await supabase
@@ -198,12 +211,22 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       if (error) {
         console.error('Error submitting application:', error);
         console.log('Error details:', JSON.stringify(error, null, 2));
-        toast.error('Failed to submit application. Please try again.');
+        
+        if (error.code === '23505') {
+          toast.error('An application with this email already exists.');
+        } else if (error.code === '42501') {
+          toast.error('Permission denied. Please check your credentials.');
+        } else if (error.code === '22P02') {
+          toast.error('Invalid data format. Please check your inputs.');
+        } else {
+          toast.error('Failed to submit application. Please try again.');
+        }
+        
         setIsSubmitting(false);
         return;
       }
       
-      console.log('Application submitted successfully:', application);
+      console.log('Application submitted successfully:', application.id);
       
       // Create initial application stage
       try {
@@ -218,14 +241,40 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
           
         if (stageError) {
           console.error('Error creating application stage:', stageError);
+          console.log('Stage error details:', JSON.stringify(stageError, null, 2));
           // Continue despite stage error
+        } else {
+          console.log('Application stage created successfully');
         }
       } catch (stageError) {
         console.error('Exception creating application stage:', stageError);
+        console.log('Stage error details:', stageError instanceof Error ? stageError.message : JSON.stringify(stageError));
         // Continue despite stage error
       }
       
+      // Create welcome notification
+      try {
+        const { error: notificationError } = await supabase
+          .from('notifications')
+          .insert({
+            user_id: null,
+            temp_user_id: tempUserId,
+            title: 'Welcome to Clearpath Motors!',
+            message: 'Thank you for starting your auto financing journey with us. Create an account to continue your application.',
+            read: false
+          });
+          
+        if (notificationError) {
+          console.error('Error creating welcome notification:', notificationError);
+          // Continue despite notification error
+        }
+      } catch (notificationError) {
+        console.error('Exception creating notification:', notificationError);
+        // Continue despite notification error
+      }
+      
       // Call onComplete with the application ID, temp user ID, and form data
+      toast.success('Application submitted successfully! Redirecting...');
       onComplete(application.id, tempUserId, {
         ...data,
         email: data.email,
@@ -541,11 +590,16 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Housing Status
                         </label>
-                        <Input
+                        <select
                           {...field}
-                          placeholder="Own or Rent?"
-                          className={error ? 'border-red-500' : ''}
-                        />
+                          className={`w-full h-11 rounded-lg border ${error ? 'border-red-500' : 'border-gray-300'} focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent px-4 py-2`}
+                        >
+                          <option value="">Select Housing Status</option>
+                          <option value="own">Own</option>
+                          <option value="rent">Rent</option>
+                          <option value="live_with_parents">Live with Parents</option>
+                          <option value="other">Other</option>
+                        </select>
                         {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
                       </div>
                     )}
@@ -584,11 +638,17 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Employment Status
                         </label>
-                        <Input
+                        <select
                           {...field}
-                          placeholder="Employed, Self-employed, Student, etc."
-                          className={error ? 'border-red-500' : ''}
-                        />
+                          className={`w-full h-11 rounded-lg border ${error ? 'border-red-500' : 'border-gray-300'} focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent px-4 py-2`}
+                        >
+                          <option value="">Select Employment Status</option>
+                          <option value="employed">Employed</option>
+                          <option value="self_employed">Self-Employed</option>
+                          <option value="unemployed">Unemployed</option>
+                          <option value="student">Student</option>
+                          <option value="retired">Retired</option>
+                        </select>
                         {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
                       </div>
                     )}
@@ -792,7 +852,14 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
               className="bg-[#3BAA75] hover:bg-[#2D8259]"
             >
               {currentStep === totalSteps ? (
-                isSubmitting ? 'Submitting...' : 'Submit Application'
+                isSubmitting ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                    Submitting...
+                  </div>
+                ) : (
+                  'Submit Application'
+                )
               ) : (
                 'Next'
               )}

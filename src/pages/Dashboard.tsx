@@ -31,7 +31,8 @@ import {
   Shield,
   Inbox,
   ArrowRight,
-  HelpCircle
+  HelpCircle,
+  RefreshCw
 } from 'lucide-react';
 import type { Application, ApplicationStage, Document, Notification, UserProfile } from '../types/database';
 import { PreQualifiedBadge } from '../components/PreQualifiedBadge';
@@ -47,6 +48,7 @@ import { UserProfileSection } from '../components/UserProfileSection';
 import { toStartCase } from '../utils/formatters';
 import { UnifiedDocumentUploader } from '../components/UnifiedDocumentUploader';
 import HelpCenter from './HelpCenter';
+import { runQuickDiagnostic } from '../utils/diagnostics';
 
 interface DashboardProps {
   activeSection?: string;
@@ -60,7 +62,7 @@ const Dashboard: React.FC<DashboardProps> = ({
   console.log('Dashboard: component initializing with activeSection:', activeSection);
   
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, refreshUser } = useAuth();
   const location = useLocation();
   const [applications, setApplications] = useState<Application[]>([]);
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
@@ -68,11 +70,14 @@ const Dashboard: React.FC<DashboardProps> = ({
   const [documents, setDocuments] = useState<Document[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [prequalificationData, setPrequalificationData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'upload' | 'manage'>('upload');
   const [showApplicationSelector, setShowApplicationSelector] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   
   // User profile
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -86,6 +91,36 @@ const Dashboard: React.FC<DashboardProps> = ({
   
   // Move the useDocumentUpload hook to the component level
   const { uploadDocument, deleteDocument, uploading, error: uploadError } = useDocumentUpload(selectedApplication?.id || '');
+
+  // Add a function to handle forced refresh
+  const handleForceRefresh = async () => {
+    setIsRefreshing(true);
+    setError(null);
+    setLoadingError(null);
+    
+    try {
+      // Check system status
+      await runQuickDiagnostic();
+      
+      // Force refresh user data
+      if (user) {
+        const refreshedUser = await refreshUser();
+        console.log('Dashboard: Force refreshed user data:', refreshedUser ? {
+          id: refreshedUser.id,
+          email: refreshedUser.email,
+          app_metadata: refreshedUser.app_metadata
+        } : 'Failed to refresh user');
+      }
+      
+      // Reload dashboard data with increased retry count
+      setRetryCount(prev => prev + 1);
+      await loadDashboardData();
+    } catch (error) {
+      console.error('Dashboard: Error in force refresh:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     console.log('Dashboard: Component mounted, authLoading =', authLoading, ', user =', user ? {
@@ -266,6 +301,11 @@ const Dashboard: React.FC<DashboardProps> = ({
           
           // Update summary stats
           await loadSummaryStats();
+          
+          // Show toast for new notifications
+          if (payload.eventType === 'INSERT' && !payload.new.read) {
+            toast.success(`New notification: ${payload.new.title}`);
+          }
         }
       )
       .subscribe();
@@ -370,12 +410,24 @@ const Dashboard: React.FC<DashboardProps> = ({
         return;
       }
       
+      setLoading(true);
+      setError(null);
+      
       console.log('Dashboard: Loading applications for user:', user.id);
 
-      // Load all applications for this user (removed dealer_profiles join)
+      // First verify the auth session is still valid
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.error('Dashboard: No valid session found, redirecting to login');
+        setLoadingError('Your session has expired. Please log in again.');
+        navigate('/login');
+        return;
+      }
+
+      // Load all applications for this user
       const { data: applicationData, error: applicationError } = await supabase
         .from('applications')
-        .select('*')
+        .select('*, dealer_profiles(*)')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
@@ -426,9 +478,21 @@ const Dashboard: React.FC<DashboardProps> = ({
     } catch (error: any) {
       console.error('Dashboard: Error loading dashboard data:', error);
       setError(error.message);
+      
+      // Check for specific error patterns
+      if (error.message?.includes('JWT')) {
+        setLoadingError('Authentication error. Please try logging in again.');
+      } else if (error.message?.includes('network') || error.message?.includes('connection')) {
+        setLoadingError('Network error. Please check your internet connection and try again.');
+      } else if (error.code === '42501') {
+        setLoadingError('Permission denied. You may not have access to this resource.');
+      } else {
+        setLoadingError('Error loading dashboard data. Please try refreshing the page.');
+      }
     } finally {
       console.log('Dashboard: loadDashboardData completed, setting loading=false');
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -451,11 +515,26 @@ const Dashboard: React.FC<DashboardProps> = ({
       // Set user profile data (will be null if no profile exists)
       setUserProfile(data);
       
-      // If no profile exists, we could optionally create one here
+      // If no profile exists, create a default one
       if (!data) {
         console.log('Dashboard: No user profile found for user:', userId);
-        // Optionally create a default profile:
-        // await createUserProfile(userId);
+        try {
+          const { data: newProfile, error: createError } = await supabase
+            .from('user_profiles')
+            .insert({ user_id: userId })
+            .select()
+            .single();
+            
+          if (createError) {
+            console.error('Dashboard: Error creating user profile:', createError);
+            return;
+          }
+          
+          console.log('Dashboard: Created new user profile:', newProfile);
+          setUserProfile(newProfile);
+        } catch (createError) {
+          console.error('Dashboard: Error creating user profile:', createError);
+        }
       }
     } catch (error) {
       console.error('Dashboard: Error loading user profile:', error);
@@ -470,20 +549,20 @@ const Dashboard: React.FC<DashboardProps> = ({
     }
 
     try {
-      // Count total applications for this user
+      // Get total applications for this user
       const { count: totalCount, error: totalError } = await supabase
         .from('applications')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id);
 
-      // Count approved applications
+      // Get approved applications
       const { count: approvedCount, error: approvedError } = await supabase
         .from('applications')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id)
         .in('status', ['pre_approved', 'finalized']);
 
-      // Count unread messages
+      // Get unread messages
       const { count: unreadCount, error: unreadError } = await supabase
         .from('admin_messages')
         .select('*', { count: 'exact', head: true })
@@ -672,7 +751,53 @@ const Dashboard: React.FC<DashboardProps> = ({
     console.log('Dashboard: Rendering loading state, authLoading =', authLoading, 'loading =', loading);
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent" />
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent mb-4" />
+          <p className="text-gray-600">Loading your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadingError) {
+    console.log('Dashboard: Rendering error state with loading error:', loadingError);
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="bg-white p-8 rounded-lg shadow-md max-w-md">
+          <div className="flex flex-col items-center text-center">
+            <AlertCircle className="h-16 w-16 text-red-500 mb-4" />
+            <h2 className="text-2xl font-semibold text-gray-900 mb-2">Loading Error</h2>
+            <p className="text-gray-600 mb-6">{loadingError}</p>
+            <div className="space-y-4 w-full">
+              <button 
+                onClick={handleForceRefresh}
+                disabled={isRefreshing}
+                className="w-full flex items-center justify-center gap-2 bg-[#3BAA75] text-white px-4 py-2 rounded-lg hover:bg-[#2D8259] transition-colors"
+              >
+                {isRefreshing ? (
+                  <>
+                    <RefreshCw className="h-5 w-5 animate-spin" />
+                    <span>Refreshing...</span>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-5 w-5" />
+                    <span>Refresh Dashboard</span>
+                  </>
+                )}
+              </button>
+              <button 
+                onClick={async () => {
+                  await supabase.auth.signOut();
+                  navigate('/login');
+                }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Sign Out and Log In Again
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -681,15 +806,34 @@ const Dashboard: React.FC<DashboardProps> = ({
     console.log('Dashboard: Rendering error state:', error);
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center max-w-md p-6 bg-white rounded-lg shadow-lg">
           <h2 className="text-2xl font-semibold text-gray-900 mb-4">Error Loading Dashboard</h2>
           <p className="text-gray-600 mb-6">{error}</p>
-          <button
-            onClick={loadDashboardData}
-            className="bg-[#3BAA75] text-white px-6 py-3 rounded-lg hover:bg-[#2D8259] transition-colors"
-          >
-            Try Again
-          </button>
+          <div className="space-y-4">
+            <button
+              onClick={handleForceRefresh}
+              disabled={isRefreshing}
+              className="w-full flex items-center justify-center gap-2 bg-[#3BAA75] text-white px-4 py-2 rounded-lg hover:bg-[#2D8259] transition-colors"
+            >
+              {isRefreshing ? (
+                <>
+                  <RefreshCw className="h-5 w-5 animate-spin" />
+                  <span>Refreshing...</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-5 w-5" />
+                  <span>Try Again</span>
+                </>
+              )}
+            </button>
+            <Link
+              to="/get-prequalified"
+              className="block w-full text-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Start New Application
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -699,15 +843,35 @@ const Dashboard: React.FC<DashboardProps> = ({
     console.log('Dashboard: No selectedApplication, rendering no application found state');
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
+        <div className="text-center bg-white p-8 rounded-lg shadow-md max-w-md">
+          <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
           <h2 className="text-2xl font-semibold mb-4">No Application Found</h2>
           <p className="text-gray-600 mb-6">Start your application to view this dashboard</p>
-          <button
-            onClick={() => navigate('/get-prequalified')}
-            className="bg-[#3BAA75] text-white px-6 py-3 rounded-lg hover:bg-[#2D8259] transition-colors"
-          >
-            Start Application
-          </button>
+          <div className="space-y-4">
+            <button
+              onClick={() => navigate('/get-prequalified')}
+              className="w-full bg-[#3BAA75] text-white px-6 py-3 rounded-lg hover:bg-[#2D8259] transition-colors"
+            >
+              Start Application
+            </button>
+            <button 
+              onClick={handleForceRefresh}
+              disabled={isRefreshing}
+              className="w-full flex items-center justify-center gap-2 border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              {isRefreshing ? (
+                <>
+                  <RefreshCw className="h-5 w-5 animate-spin" />
+                  <span>Refreshing...</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-5 w-5" />
+                  <span>Refresh Dashboard</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -1003,7 +1167,16 @@ const Dashboard: React.FC<DashboardProps> = ({
               </div>
             </div>
             
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleForceRefresh}
+                disabled={isRefreshing}
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                title="Refresh dashboard"
+              >
+                <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+              
               <Link
                 to="/help"
                 className="flex items-center gap-2 text-gray-600 hover:text-[#3BAA75] transition-colors"

@@ -8,7 +8,8 @@
     "build": "tsc && vite build",
     "lint": "eslint .",
     "preview": "vite preview --host",
-    "fetch-apps": "node --loader ts-node/esm src/scripts/getApplications.ts"
+    "fetch-apps": "node --loader ts-node/esm src/scripts/getApplications.ts",
+    "diagnostic": "node --loader ts-node/esm src/scripts/runDiagnostic.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.4",

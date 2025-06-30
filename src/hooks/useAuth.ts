@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import type { User, Session } from '@supabase/supabase-js';
+import toast from 'react-hot-toast';
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -186,6 +187,7 @@ export const useAuth = () => {
           errorMessage = 'Too many login attempts. Please try again later.';
         }
         
+        toast.error(errorMessage);
         throw new Error(errorMessage);
       }
 
@@ -198,11 +200,11 @@ export const useAuth = () => {
       // Update local state immediately
       setUser(data.user);
       setSession(data.session);
+      toast.success('Login successful! Welcome back.');
       
       return { data, error: null };
     } catch (error: any) {
       console.error('useAuth: Sign in error:', error);
-      console.log('useAuth: Error details:', JSON.stringify(error, null, 2));
       return { 
         data: null, 
         error
@@ -230,8 +232,10 @@ export const useAuth = () => {
             error.message.includes('already exists') ||
             error.message.includes('user_already_exists') ||
             error.status === 400) {
+          toast.error('An account with this email already exists. Please sign in instead.');
           throw new Error('EMAIL_EXISTS');
         }
+        toast.error(error.message || 'Sign up failed. Please try again.');
         throw error;
       }
       
@@ -240,6 +244,7 @@ export const useAuth = () => {
         email: data.user?.email 
       });
       
+      toast.success('Account created successfully! Check your email for verification.');
       return { data, error: null };
     } catch (error: any) {
       console.error('useAuth: Sign up error:', error);
@@ -269,22 +274,25 @@ export const useAuth = () => {
           console.log('useAuth: Session not found on server, clearing local state');
           setUser(null);
           setSession(null);
+          toast.success('Logged out successfully');
           return; // Don't throw error, treat as successful sign out
         }
         
+        toast.error('Failed to log out. Please try again.');
         throw error;
       }
       
       console.log('useAuth: sign out successful, clearing user state');
       setUser(null);
       setSession(null);
+      toast.success('Logged out successfully');
     } catch (error: any) {
       console.error('useAuth: Sign out error:', error);
       
       // For non-session errors, still clear state but also throw the error
       setUser(null);
       setSession(null);
-      throw new Error('Error signing out. Please try again.');
+      toast.error('Error signing out. Please try again.');
     }
   };
 
@@ -304,10 +312,12 @@ export const useAuth = () => {
 
       if (error) {
         console.error('useAuth: Reset password error:', error);
+        toast.error(error.message || 'Failed to send reset email. Please try again.');
         throw error;
       }
 
       console.log('useAuth: password reset email sent successfully');
+      toast.success('Password reset email sent. Check your inbox.');
       return { error: null };
     } catch (error: any) {
       console.error('useAuth: Reset password error:', error);
@@ -328,13 +338,16 @@ export const useAuth = () => {
 
       if (error) {
         console.error('useAuth: Update password error:', error);
+        toast.error(error.message || 'Failed to update password. Please try again.');
         throw error;
       }
       
       console.log('useAuth: password updated successfully');
+      toast.success('Password updated successfully! You can now sign in with your new password.');
       return { error: null };
     } catch (error: any) {
       console.error('useAuth: Update password error:', error);
+      toast.error(error.message || 'Failed to update password. Please try again.');
       return { error };
     }
   };
