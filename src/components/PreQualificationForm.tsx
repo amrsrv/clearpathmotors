@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { DollarSign, CreditCard, User, Mail, Phone, Briefcase, Building, MapPin, Calendar, CheckSquare } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { ProcessingAnimation } from './ProcessingAnimation';
+import { vehicles } from '../pages/Vehicles';
 
 // Define the validation schema for each step
 const stepValidationSchema = {
@@ -692,64 +693,28 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                   <option value="self_employed">Self-employed</option>
                   <option value="unemployed">Unemployed</option>
                   <option value="student">Student</option>
-                  <option value="retired">Retired</option>
-                </select>
-                {errors.employment_status && (
-                  <p className="text-red-500 text-sm mt-1">{errors.employment_status.message as string}</p>
-                )}
-              </div>
-              
-              {/* Conditional fields based on employment status */}
-              {employmentStatus === 'employed' && (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label htmlFor="employer_name" className="block text-sm font-medium text-gray-700">
-                        Employer Name
-                      </label>
-                      <div className="mt-1 relative rounded-md shadow-sm">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Building className="h-5 w-5 text-gray-400" />
-                        </div>
-                        <input
-                          type="text"
-                          id="employer_name"
-                          className="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75] sm:text-sm"
-                          placeholder="Company Name"
-                          {...register('employer_name')}
-                        />
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <label htmlFor="occupation" className="block text-sm font-medium text-gray-700">
-                        Occupation
-                      </label>
-                      <div className="mt-1 relative rounded-md shadow-sm">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Briefcase className="h-5 w-5 text-gray-400" />
-                        </div>
-                        <input
-                          type="text"
-                          id="occupation"
-                          className="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75] sm:text-sm"
-                          placeholder="Job Title"
-                          {...register('occupation')}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">
-                      How long have you been with this employer?
-                    </label>
-                    <div className="mt-1 grid grid-cols-2 gap-4">
-                      <div className="relative rounded-md shadow-sm">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Clock className="h-5 w-5 text-gray-400" />
-                        </div>
-                        <input
+                      {vehicles.map((vehicle) => (
+                        <button
+                          key={vehicle.type}
+                          type="button"
+                          onClick={() => handleVehicleTypeSelect(vehicle.type)}
+                          className={`p-4 rounded-lg border-2 transition-colors ${
+                            formData.vehicleType === vehicle.type 
+                              ? 'border-[#3BAA75] bg-[#3BAA75]/5' 
+                              : 'border-gray-200 hover:border-[#3BAA75]/50'
+                          }`}
+                        >
+                          <div className="flex flex-col items-center">
+                            <img 
+                              src={vehicle.image} 
+                              alt={vehicle.type} 
+                              className="w-32 h-24 object-contain mb-2" 
+                            />
+                            <span className="font-medium">{vehicle.type}</span>
+                            <span className="text-sm text-gray-500">{vehicle.description}</span>
+                          </div>
+                        </button>
+                      ))}
                           type="number"
                           className="pl-10 block w-full rounded-md border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75] sm:text-sm"
                           placeholder="Years"
