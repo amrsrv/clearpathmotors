@@ -1,12 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Mail, Lock as LucideLock, AlertCircle } from 'lucide-react';
+import { Mail, Lock, AlertCircle } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
-
-// Wrapper component to fix constructor issue
-const Lock = (props: any) => <LucideLock {...props} />;
 
 const AdminLogin = () => {
   const navigate = useNavigate();
