@@ -25,8 +25,7 @@ import {
   Building,
   Clock,
   FileText,
-  Cpu,
-  Lock
+  Cpu
 } from 'lucide-react';
 import CurrencyInput from 'react-currency-input-field';
 import { z } from 'zod';
@@ -52,28 +51,28 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
     desiredMonthlyPayment: searchParams.get('budget') ? parseInt(searchParams.get('budget')!) : 500,
     creditScore: '',
     
-    // Step 3: Personal Information
+    // Step 3: Personal Contact Information
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
+    
+    // Step 4: Personal Address & Birthdate
     address: '',
     city: '',
     province: '',
     postalCode: '',
     dateOfBirth: '',
-    maritalStatus: '',
-    monthlyRentMortgage: '',
     
-    // Step 4: Employment Information
+    // Step 5: Employment Information
     employmentStatus: 'employed',
     annualIncome: '',
-    employer: '',
+    employerName: '',
     occupation: '',
     employmentDurationYears: '',
     employmentDurationMonths: '',
     
-    // Step 5: Additional Information
+    // Step 6: Additional Information
     collects_government_benefits: false,
     government_benefit_types: [] as string[],
     government_benefit_other: '',
@@ -83,10 +82,6 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
     debt_discharge_status: '',
     debt_discharge_year: '',
     amount_owed: '',
-    
-    // Step 6: Account Creation
-    password: '',
-    confirmPassword: '',
     
     // Consent
     consentToSoftCheck: false,
@@ -109,34 +104,35 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
       firstName: z.string().min(1, 'First name is required'),
       lastName: z.string().min(1, 'Last name is required'),
       email: z.string().email('Please enter a valid email address'),
-      phone: z.string().min(10, 'Please enter a valid phone number'),
+      phone: z.string().min(10, 'Please enter a valid phone number')
+    }),
+    4: z.object({
       address: z.string().min(1, 'Address is required'),
       city: z.string().min(1, 'City is required'),
       province: z.string().min(1, 'Province is required'),
       postalCode: z.string().regex(/^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/, 'Please enter a valid postal code'),
-      dateOfBirth: z.string().min(1, 'Date of birth is required'),
-      maritalStatus: z.string().min(1, 'Marital status is required'),
-      monthlyRentMortgage: z.string().min(1, 'Monthly housing payment is required')
+      dateOfBirth: z.string().min(1, 'Date of birth is required')
     }),
-    4: z.object({
+    5: z.object({
       employmentStatus: z.string().min(1, 'Please select your employment status'),
       annualIncome: z.string().refine(val => {
         const num = parseFloat(val.replace(/[^0-9.]/g, ''));
         return !isNaN(num) && num > 0;
       }, 'Please enter a valid annual income'),
-      employmentDurationYears: z.string().min(1, 'Employment duration years is required'),
-      employmentDurationMonths: z.string().min(1, 'Employment duration months is required')
-    }),
-    5: z.object({
-      consentToSoftCheck: z.boolean().refine(val => val === true, 'You must consent to a soft credit check'),
-      termsAccepted: z.boolean().refine(val => val === true, 'You must accept the terms and conditions')
+      employmentDurationYears: z.string().refine(val => {
+        if (!val) return true; // Optional
+        const num = parseInt(val);
+        return !isNaN(num) && num >= 0;
+      }, 'Years must be a valid number'),
+      employmentDurationMonths: z.string().refine(val => {
+        if (!val) return true; // Optional
+        const num = parseInt(val);
+        return !isNaN(num) && num >= 0 && num <= 11;
+      }, 'Months must be between 0 and 11')
     }),
     6: z.object({
-      password: z.string().min(8, 'Password must be at least 8 characters'),
-      confirmPassword: z.string().min(8, 'Please confirm your password')
-    }).refine(data => data.password === data.confirmPassword, {
-      message: "Passwords don't match",
-      path: ["confirmPassword"]
+      consentToSoftCheck: z.boolean().refine(val => val === true, 'You must consent to a soft credit check'),
+      termsAccepted: z.boolean().refine(val => val === true, 'You must accept the terms and conditions')
     })
   };
 
@@ -235,21 +231,8 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
         stepData[key] = formData[key as keyof typeof formData];
       });
       
-      // Additional validation for step 4 (employment)
-      if (currentStep === 4) {
-        // Validate employer and occupation for self-employed
-        if (formData.employmentStatus === 'self_employed') {
-          if (!formData.employer) {
-            throw new Error('Business name is required for self-employed');
-          }
-          if (!formData.occupation) {
-            throw new Error('Occupation is required for self-employed');
-          }
-        }
-      }
-      
-      // Additional validation for step 5
-      if (currentStep === 5) {
+      // Additional validation for step 6
+      if (currentStep === 6) {
         // Validate government benefits fields if selected
         if (formData.collects_government_benefits) {
           if (formData.government_benefit_types.length === 0) {
@@ -296,7 +279,6 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
     if (validateStep()) {
       if (currentStep < 6) {
         setCurrentStep(currentStep + 1);
-        window.scrollTo(0, 0);
       } else {
         handleSubmit();
       }
@@ -307,7 +289,6 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
   const handlePrevious = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
-      window.scrollTo(0, 0);
     }
   };
 
@@ -345,14 +326,11 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           province: formData.province,
           postal_code: formData.postalCode,
           date_of_birth: formData.dateOfBirth,
-          marital_status: formData.maritalStatus,
-          housing_status: 'rent', // Default to rent
-          housing_payment: parseFloat(formData.monthlyRentMortgage.replace(/[^0-9.]/g, '')),
           employment_status: formData.employmentStatus,
-          employer_name: formData.employmentStatus === 'self_employed' ? formData.employer : null,
-          occupation: formData.employmentStatus === 'self_employed' ? formData.occupation : null,
-          employment_duration_years: parseInt(formData.employmentDurationYears),
-          employment_duration_months: parseInt(formData.employmentDurationMonths),
+          employer_name: formData.employerName || null,
+          occupation: formData.occupation || null,
+          employment_duration_years: formData.employmentDurationYears ? parseInt(formData.employmentDurationYears) : null,
+          employment_duration_months: formData.employmentDurationMonths ? parseInt(formData.employmentDurationMonths) : null,
           annual_income: parseFloat(formData.annualIncome.replace(/[^0-9.]/g, '')),
           monthly_income: parseFloat(formData.annualIncome.replace(/[^0-9.]/g, '')) / 12,
           credit_score: parseInt(formData.creditScore),
@@ -396,8 +374,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
         onComplete(application.id, tempUserId, {
           firstName: formData.firstName,
           lastName: formData.lastName,
-          email: formData.email,
-          password: formData.password
+          email: formData.email
         });
         
         // Navigate to results page
@@ -416,8 +393,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
             originalFormData: {
               firstName: formData.firstName,
               lastName: formData.lastName,
-              email: formData.email,
-              password: formData.password
+              email: formData.email
             }
           }
         });
@@ -439,21 +415,21 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3 }}
-            className="space-y-6"
+            className="space-y-8"
           >
-            <div className="text-center mb-6">
-              <h2 className="text-2xl md:text-3xl font-bold text-gray-900">What type of vehicle are you looking for?</h2>
-              <p className="text-base md:text-lg text-gray-600 mt-2">Select the type of vehicle you're interested in financing.</p>
+            <div className="text-center">
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">What type of vehicle are you looking for?</h2>
+              <p className="text-lg text-gray-600 mb-8">Select the type of vehicle you're interested in financing.</p>
             </div>
             
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-6">
               {vehicles.map((vehicle) => (
                 <motion.div
                   key={vehicle.type}
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.98 }}
                   className={`
-                    border-2 rounded-md p-3 cursor-pointer transition-all duration-300 hover:shadow-md hover:border-[#3BAA75]
+                    border-2 rounded-md p-4 cursor-pointer transition-all duration-300 hover:shadow-lg hover:border-[#3BAA75]
                     flex flex-col items-center text-center
                     ${formData.vehicleType === vehicle.type 
                       ? 'border-[#3BAA75] bg-[#3BAA75]/5 shadow-md' 
@@ -462,7 +438,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                   `}
                   onClick={() => setFormData({ ...formData, vehicleType: vehicle.type })}
                 >
-                  <div className="w-full h-24 mb-2 rounded-md overflow-hidden">
+                  <div className="w-full h-32 mb-4 rounded-md overflow-hidden">
                     <img 
                       src={vehicle.image} 
                       alt={vehicle.type} 
@@ -470,7 +446,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     />
                   </div>
                   <h3 className="font-medium text-gray-800">{vehicle.type}</h3>
-                  <p className="text-xs text-gray-600 mt-1">{vehicle.description}</p>
+                  <p className="text-sm text-gray-600 mt-1">{vehicle.description}</p>
                 </motion.div>
               ))}
             </div>
@@ -484,11 +460,11 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3 }}
-            className="space-y-6"
+            className="space-y-8"
           >
-            <div className="text-center mb-6">
-              <h2 className="text-2xl md:text-3xl font-bold text-gray-900">Financial Information</h2>
-              <p className="text-base md:text-lg text-gray-600 mt-2">Help us understand your budget and credit situation.</p>
+            <div className="text-center">
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">Financial Information</h2>
+              <p className="text-lg text-gray-600 mb-8">Help us understand your budget and credit situation.</p>
             </div>
             
             <div className="space-y-6">
@@ -551,17 +527,17 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3 }}
-            className="space-y-6"
+            className="space-y-8"
           >
-            <div className="text-center mb-6">
-              <h2 className="text-2xl md:text-3xl font-bold text-gray-900">Personal Information</h2>
-              <p className="text-base md:text-lg text-gray-600 mt-2">Tell us a bit about yourself so we can personalize your options.</p>
+            <div className="text-center">
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">Personal Information</h2>
+              <p className="text-lg text-gray-600 mb-8">Tell us how to contact you.</p>
             </div>
             
-            <div className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
                     First Name
                   </label>
                   <div className="relative">
@@ -580,7 +556,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                 </div>
                 
                 <div>
-                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
                     Last Name
                   </label>
                   <div className="relative">
@@ -599,90 +575,64 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                 </div>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    />
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <Mail className="h-5 w-5 text-gray-400" />
-                    </div>
-                  </div>
-                </div>
-                
-                <div>
-                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone Number
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="tel"
-                      id="phone"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleChange}
-                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    />
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <Phone className="h-5 w-5 text-gray-400" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
               <div>
-                <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700 mb-1">
-                  Date of Birth
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Address
                 </label>
                 <div className="relative">
                   <input
-                    type="date"
-                    id="dateOfBirth"
-                    name="dateOfBirth"
-                    value={formData.dateOfBirth}
+                    type="email"
+                    id="email"
+                    name="email"
+                    value={formData.email}
                     onChange={handleChange}
                     className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                   />
                   <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <Calendar className="h-5 w-5 text-gray-400" />
+                    <Mail className="h-5 w-5 text-gray-400" />
                   </div>
                 </div>
               </div>
               
               <div>
-                <label htmlFor="maritalStatus" className="block text-sm font-medium text-gray-700 mb-1">
-                  Marital Status
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                  Phone Number
                 </label>
                 <div className="relative">
-                  <select
-                    id="maritalStatus"
-                    name="maritalStatus"
-                    value={formData.maritalStatus}
+                  <input
+                    type="tel"
+                    id="phone"
+                    name="phone"
+                    value={formData.phone}
                     onChange={handleChange}
                     className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                  >
-                    <option value="">Select marital status</option>
-                    <option value="single">Single</option>
-                    <option value="married">Married</option>
-                    <option value="divorced">Divorced</option>
-                    <option value="separated">Separated</option>
-                    <option value="widowed">Widowed</option>
-                    <option value="other">Other</option>
-                  </select>
+                  />
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <Phone className="h-5 w-5 text-gray-400" />
+                  </div>
                 </div>
               </div>
-              
+            </div>
+          </motion.div>
+        );
+      
+      case 4:
+        return (
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-8"
+          >
+            <div className="text-center">
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">Address Information</h2>
+              <p className="text-lg text-gray-600 mb-8">Tell us where you live and your date of birth.</p>
+            </div>
+            
+            <div className="space-y-6">
               <div>
-                <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
                   Street Address
                 </label>
                 <div className="relative">
@@ -700,9 +650,9 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                 </div>
               </div>
               
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid md:grid-cols-3 gap-6">
                 <div>
-                  <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-2">
                     City
                   </label>
                   <input
@@ -716,7 +666,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                 </div>
                 
                 <div>
-                  <label htmlFor="province" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="province" className="block text-sm font-medium text-gray-700 mb-2">
                     Province
                   </label>
                   <select
@@ -743,8 +693,8 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                   </select>
                 </div>
                 
-                <div className="col-span-2 md:col-span-1">
-                  <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-1">
+                <div>
+                  <label htmlFor="postalCode" className="block text-sm font-medium text-gray-700 mb-2">
                     Postal Code
                   </label>
                   <input
@@ -760,48 +710,45 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
               </div>
               
               <div>
-                <label htmlFor="monthlyRentMortgage" className="block text-sm font-medium text-gray-700 mb-1">
-                  Monthly Rent/Mortgage Payment
+                <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700 mb-2">
+                  Date of Birth
                 </label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <DollarSign className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <CurrencyInput
-                    id="monthlyRentMortgage"
-                    name="monthlyRentMortgage"
-                    value={formData.monthlyRentMortgage}
-                    onValueChange={(value) => handleCurrencyChange(value, 'monthlyRentMortgage')}
-                    placeholder="Enter monthly payment"
-                    prefix="$"
-                    groupSeparator=","
-                    decimalSeparator="."
-                    className="w-full p-3 pl-10 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                  <input
+                    type="date"
+                    id="dateOfBirth"
+                    name="dateOfBirth"
+                    value={formData.dateOfBirth}
+                    onChange={handleChange}
+                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                   />
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <Calendar className="h-5 w-5 text-gray-400" />
+                  </div>
                 </div>
               </div>
             </div>
           </motion.div>
         );
       
-      case 4:
+      case 5:
         return (
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3 }}
-            className="space-y-6"
+            className="space-y-8"
           >
-            <div className="text-center mb-6">
-              <h2 className="text-2xl md:text-3xl font-bold text-gray-900">Employment Details</h2>
-              <p className="text-base md:text-lg text-gray-600 mt-2">Tell us about your employment situation.</p>
+            <div className="text-center">
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">Employment Information</h2>
+              <p className="text-lg text-gray-600 mb-8">Tell us about your employment situation.</p>
             </div>
             
-            <div className="space-y-5">
+            <div className="space-y-6">
               <div>
-                <label htmlFor="employmentStatus" className="block text-sm font-medium text-gray-700 mb-1">
-                  Employment Status
+                <label htmlFor="employmentStatus" className="block text-sm font-medium text-gray-700 mb-2">
+                  What's your employment status?
                 </label>
                 <div className="relative">
                   <select
@@ -823,18 +770,18 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                 </div>
               </div>
               
-              {formData.employmentStatus === 'self_employed' && (
+              {(formData.employmentStatus === 'employed' || formData.employmentStatus === 'self_employed') && (
                 <>
                   <div>
-                    <label htmlFor="employer" className="block text-sm font-medium text-gray-700 mb-1">
-                      Business Name
+                    <label htmlFor="employerName" className="block text-sm font-medium text-gray-700 mb-2">
+                      Employer Name
                     </label>
                     <div className="relative">
                       <input
                         type="text"
-                        id="employer"
-                        name="employer"
-                        value={formData.employer}
+                        id="employerName"
+                        name="employerName"
+                        value={formData.employerName}
                         onChange={handleChange}
                         className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
                       />
@@ -845,7 +792,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                   </div>
                   
                   <div>
-                    <label htmlFor="occupation" className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="occupation" className="block text-sm font-medium text-gray-700 mb-2">
                       Occupation
                     </label>
                     <div className="relative">
@@ -862,12 +809,49 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       </div>
                     </div>
                   </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      How long have you been with your current employer?
+                    </label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="employmentDurationYears" className="block text-xs text-gray-500 mb-1">
+                          Years
+                        </label>
+                        <input
+                          type="number"
+                          id="employmentDurationYears"
+                          name="employmentDurationYears"
+                          value={formData.employmentDurationYears}
+                          onChange={handleChange}
+                          min="0"
+                          className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="employmentDurationMonths" className="block text-xs text-gray-500 mb-1">
+                          Months
+                        </label>
+                        <input
+                          type="number"
+                          id="employmentDurationMonths"
+                          name="employmentDurationMonths"
+                          value={formData.employmentDurationMonths}
+                          onChange={handleChange}
+                          min="0"
+                          max="11"
+                          className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </>
               )}
               
               <div>
-                <label htmlFor="annualIncome" className="block text-sm font-medium text-gray-700 mb-1">
-                  Total Gross Annual Income (before tax)
+                <label htmlFor="annualIncome" className="block text-sm font-medium text-gray-700 mb-2">
+                  What's your annual income?
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -886,65 +870,27 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                   />
                 </div>
               </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="employmentDurationYears" className="block text-sm font-medium text-gray-700 mb-1">
-                    Years
-                  </label>
-                  <select
-                    id="employmentDurationYears"
-                    name="employmentDurationYears"
-                    value={formData.employmentDurationYears}
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                  >
-                    <option value="">Select Years</option>
-                    {Array.from({ length: 31 }, (_, i) => (
-                      <option key={i} value={i}>{i}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label htmlFor="employmentDurationMonths" className="block text-sm font-medium text-gray-700 mb-1">
-                    Months
-                  </label>
-                  <select
-                    id="employmentDurationMonths"
-                    name="employmentDurationMonths"
-                    value={formData.employmentDurationMonths}
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                  >
-                    <option value="">Select Months</option>
-                    {Array.from({ length: 12 }, (_, i) => (
-                      <option key={i} value={i}>{i}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
             </div>
           </motion.div>
         );
       
-      case 5:
+      case 6:
         return (
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3 }}
-            className="space-y-6"
+            className="space-y-8"
           >
-            <div className="text-center mb-6">
-              <h2 className="text-2xl md:text-3xl font-bold text-gray-900">Additional Information</h2>
-              <p className="text-base md:text-lg text-gray-600 mt-2">Help us understand your financial situation better.</p>
+            <div className="text-center">
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">Additional Information</h2>
+              <p className="text-lg text-gray-600 mb-8">Help us understand your financial situation better.</p>
             </div>
             
-            <div className="space-y-6">
+            <div className="space-y-8">
               {/* Government Benefits Section */}
-              <div className="bg-gray-50 p-4 md:p-6 rounded-lg">
+              <div className="bg-gray-50 p-6 rounded-lg">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Government Benefits</h3>
                 <div className="space-y-4">
                   <div>
@@ -1040,7 +986,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
               </div>
               
               {/* Bankruptcy/Consumer Proposal Section */}
-              <div className="bg-gray-50 p-4 md:p-6 rounded-lg">
+              <div className="bg-gray-50 p-6 rounded-lg">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Debt Discharge History</h3>
                 <div className="space-y-4">
                   <div>
@@ -1152,7 +1098,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
               </div>
               
               {/* Consent Section */}
-              <div className="bg-gray-50 p-4 md:p-6 rounded-lg">
+              <div className="bg-gray-50 p-6 rounded-lg">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Consent</h3>
                 <div className="space-y-4">
                   <label className="flex items-start">
@@ -1186,114 +1132,6 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           </motion.div>
         );
       
-      case 6:
-        return (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-6"
-          >
-            <div className="text-center mb-6">
-              <h2 className="text-2xl md:text-3xl font-bold text-gray-900">Create Your Account</h2>
-              <p className="text-base md:text-lg text-gray-600 mt-2">Set up your account to track your application and get updates.</p>
-            </div>
-            
-            <div className="bg-gray-50 p-4 md:p-6 rounded-lg mb-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="bg-[#3BAA75]/10 rounded-full p-2">
-                  <CheckCircle className="h-5 w-5 text-[#3BAA75]" />
-                </div>
-                <h3 className="font-medium text-gray-900">Your Information</h3>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="bg-white p-3 rounded-md">
-                  <p className="text-xs text-gray-500">Name</p>
-                  <p className="font-medium">{formData.firstName} {formData.lastName}</p>
-                </div>
-                <div className="bg-white p-3 rounded-md">
-                  <p className="text-xs text-gray-500">Email</p>
-                  <p className="font-medium">{formData.email}</p>
-                </div>
-              </div>
-              
-              <p className="text-sm text-gray-600">
-                Create a password to access your application dashboard, upload documents, and track your approval status.
-              </p>
-            </div>
-            
-            <div className="space-y-5">
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                  Create Password
-                </label>
-                <div className="relative">
-                  <input
-                    type="password"
-                    id="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    minLength={8}
-                  />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <Lock className="h-5 w-5 text-gray-400" />
-                  </div>
-                </div>
-                <p className="mt-1 text-xs text-gray-500">Password must be at least 8 characters</p>
-              </div>
-              
-              <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                  Confirm Password
-                </label>
-                <div className="relative">
-                  <input
-                    type="password"
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    minLength={8}
-                  />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <Lock className="h-5 w-5 text-gray-400" />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <div className="mt-1">
-                    <Cpu className="h-5 w-5 text-blue-500" />
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-blue-700">Your account benefits:</h4>
-                    <ul className="mt-2 space-y-1 text-sm text-blue-600">
-                      <li className="flex items-center gap-1">
-                        <CheckCircle className="h-4 w-4 flex-shrink-0" />
-                        <span>Track your application status in real-time</span>
-                      </li>
-                      <li className="flex items-center gap-1">
-                        <CheckCircle className="h-4 w-4 flex-shrink-0" />
-                        <span>Securely upload and manage documents</span>
-                      </li>
-                      <li className="flex items-center gap-1">
-                        <CheckCircle className="h-4 w-4 flex-shrink-0" />
-                        <span>Receive instant notifications about your application</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        );
-      
       default:
         return null;
     }
@@ -1304,7 +1142,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
       {isProcessing ? (
         <ProcessingAnimation />
       ) : (
-        <div className="bg-white rounded-xl shadow-lg p-4 md:p-8">
+        <div className="bg-white rounded-xl shadow-lg p-6 md:p-8">
           {/* Progress Bar */}
           <ProgressBar 
             currentStep={currentStep} 
@@ -1320,7 +1158,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           {/* Error Message */}
           {error && (
             <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-lg flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 flex-shrink-0" />
+              <AlertCircle className="h-5 w-5" />
               <span>{error}</span>
             </div>
           )}
@@ -1336,7 +1174,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
               type="button"
               onClick={handlePrevious}
               disabled={currentStep === 1}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+              className={`flex items-center gap-2 px-6 py-3 rounded-lg transition-colors ${
                 currentStep === 1
                   ? 'opacity-0 pointer-events-none'
                   : 'text-gray-700 hover:bg-gray-100'
