@@ -35,49 +35,73 @@ const QualificationResults = () => {
 
   useEffect(() => {
     const checkAccess = async () => {
+      console.log('QualificationResults: Checking access');
+      console.log('QualificationResults: Location state:', {
+        fromApproval: location.state?.fromApproval,
+        applicationId: location.state?.applicationId,
+        tempUserId: location.state?.tempUserId,
+        hasLoanRange: !!location.state?.loanRange,
+        hasMonthlyBudget: !!location.state?.monthlyBudget
+      });
+      
       // If user is already logged in, redirect directly to dashboard
       if (user) {
-        console.log('User already logged in, redirecting to dashboard');
+        console.log('QualificationResults: User already logged in, redirecting to dashboard');
         navigate('/dashboard', { replace: true });
         return;
       }
 
       if (!location.state?.fromApproval) {
+        console.log('QualificationResults: Not from approval flow, redirecting');
         navigate('/get-approved');
         return;
       }
 
       if (!applicationId) {
+        console.log('QualificationResults: No applicationId, redirecting');
         navigate('/get-approved');
         return;
       }
 
       try {
         // Fetch the application
+        console.log('QualificationResults: Fetching application:', applicationId);
         const { data: application, error } = await supabase
           .from('applications')
           .select('*')
           .eq('id', applicationId)
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('QualificationResults: Error fetching application:', error);
+          throw error;
+        }
 
         // If no application found, redirect
         if (!application) {
+          console.log('QualificationResults: No application found, redirecting');
           navigate('/get-approved');
           return;
         }
+
+        console.log('QualificationResults: Application found:', {
+          id: application.id,
+          temp_user_id: application.temp_user_id,
+          user_id: application.user_id
+        });
 
         // Check access permissions
         if (user) {
           // For authenticated users, check if they own the application
           if (application.user_id !== user.id && !user.app_metadata?.is_admin) {
+            console.log('QualificationResults: User does not own application, redirecting');
             navigate('/dashboard');
             return;
           }
         } else {
           // For unauthenticated users, check temp_user_id
           if (application.temp_user_id !== tempUserId) {
+            console.log('QualificationResults: Invalid tempUserId, redirecting');
             navigate('/get-approved');
             return;
           }
@@ -85,6 +109,7 @@ const QualificationResults = () => {
 
         // Set prequalification data from location state or application data
         if (loanRange && monthlyBudget) {
+          console.log('QualificationResults: Using data from location state');
           setPrequalificationData({
             loanRange,
             vehicleType: vehicleType || 'Any',
@@ -98,6 +123,7 @@ const QualificationResults = () => {
           }
         } else {
           // Fallback to application data if location state is missing
+          console.log('QualificationResults: Using fallback data from application');
           const fallbackData = {
             loanRange: {
               min: application.loan_amount_min || 15000,
@@ -118,7 +144,7 @@ const QualificationResults = () => {
 
         setLoadingResults(false);
       } catch (error) {
-        console.error('Error checking access:', error);
+        console.error('QualificationResults: Error checking access:', error);
         navigate('/get-approved');
       }
     };
@@ -170,6 +196,8 @@ const QualificationResults = () => {
     setIsSubmitting(true);
 
     try {
+      console.log('QualificationResults: Signing up with email:', email);
+      
       // Sign up with Supabase Auth
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
@@ -183,7 +211,7 @@ const QualificationResults = () => {
       });
       
       if (signUpError) {
-        console.error('Error signing up:', signUpError);
+        console.error('QualificationResults: Error signing up:', signUpError);
         
         // If user already exists, redirect to login
         if (signUpError.message.includes('already registered') || 
@@ -197,8 +225,11 @@ const QualificationResults = () => {
         throw signUpError;
       }
 
+      console.log('QualificationResults: Sign up successful, user:', data?.user?.id);
+
       if (data?.user) {
         // Update the application with the new user_id
+        console.log('QualificationResults: Updating application with user_id:', data.user.id);
         const { error: updateError } = await supabase
           .from('applications')
           .update({
@@ -209,15 +240,16 @@ const QualificationResults = () => {
           .eq('temp_user_id', tempUserId);
 
         if (updateError) {
-          console.error('Error updating application:', updateError);
+          console.error('QualificationResults: Error updating application:', updateError);
           throw updateError;
         }
 
+        console.log('QualificationResults: Application updated successfully, redirecting to dashboard');
         // Redirect to dashboard
         navigate('/dashboard');
       }
     } catch (error) {
-      console.error('Error in handleSignUp:', error);
+      console.error('QualificationResults: Error in handleSignUp:', error);
       setPasswordError('An error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);

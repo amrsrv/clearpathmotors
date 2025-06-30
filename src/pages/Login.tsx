@@ -24,6 +24,7 @@ const Login = () => {
   // Check authentication status on load
   useEffect(() => {
     const checkAuth = async () => {
+      console.log('Login: Checking authentication status');
       const { user: currentUser, error } = await verifyAuth();
       
       if (error) {
@@ -34,6 +35,7 @@ const Login = () => {
       
       // If user is logged in, redirect
       if (currentUser) {
+        console.log('Login: User already logged in, redirecting');
         redirectBasedOnRole(currentUser);
       }
     };

@@ -85,11 +85,17 @@ const Signup = () => {
         return;
       }
 
+      console.log('Signup: Attempting to sign up user with email:', formData.email);
+      console.log('Signup: Setting role to "customer" in app_metadata');
+
       // Sign up with Supabase Auth
       const { data, error: signUpError } = await signUp(formData.email, formData.password);
       
       if (signUpError) {
-        if (signUpError.message === 'User already registered' || 
+        console.error('Signup: Error during signup:', signUpError);
+        if (signUpError.message === 'EMAIL_EXISTS' || 
+            signUpError.message.includes('already registered') || 
+            signUpError.message.includes('already exists') || 
             signUpError.message.includes('user_already_exists')) {
           setEmailExists(true);
           setError('An account with this email already exists. Please sign in instead.');
@@ -99,6 +105,8 @@ const Signup = () => {
         throw signUpError;
       }
 
+      console.log('Signup: User created successfully:', data?.user?.id);
+
       if (data?.user) {
         // Parse numeric values safely
         const annualIncomeValue = parseFloat(formData.annualIncome);
@@ -107,6 +115,7 @@ const Signup = () => {
 
         // If we have an applicationId and tempUserId, update the application
         if (applicationId && tempUserId) {
+          console.log('Signup: Updating existing application:', applicationId, 'with user_id:', data.user.id);
           const { error: updateError } = await supabase
             .from('applications')
             .update({
@@ -116,9 +125,15 @@ const Signup = () => {
             .eq('id', applicationId)
             .eq('temp_user_id', tempUserId);
 
-          if (updateError) throw updateError;
+          if (updateError) {
+            console.error('Signup: Error updating application:', updateError);
+            throw updateError;
+          }
+          
+          console.log('Signup: Application updated successfully');
         } else {
           // Create new application if no existing one
+          console.log('Signup: Creating new application for user:', data.user.id);
           const { error: applicationError } = await supabase
             .from('applications')
             .insert({
@@ -135,11 +150,17 @@ const Signup = () => {
               current_stage: 1
             });
 
-          if (applicationError) throw applicationError;
+          if (applicationError) {
+            console.error('Signup: Error creating application:', applicationError);
+            throw applicationError;
+          }
+          
+          console.log('Signup: Application created successfully');
         }
 
         setSuccess(true);
         setTimeout(() => {
+          console.log('Signup: Redirecting to login page');
           navigate('/login', {
             state: { email: formData.email }
           });

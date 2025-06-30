@@ -9,12 +9,17 @@ import toast from 'react-hot-toast';
 
 const GetPrequalified = () => {
   const navigate = useNavigate();
-  const { user, signUp } = useAuth();
+  const { user } = useAuth();
 
   const handleFormComplete = async (applicationId: string, tempUserId: string, formData: any) => {
+    console.log('GetPrequalified: Form completed with applicationId:', applicationId);
+    console.log('GetPrequalified: tempUserId:', tempUserId);
+    console.log('GetPrequalified: Current user state:', user ? { id: user.id, email: user.email } : 'null');
+    
     // If user is already logged in, update the application and redirect to dashboard
     if (user) {
       try {
+        console.log('GetPrequalified: User is logged in, updating application with user_id:', user.id);
         // Update the application with the user's ID
         const { error: updateError } = await supabase
           .from('applications')
@@ -25,22 +30,24 @@ const GetPrequalified = () => {
           .eq('id', applicationId);
 
         if (updateError) {
-          console.error('Error updating application:', updateError);
+          console.error('GetPrequalified: Error updating application:', updateError);
           toast.error('Failed to link application to your account');
           return;
         }
 
+        console.log('GetPrequalified: Application updated successfully, redirecting to dashboard');
         // Redirect to dashboard
         toast.success('Application submitted successfully!');
         navigate('/dashboard', { replace: true });
         return;
       } catch (error) {
-        console.error('Error in handleFormComplete for logged-in user:', error);
+        console.error('GetPrequalified: Error in handleFormComplete for logged-in user:', error);
         toast.error('An error occurred. Please try again.');
         return;
       }
     }
 
+    console.log('GetPrequalified: User not logged in, redirecting to qualification results with data for claim page');
     // For non-logged in users, redirect to qualification results with data for claim page
     navigate('/qualification-results', {
       state: {

@@ -138,7 +138,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
     setIsSubmitting(true);
     
     try {
-      console.log('Submitting application with data:', {
+      console.log('PreQualificationForm: Submitting application with data:', {
         ...data, 
         // Mask sensitive data in logs
         password: data.password ? '********' : undefined,
@@ -191,7 +191,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         terms_accepted: data.terms_accepted,
       };
       
-      console.log('Prepared application data:', {
+      console.log('PreQualificationForm: Prepared application data:', {
         ...applicationData,
         // Avoid logging personal data in production
         first_name: '***',
@@ -209,8 +209,8 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         .single();
       
       if (error) {
-        console.error('Error submitting application:', error);
-        console.log('Error details:', JSON.stringify(error, null, 2));
+        console.error('PreQualificationForm: Error submitting application:', error);
+        console.log('PreQualificationForm: Error details:', JSON.stringify(error, null, 2));
         
         if (error.code === '23505') {
           toast.error('An application with this email already exists.');
@@ -226,7 +226,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         return;
       }
       
-      console.log('Application submitted successfully:', application.id);
+      console.log('PreQualificationForm: Application submitted successfully:', application.id);
       
       // Create initial application stage
       try {
@@ -240,15 +240,15 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
           });
           
         if (stageError) {
-          console.error('Error creating application stage:', stageError);
-          console.log('Stage error details:', JSON.stringify(stageError, null, 2));
+          console.error('PreQualificationForm: Error creating application stage:', stageError);
+          console.log('PreQualificationForm: Stage error details:', JSON.stringify(stageError, null, 2));
           // Continue despite stage error
         } else {
-          console.log('Application stage created successfully');
+          console.log('PreQualificationForm: Application stage created successfully');
         }
       } catch (stageError) {
-        console.error('Exception creating application stage:', stageError);
-        console.log('Stage error details:', stageError instanceof Error ? stageError.message : JSON.stringify(stageError));
+        console.error('PreQualificationForm: Exception creating application stage:', stageError);
+        console.log('PreQualificationForm: Stage error details:', stageError instanceof Error ? stageError.message : JSON.stringify(stageError));
         // Continue despite stage error
       }
       
@@ -265,11 +265,11 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
           });
           
         if (notificationError) {
-          console.error('Error creating welcome notification:', notificationError);
+          console.error('PreQualificationForm: Error creating welcome notification:', notificationError);
           // Continue despite notification error
         }
       } catch (notificationError) {
-        console.error('Exception creating notification:', notificationError);
+        console.error('PreQualificationForm: Exception creating notification:', notificationError);
         // Continue despite notification error
       }
       
@@ -282,8 +282,8 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       });
       
     } catch (error) {
-      console.error('Error in form submission:', error);
-      console.log('Error details:', error instanceof Error ? error.message : JSON.stringify(error));
+      console.error('PreQualificationForm: Error in form submission:', error);
+      console.log('PreQualificationForm: Error details:', error instanceof Error ? error.message : JSON.stringify(error));
       toast.error('An error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
