@@ -1188,7 +1188,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                   className={validationErrors.termsAccepted ? "border-red-500" : ""}
                 />
                 <Label htmlFor="termsAccepted" className="text-sm leading-relaxed cursor-pointer">
-                  I have read and agree to the <a href="/terms" className="text-[#3BAA75] hover:underline">Terms of Service</a> and <a href="/privacy" className="text-[#3BAA75] hover:underline">Privacy Policy</a>. I understand that submitting this application does not guarantee loan approval.
+                  I have read and agree to the <a href="/terms" className="text-[#3BAA75] hover:underline">Terms of Service</a> and <a href="/privacy" className=\"text-[#3BAA75] hover:underline">Privacy Policy</a>. I understand that submitting this application does not guarantee loan approval.
                 </Label>
               </div>
               {validationErrors.termsAccepted && (
