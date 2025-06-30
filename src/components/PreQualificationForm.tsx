@@ -25,8 +25,7 @@ import {
   Building,
   Clock,
   FileText,
-  Cpu,
-  Lock
+  Cpu
 } from 'lucide-react';
 import CurrencyInput from 'react-currency-input-field';
 import { z } from 'zod';
@@ -74,6 +73,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
     employmentDurationYears: '',
     employmentDurationMonths: '',
     annualIncome: '',
+    otherIncome: '',
     
     // Step 5: Additional Information
     collects_government_benefits: false,
@@ -85,14 +85,11 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
     debt_discharge_status: '',
     debt_discharge_year: '',
     amount_owed: '',
-    trustee_name: '',
-    debt_discharge_comments: '',
+    has_driver_license: false,
     
     // Step 6: Account Creation
     password: '',
     confirmPassword: '',
-    
-    // Consent
     consentToSoftCheck: false,
     termsAccepted: false
   });
@@ -112,34 +109,50 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
     3: z.object({
       firstName: z.string().min(1, 'First name is required'),
       lastName: z.string().min(1, 'Last name is required'),
-      email: z.string().email('Please enter a valid email address'),
-      phone: z.string().min(10, 'Please enter a valid phone number'),
+      dateOfBirth: z.string().min(1, 'Date of birth is required'),
       address: z.string().min(1, 'Address is required'),
       city: z.string().min(1, 'City is required'),
       province: z.string().min(1, 'Province is required'),
       postalCode: z.string().regex(/^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/, 'Please enter a valid postal code'),
-      dateOfBirth: z.string().min(1, 'Date of birth is required'),
       housingStatus: z.string().min(1, 'Housing status is required'),
       housingPayment: z.string().optional(),
-      residenceDurationYears: z.string().optional(),
-      residenceDurationMonths: z.string().optional()
+      residenceDurationYears: z.string().refine(val => {
+        const num = parseInt(val);
+        return isNaN(num) || num >= 0;
+      }, 'Years must be a positive number'),
+      residenceDurationMonths: z.string().refine(val => {
+        const num = parseInt(val);
+        return isNaN(num) || (num >= 0 && num <= 11);
+      }, 'Months must be between 0 and 11')
     }),
     4: z.object({
       employmentStatus: z.string().min(1, 'Please select your employment status'),
       employerName: z.string().optional(),
       occupation: z.string().optional(),
-      employmentDurationYears: z.string().optional(),
-      employmentDurationMonths: z.string().optional(),
+      employmentDurationYears: z.string().refine(val => {
+        const num = parseInt(val);
+        return isNaN(num) || num >= 0;
+      }, 'Years must be a positive number'),
+      employmentDurationMonths: z.string().refine(val => {
+        const num = parseInt(val);
+        return isNaN(num) || (num >= 0 && num <= 11);
+      }, 'Months must be between 0 and 11'),
       annualIncome: z.string().refine(val => {
         const num = parseFloat(val.replace(/[^0-9.]/g, ''));
         return !isNaN(num) && num > 0;
-      }, 'Please enter a valid annual income')
+      }, 'Please enter a valid annual income'),
+      otherIncome: z.string().optional()
     }),
     5: z.object({
+      has_driver_license: z.boolean().optional(),
+      collects_government_benefits: z.boolean().optional(),
+      has_debt_discharge_history: z.boolean().optional(),
       consentToSoftCheck: z.boolean().refine(val => val === true, 'You must consent to a soft credit check'),
       termsAccepted: z.boolean().refine(val => val === true, 'You must accept the terms and conditions')
     }),
     6: z.object({
+      email: z.string().email('Please enter a valid email address'),
+      phone: z.string().min(10, 'Please enter a valid phone number'),
       password: z.string().min(8, 'Password must be at least 8 characters'),
       confirmPassword: z.string().min(8, 'Please confirm your password')
     }).refine(data => data.password === data.confirmPassword, {
@@ -202,9 +215,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
         debt_discharge_type: '',
         debt_discharge_status: '',
         debt_discharge_year: '',
-        amount_owed: '',
-        trustee_name: '',
-        debt_discharge_comments: ''
+        amount_owed: ''
       }));
     }
     
@@ -340,10 +351,6 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           province: formData.province,
           postal_code: formData.postalCode,
           date_of_birth: formData.dateOfBirth,
-          housing_status: formData.housingStatus,
-          housing_payment: formData.housingPayment ? parseFloat(formData.housingPayment.replace(/[^0-9.]/g, '')) : null,
-          residence_duration_years: formData.residenceDurationYears ? parseInt(formData.residenceDurationYears) : null,
-          residence_duration_months: formData.residenceDurationMonths ? parseInt(formData.residenceDurationMonths) : null,
           employment_status: formData.employmentStatus,
           employer_name: formData.employerName || null,
           occupation: formData.occupation || null,
@@ -351,6 +358,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           employment_duration_months: formData.employmentDurationMonths ? parseInt(formData.employmentDurationMonths) : null,
           annual_income: parseFloat(formData.annualIncome.replace(/[^0-9.]/g, '')),
           monthly_income: parseFloat(formData.annualIncome.replace(/[^0-9.]/g, '')) / 12,
+          other_income: formData.otherIncome ? parseFloat(formData.otherIncome.replace(/[^0-9.]/g, '')) : 0,
           credit_score: parseInt(formData.creditScore),
           vehicle_type: formData.vehicleType,
           desired_monthly_payment: formData.desiredMonthlyPayment,
@@ -358,6 +366,11 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           loan_amount_max: loanMax,
           interest_rate: interestRate,
           loan_term: term,
+          housing_status: formData.housingStatus,
+          housing_payment: formData.housingPayment ? parseFloat(formData.housingPayment.replace(/[^0-9.]/g, '')) : null,
+          residence_duration_years: formData.residenceDurationYears ? parseInt(formData.residenceDurationYears) : null,
+          residence_duration_months: formData.residenceDurationMonths ? parseInt(formData.residenceDurationMonths) : null,
+          has_driver_license: formData.has_driver_license,
           collects_government_benefits: formData.collects_government_benefits,
           government_benefit_types: formData.government_benefit_types.length > 0 ? formData.government_benefit_types : null,
           government_benefit_other: formData.government_benefit_other || null,
@@ -366,8 +379,6 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           debt_discharge_status: formData.debt_discharge_status || null,
           debt_discharge_year: formData.debt_discharge_year ? parseInt(formData.debt_discharge_year) : null,
           amount_owed: formData.amount_owed ? parseFloat(formData.amount_owed.replace(/[^0-9.]/g, '')) : null,
-          trustee_name: formData.trustee_name || null,
-          debt_discharge_comments: formData.debt_discharge_comments || null,
           consent_soft_check: formData.consentToSoftCheck,
           terms_accepted: formData.termsAccepted
         })
@@ -575,46 +586,6 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                 </div>
               </div>
               
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    />
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <Mail className="h-5 w-5 text-gray-400" />
-                    </div>
-                  </div>
-                </div>
-                
-                <div>
-                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                    Phone Number
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="tel"
-                      id="phone"
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleChange}
-                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    />
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <Phone className="h-5 w-5 text-gray-400" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
               <div>
                 <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700 mb-2">
                   Date of Birth
@@ -733,7 +704,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                 </select>
               </div>
               
-              {(formData.housingStatus === 'rent' || formData.housingStatus === 'own_mortgage') && (
+              {(formData.housingStatus === 'own_mortgage' || formData.housingStatus === 'rent' || formData.housingStatus === 'subsidized_housing') && (
                 <div>
                   <label htmlFor="housingPayment" className="block text-sm font-medium text-gray-700 mb-2">
                     Monthly Housing Payment
@@ -747,7 +718,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       name="housingPayment"
                       value={formData.housingPayment}
                       onValueChange={(value) => handleCurrencyChange(value, 'housingPayment')}
-                      placeholder="Enter your monthly payment"
+                      placeholder="Enter monthly payment"
                       prefix="$"
                       groupSeparator=","
                       decimalSeparator="."
@@ -757,10 +728,10 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                 </div>
               )}
               
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-6">
                 <div>
                   <label htmlFor="residenceDurationYears" className="block text-sm font-medium text-gray-700 mb-2">
-                    Years at Current Residence
+                    Years at Current Address
                   </label>
                   <input
                     type="number"
@@ -775,7 +746,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                 
                 <div>
                   <label htmlFor="residenceDurationMonths" className="block text-sm font-medium text-gray-700 mb-2">
-                    Months at Current Residence
+                    Months at Current Address
                   </label>
                   <input
                     type="number"
@@ -874,10 +845,10 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                 </>
               )}
               
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-6">
                 <div>
                   <label htmlFor="employmentDurationYears" className="block text-sm font-medium text-gray-700 mb-2">
-                    Years {formData.employmentStatus === 'employed' ? 'at Current Employer' : `being ${formData.employmentStatus.replace(/_/g, ' ')}`}
+                    How long have you been {formData.employmentStatus === 'employed' ? 'with this employer' : formData.employmentStatus}? (Years)
                   </label>
                   <input
                     type="number"
@@ -892,7 +863,7 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                 
                 <div>
                   <label htmlFor="employmentDurationMonths" className="block text-sm font-medium text-gray-700 mb-2">
-                    Months {formData.employmentStatus === 'employed' ? 'at Current Employer' : `being ${formData.employmentStatus.replace(/_/g, ' ')}`}
+                    Months
                   </label>
                   <input
                     type="number"
@@ -928,6 +899,29 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                   />
                 </div>
               </div>
+              
+              <div>
+                <label htmlFor="otherIncome" className="block text-sm font-medium text-gray-700 mb-2">
+                  Other Income (Optional)
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <DollarSign className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <CurrencyInput
+                    id="otherIncome"
+                    name="otherIncome"
+                    value={formData.otherIncome}
+                    onValueChange={(value) => handleCurrencyChange(value, 'otherIncome')}
+                    placeholder="Enter any additional income"
+                    prefix="$"
+                    groupSeparator=","
+                    decimalSeparator="."
+                    className="w-full p-3 pl-10 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500">Include any additional sources of income such as part-time work, investments, etc.</p>
+              </div>
             </div>
           </motion.div>
         );
@@ -947,6 +941,35 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
             </div>
             
             <div className="space-y-8">
+              {/* Driver's License */}
+              <div className="bg-gray-50 p-6 rounded-lg">
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm text-gray-700 mb-2">Do you have a valid driver's license?</p>
+                    <div className="flex gap-4">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          checked={formData.has_driver_license === true}
+                          onChange={() => handleRadioChange('has_driver_license', true)}
+                          className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75]"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">Yes</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          checked={formData.has_driver_license === false}
+                          onChange={() => handleRadioChange('has_driver_license', false)}
+                          className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75]"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">No</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
               {/* Government Benefits Section */}
               <div className="bg-gray-50 p-6 rounded-lg">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Government Benefits</h3>
@@ -1128,60 +1151,28 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                       </div>
                       
                       {formData.debt_discharge_status === 'active' && (
-                        <>
-                          <div>
-                            <label htmlFor="amount_owed" className="block text-sm text-gray-700 mb-1">
-                              Amount Owed
-                            </label>
-                            <div className="relative">
-                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <DollarSign className="h-4 w-4 text-gray-400" />
-                              </div>
-                              <CurrencyInput
-                                id="amount_owed"
-                                name="amount_owed"
-                                value={formData.amount_owed}
-                                onValueChange={(value) => handleCurrencyChange(value, 'amount_owed')}
-                                placeholder="Enter amount owed"
-                                prefix="$"
-                                groupSeparator=","
-                                decimalSeparator="."
-                                className="w-full p-2 pl-8 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
-                              />
+                        <div>
+                          <label htmlFor="amount_owed" className="block text-sm text-gray-700 mb-1">
+                            Amount Owed
+                          </label>
+                          <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                              <DollarSign className="h-4 w-4 text-gray-400" />
                             </div>
-                          </div>
-                          
-                          <div>
-                            <label htmlFor="trustee_name" className="block text-sm text-gray-700 mb-1">
-                              Trustee Name
-                            </label>
-                            <input
-                              type="text"
-                              id="trustee_name"
-                              name="trustee_name"
-                              value={formData.trustee_name}
-                              onChange={handleChange}
-                              className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
-                              placeholder="Enter trustee name"
+                            <CurrencyInput
+                              id="amount_owed"
+                              name="amount_owed"
+                              value={formData.amount_owed}
+                              onValueChange={(value) => handleCurrencyChange(value, 'amount_owed')}
+                              placeholder="Enter amount owed"
+                              prefix="$"
+                              groupSeparator=","
+                              decimalSeparator="."
+                              className="w-full p-2 pl-8 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
                             />
                           </div>
-                        </>
+                        </div>
                       )}
-                      
-                      <div>
-                        <label htmlFor="debt_discharge_comments" className="block text-sm text-gray-700 mb-1">
-                          Additional Comments
-                        </label>
-                        <textarea
-                          id="debt_discharge_comments"
-                          name="debt_discharge_comments"
-                          value={formData.debt_discharge_comments}
-                          onChange={handleChange}
-                          className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent"
-                          placeholder="Any additional information about your debt discharge"
-                          rows={3}
-                        />
-                      </div>
                     </div>
                   )}
                 </div>
@@ -1233,45 +1224,55 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
           >
             <div className="text-center">
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">Create Your Account</h2>
-              <p className="text-lg text-gray-600 mb-8">Set up your account to track your application and get updates.</p>
+              <p className="text-lg text-gray-600 mb-8">Set up your account to track your application progress.</p>
             </div>
             
             <div className="space-y-6">
-              <div className="bg-gray-50 p-6 rounded-lg mb-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Application Summary</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Name</p>
-                    <p className="text-sm text-gray-600">{formData.firstName} {formData.lastName}</p>
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="email"
+                      id="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                    />
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                      <Mail className="h-5 w-5 text-gray-400" />
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Email</p>
-                    <p className="text-sm text-gray-600">{formData.email}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Phone</p>
-                    <p className="text-sm text-gray-600">{formData.phone}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Vehicle Type</p>
-                    <p className="text-sm text-gray-600">{formData.vehicleType}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Monthly Payment</p>
-                    <p className="text-sm text-gray-600">${formData.desiredMonthlyPayment}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Credit Score</p>
-                    <p className="text-sm text-gray-600">{formData.creditScore}</p>
+                </div>
+                
+                <div>
+                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone Number
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="tel"
+                      id="phone"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
+                    />
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                      <Phone className="h-5 w-5 text-gray-400" />
+                    </div>
                   </div>
                 </div>
               </div>
               
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                  Create Password
-                </label>
-                <div className="relative">
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                    Password
+                  </label>
                   <input
                     type="password"
                     id="password"
@@ -1279,21 +1280,15 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     value={formData.password}
                     onChange={handleChange}
                     className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    placeholder="••••••••"
                     minLength={8}
                   />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <Lock className="h-5 w-5 text-gray-400" />
-                  </div>
+                  <p className="mt-1 text-xs text-gray-500">Must be at least 8 characters</p>
                 </div>
-                <p className="mt-1 text-xs text-gray-500">Password must be at least 8 characters</p>
-              </div>
-              
-              <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                  Confirm Password
-                </label>
-                <div className="relative">
+                
+                <div>
+                  <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                    Confirm Password
+                  </label>
                   <input
                     type="password"
                     id="confirmPassword"
@@ -1301,30 +1296,41 @@ export const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onCo
                     value={formData.confirmPassword}
                     onChange={handleChange}
                     className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent transition-all duration-200"
-                    placeholder="••••••••"
                     minLength={8}
                   />
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                    <Lock className="h-5 w-5 text-gray-400" />
-                  </div>
                 </div>
               </div>
               
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <div className="mt-1">
-                    <CheckCircle className="h-5 w-5 text-blue-500" />
+              <div className="bg-gray-50 p-6 rounded-lg">
+                <h3 className="text-lg font-medium text-gray-900 mb-4">Application Summary</h3>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">Vehicle Type</p>
+                      <p className="font-medium">{formData.vehicleType}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Monthly Payment</p>
+                      <p className="font-medium">${formData.desiredMonthlyPayment}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Credit Score</p>
+                      <p className="font-medium">{formData.creditScore}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Annual Income</p>
+                      <p className="font-medium">${formData.annualIncome}</p>
+                    </div>
                   </div>
+                  
                   <div>
-                    <p className="text-sm text-blue-700">
-                      By creating an account, you'll be able to:
-                    </p>
-                    <ul className="text-sm text-blue-600 mt-2 space-y-1 list-disc list-inside">
-                      <li>Track your application status</li>
-                      <li>Receive updates on your approval</li>
-                      <li>Upload required documents</li>
-                      <li>Communicate with our team</li>
-                    </ul>
+                    <p className="text-sm text-gray-500">Name</p>
+                    <p className="font-medium">{formData.firstName} {formData.lastName}</p>
+                  </div>
+                  
+                  <div>
+                    <p className="text-sm text-gray-500">Address</p>
+                    <p className="font-medium">{formData.address}, {formData.city}, {formData.province} {formData.postalCode}</p>
                   </div>
                 </div>
               </div>
