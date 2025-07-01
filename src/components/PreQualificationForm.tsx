@@ -47,7 +47,6 @@ const formSchema = z.object({
   // Step 6: Personal Information
   first_name: z.string().min(1, 'First name is required'),
   last_name: z.string().min(1, 'Last name is required'),
-  email: z.string().email('Please enter a valid email address'),
   phone: z.string().min(10, 'Please enter a valid phone number'),
   
   // Terms and consent
@@ -96,7 +95,6 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       annual_income: 0,
       first_name: '',
       last_name: '',
-      email: user?.email || '',
       phone: '',
       consent_soft_check: false,
       terms_accepted: false,
@@ -109,7 +107,6 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
   // Watch values for validation and UI updates
   const vehicleType = watch('vehicle_type');
   const creditScore = watch('credit_score');
-  const email = watch('email');
   const currentStepFields = watch();
 
   // Generate a temporary user ID on component mount
@@ -195,7 +192,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       3: ['credit_score'],
       4: ['address', 'city', 'province', 'postal_code', 'housing_status', 'housing_payment'],
       5: ['employment_status', 'employer_name', 'annual_income'],
-      6: ['first_name', 'last_name', 'email', 'phone', 'consent_soft_check', 'terms_accepted'],
+      6: ['first_name', 'last_name', 'phone', 'consent_soft_check', 'terms_accepted'],
     };
     
     const currentStepFieldsArray = fieldsToValidate[currentStep as keyof typeof fieldsToValidate];
@@ -227,6 +224,10 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         return true;
       }
       
+      // As a fallback, we can check if the email exists in auth.users
+      // This would require a Supabase Edge Function in a real implementation
+      // For now, we'll just use the application check
+      
       return false;
     } catch (error) {
       console.error('Error checking if email exists:', error);
@@ -245,27 +246,13 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       3: ['credit_score'],
       4: ['address', 'city', 'province', 'postal_code', 'housing_status', 'housing_payment'],
       5: ['employment_status', 'employer_name', 'annual_income'],
-      6: ['first_name', 'last_name', 'email', 'phone', 'consent_soft_check', 'terms_accepted'],
+      6: ['first_name', 'last_name', 'phone', 'consent_soft_check', 'terms_accepted'],
     };
     
     // Validate current step fields
     const isStepValid = await trigger(fieldsToValidate[currentStep as keyof typeof fieldsToValidate]);
     
     if (isStepValid) {
-      // If we're on the final step and about to submit, check if email exists
-      if (currentStep === totalSteps && !user) {
-        const emailExists = await checkEmailExists(email);
-        
-        if (emailExists) {
-          // Save form data to sessionStorage
-          sessionStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(currentStepFields));
-          
-          // Show the existing user modal
-          setShowExistingUserModal(true);
-          return;
-        }
-      }
-      
       if (currentStep < totalSteps) {
         setCurrentStep(currentStep + 1);
         // Scroll to top of form
@@ -345,7 +332,6 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         annual_income: data.annual_income,
         first_name: data.first_name,
         last_name: data.last_name,
-        email: data.email,
         phone: data.phone,
         loan_amount_min: loanAmountMin,
         loan_amount_max: loanAmountMax,
@@ -362,7 +348,6 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         // Avoid logging personal data in production
         first_name: '***',
         last_name: '***',
-        email: '***@***.com',
         phone: '***********',
         address: '************'
       });
@@ -456,7 +441,6 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         toast.success('Application submitted successfully!');
         onComplete(application.id, currentTempUserId, {
           ...data,
-          email: data.email,
           password: data.password || '', // Password will be set in the claim page
           loan_amount_min: loanAmountMin,
           loan_amount_max: loanAmountMax,
@@ -923,26 +907,6 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                   
                   <Controller
                     control={control}
-                    name="email"
-                    render={({ field, fieldState: { error } }) => (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Email Address
-                        </label>
-                        <Input
-                          {...field}
-                          type="email"
-                          placeholder="you@example.com"
-                          className={error ? 'border-red-500' : ''}
-                          readOnly={!!user} // Make read-only if user is logged in
-                        />
-                        {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
-                      </div>
-                    )}
-                  />
-                  
-                  <Controller
-                    control={control}
                     name="phone"
                     render={({ field, fieldState: { error } }) => (
                       <div>
@@ -1002,7 +966,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                               htmlFor="terms_accepted"
                               className="ml-2 text-sm text-gray-600"
                             >
-                              I accept the <a href="/terms" className="text-[#3BAA75] hover:underline">terms and conditions</a> and <a href="/privacy" className="text-[#3BAA75] hover:underline">privacy policy</a>
+                              I accept the <a href="/terms" className="text-[#3BAA75] hover:underline">terms and conditions</a> and <a href="/privacy" className=\"text-[#3BAA75] hover:underline">privacy policy</a>
                             </label>
                           </div>
                         )}
@@ -1084,7 +1048,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       <AnimatePresence>
         {showExistingUserModal && (
           <ExistingUserModal
-            email={email}
+            email=""
             onClose={() => setShowExistingUserModal(false)}
             currentPath={location.pathname}
           />
