@@ -384,8 +384,9 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                 transition={{ duration: 0.3 }}
                 className="space-y-6"
               >
-                <h2 className="text-3xl font-bold text-gray-900 leading-tight">Select Your Vehicle Type</h2>
-                <p className="text-gray-600 mt-1">Choose the type of vehicle you're interested in financing.</p>
+<h2 className="text-3xl font-bold text-gray-900 leading-tight text-center mx-auto">
+  Select Your Vehicle Type
+</h2>                <p className="text-gray-600 mt-1">Choose the type of vehicle you're interested in financing.</p>
                 
                 <div className="grid grid-cols-2 gap-4">
                   {vehicles.map((vehicle) => (
