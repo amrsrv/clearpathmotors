@@ -103,9 +103,7 @@ const GetPrequalified = () => {
             <h1 className="text-3xl md:text-5xl font-bold mb-3 md:mb-4 text-gray-900">
               Pre-qualify for a car loan in <span className="text-[#FF5757]">minutes</span>
             </h1>
-            <p className="text-lg md:text-xl text-gray-600 mb-6 md:mb-8">
-              No impact on your credit score
-            </p>
+          
             
             {/* Bank Logos */}
             <div className="mt-6 md:mt-8">
