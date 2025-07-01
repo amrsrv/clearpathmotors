@@ -256,104 +256,111 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         address: '************'
       });
       
-      console.log('PreQualificationForm: About to insert application into Supabase');
-      
-      // Insert application into Supabase
-      const { data: application, error } = await supabase
-        .from('applications')
-        .insert(applicationData)
-        .select()
-        .single();
-      
-      if (error) {
-        console.error('PreQualificationForm: Error submitting application:', error);
-        console.log('PreQualificationForm: Error details:', JSON.stringify(error, null, 2));
+      console.log('PreQualificationForm: Attempting to insert application into Supabase...');
+      try {
+        // Insert application into Supabase
+        const { data: application, error } = await supabase
+          .from('applications')
+          .insert(applicationData)
+          .select()
+          .single();
         
-        if (error.code === '23505') {
-          toast.error('An application with this email already exists.');
-        } else if (error.code === '42501') {
-          toast.error('Permission denied. Please check your credentials.');
-        } else if (error.code === '22P02') {
-          toast.error('Invalid data format. Please check your inputs.');
-        } else {
-          toast.error('Failed to submit application. Please try again.');
+        console.log('PreQualificationForm: Supabase insert call completed.');
+        
+        if (error) {
+          console.error('PreQualificationForm: Error submitting application:', error);
+          console.log('PreQualificationForm: Error details:', JSON.stringify(error, null, 2));
+          
+          if (error.code === '23505') {
+            toast.error('An application with this email already exists.');
+          } else if (error.code === '42501') {
+            toast.error('Permission denied. Please check your credentials.');
+          } else if (error.code === '22P02') {
+            toast.error('Invalid data format. Please check your inputs.');
+          } else {
+            toast.error('Failed to submit application. Please try again.');
+          }
+          
+          setIsSubmitting(false);
+          return;
         }
         
-        setIsSubmitting(false);
-        return;
-      }
-      
-      console.log('PreQualificationForm: Application submitted successfully:', application.id);
-      
-      // Create initial application stage
-      try {
-        console.log('PreQualificationForm: Creating initial application stage');
-        const { error: stageError } = await supabase
-          .from('application_stages')
-          .insert({
-            application_id: application.id,
-            stage_number: 1,
-            status: 'completed',
-            notes: 'Application submitted successfully'
-          });
-          
-        if (stageError) {
-          console.error('PreQualificationForm: Error creating application stage:', stageError);
-          console.log('PreQualificationForm: Stage error details:', JSON.stringify(stageError, null, 2));
+        console.log('PreQualificationForm: Application submitted successfully:', application.id);
+        
+        // Create initial application stage
+        try {
+          console.log('PreQualificationForm: Creating initial application stage');
+          const { error: stageError } = await supabase
+            .from('application_stages')
+            .insert({
+              application_id: application.id,
+              stage_number: 1,
+              status: 'completed',
+              notes: 'Application submitted successfully'
+            });
+            
+          if (stageError) {
+            console.error('PreQualificationForm: Error creating application stage:', stageError);
+            console.log('PreQualificationForm: Stage error details:', JSON.stringify(stageError, null, 2));
+            // Continue despite stage error
+          } else {
+            console.log('PreQualificationForm: Application stage created successfully');
+          }
+        } catch (stageError) {
+          console.error('PreQualificationForm: Exception creating application stage:', stageError);
+          console.log('PreQualificationForm: Stage error details:', stageError instanceof Error ? stageError.message : JSON.stringify(stageError));
           // Continue despite stage error
-        } else {
-          console.log('PreQualificationForm: Application stage created successfully');
         }
-      } catch (stageError) {
-        console.error('PreQualificationForm: Exception creating application stage:', stageError);
-        console.log('PreQualificationForm: Stage error details:', stageError instanceof Error ? stageError.message : JSON.stringify(stageError));
-        // Continue despite stage error
-      }
-      
-      // Create welcome notification
-      try {
-        console.log('PreQualificationForm: Creating welcome notification');
-        const { error: notificationError } = await supabase
-          .from('notifications')
-          .insert({
-            user_id: null,
-            temp_user_id: currentTempUserId,
-            title: 'Welcome to Clearpath Motors!',
-            message: 'Thank you for starting your auto financing journey with us. Create an account to continue your application.',
-            read: false
-          });
-          
-        if (notificationError) {
-          console.error('PreQualificationForm: Error creating welcome notification:', notificationError);
+        
+        // Create welcome notification
+        try {
+          console.log('PreQualificationForm: Creating welcome notification');
+          const { error: notificationError } = await supabase
+            .from('notifications')
+            .insert({
+              user_id: null,
+              temp_user_id: currentTempUserId,
+              title: 'Welcome to Clearpath Motors!',
+              message: 'Thank you for starting your auto financing journey with us. Create an account to continue your application.',
+              read: false
+            });
+            
+          if (notificationError) {
+            console.error('PreQualificationForm: Error creating welcome notification:', notificationError);
+            // Continue despite notification error
+          } else {
+            console.log('PreQualificationForm: Welcome notification created successfully');
+          }
+        } catch (notificationError) {
+          console.error('PreQualificationForm: Exception creating notification:', notificationError);
           // Continue despite notification error
-        } else {
-          console.log('PreQualificationForm: Welcome notification created successfully');
         }
-      } catch (notificationError) {
-        console.error('PreQualificationForm: Exception creating notification:', notificationError);
-        // Continue despite notification error
+        
+        // Call onComplete with the application ID, temp user ID, and form data
+        console.log('PreQualificationForm: About to call onComplete with:', {
+          applicationId: application.id,
+          tempUserId: currentTempUserId
+        });
+        
+        toast.success('Application submitted successfully!');
+        onComplete(application.id, currentTempUserId, {
+          ...data,
+          email: data.email,
+          password: data.password || '', // Password will be set in the claim page
+          loan_amount_min: loanAmountMin,
+          loan_amount_max: loanAmountMax,
+          interest_rate: interestRate
+        });
+        
+        console.log('PreQualificationForm: onComplete called successfully');
+      } catch (insertError) {
+        console.error('PreQualificationForm: Exception during Supabase insert:', insertError);
+        console.log('PreQualificationForm: Insert error details:', insertError instanceof Error ? insertError.message : JSON.stringify(insertError));
+        toast.error('Failed to submit application. Please try again.');
       }
-      
-      // Call onComplete with the application ID, temp user ID, and form data
-      console.log('PreQualificationForm: About to call onComplete with:', {
-        applicationId: application.id,
-        tempUserId: currentTempUserId
-      });
-      
-      toast.success('Application submitted successfully!');
-      onComplete(application.id, currentTempUserId, {
-        ...data,
-        email: data.email,
-        password: data.password || '', // Password will be set in the claim page
-        loan_amount_min: loanAmountMin,
-        loan_amount_max: loanAmountMax,
-        interest_rate: interestRate
-      });
-      
-      console.log('PreQualificationForm: onComplete called successfully');
       
     } catch (error) {
-      console.error('PreQualificationForm: Error in form submission:', error);
+      console.error('PreQualificationForm: Error in form submission (caught in try-catch):', error);
       console.log('PreQualificationForm: Error details:', error instanceof Error ? error.message : JSON.stringify(error));
       toast.error('An error occurred. Please try again.');
     } finally {
