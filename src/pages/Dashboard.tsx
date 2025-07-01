@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import type { Application, ApplicationStage, Document, Notification } from '../types/database';
 import HelpCenter from '../pages/HelpCenter';
+import { MobileNavBar } from '../components/MobileNavBar';
 
 interface DashboardProps {
   activeSection: string;
@@ -412,7 +413,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg shadow-md text-center max-w-md">
+        <div className="bg-white p-8 rounded-xl shadow-xl text-center max-w-md">
           <div className="text-red-500 mb-4">
             <AlertCircle className="h-12 w-12 mx-auto" />
           </div>
@@ -432,7 +433,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
   if (!application) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-lg shadow-md text-center max-w-md">
+        <div className="bg-white p-8 rounded-xl shadow-xl text-center max-w-md">
           <div className="text-[#3BAA75] mb-4">
             <FileText className="h-12 w-12 mx-auto" />
           </div>
@@ -455,12 +456,17 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         return (
           <div className="space-y-6">
             {/* Application Status Card */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="bg-white rounded-xl shadow-xl p-6 border border-gray-100"
+            >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold">Application Status</h2>
+                <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259]">Application Status</h2>
                 <div className="flex items-center">
                   <span className={`
-                    px-3 py-1 text-sm font-medium rounded-full
+                    px-3 py-1.5 text-sm font-medium rounded-full
                     ${application.status === 'pre_approved' ? 'bg-green-100 text-green-700' : 
                       application.status === 'pending_documents' ? 'bg-orange-100 text-orange-700' :
                       application.status === 'under_review' ? 'bg-yellow-100 text-yellow-700' :
@@ -483,38 +489,45 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                   <span>Refresh Status</span>
                 </button>
               </div>
-            </div>
+            </motion.div>
             
             {/* Application Details Card */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h2 className="text-xl font-semibold mb-6">Application Details</h2>
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+              className="bg-white rounded-xl shadow-xl p-6 border border-gray-100"
+            >
+              <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259] mb-6">Application Details</h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Personal Information */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium flex items-center gap-2">
-                    <User className="h-5 w-5 text-[#3BAA75]" />
-                    Personal Information
+                    <div className="p-2 bg-[#3BAA75]/10 rounded-lg">
+                      <User className="h-5 w-5 text-[#3BAA75]" />
+                    </div>
+                    <span>Personal Information</span>
                   </h3>
                   
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-4 w-4 text-gray-400" />
+                  <div className="space-y-3 pl-2">
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <Mail className="h-4 w-4 text-[#3BAA75]" />
                       <span className="text-gray-700">{application.email}</span>
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4 text-gray-400" />
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <Phone className="h-4 w-4 text-[#3BAA75]" />
                       <span className="text-gray-700">{application.phone}</span>
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-gray-400" />
-                      <span className="text-gray-700">{application.address}, {application.city}, {application.province} {application.postal_code}</span>
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <MapPin className="h-4 w-4 text-[#3BAA75]" />
+                      <span className="text-gray-700 text-sm">{application.address}, {application.city}, {application.province} {application.postal_code}</span>
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                      <Home className="h-4 w-4 text-gray-400" />
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <Home className="h-4 w-4 text-[#3BAA75]" />
                       <span className="text-gray-700">
                         Housing: {application.housing_status?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Not specified'}
                       </span>
@@ -525,79 +538,36 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                 {/* Financial Information */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium flex items-center gap-2">
-                    <DollarSign className="h-5 w-5 text-[#3BAA75]" />
-                    Financial Information
+                    <div className="p-2 bg-[#3BAA75]/10 rounded-lg">
+                      <DollarSign className="h-5 w-5 text-[#3BAA75]" />
+                    </div>
+                    <span>Financial Information</span>
                   </h3>
                   
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Briefcase className="h-4 w-4 text-gray-400" />
+                  <div className="space-y-3 pl-2">
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <Briefcase className="h-4 w-4 text-[#3BAA75]" />
                       <span className="text-gray-700">
                         {application.employment_status?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Not specified'}
                       </span>
                     </div>
                     
                     {application.employer_name && (
-                      <div className="flex items-center gap-2">
-                        <Briefcase className="h-4 w-4 text-gray-400" />
+                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                        <Briefcase className="h-4 w-4 text-[#3BAA75]" />
                         <span className="text-gray-700">Employer: {application.employer_name}</span>
                       </div>
                     )}
                     
-                    {application.occupation && (
-                      <div className="flex items-center gap-2">
-                        <Briefcase className="h-4 w-4 text-gray-400" />
-                        <span className="text-gray-700">Occupation: {application.occupation}</span>
-                      </div>
-                    )}
-                    
-                    {(application.employment_duration_years !== null || application.employment_duration_months !== null) && (
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-gray-400" />
-                        <span className="text-gray-700">
-                          Employment Duration: {formatDuration(application.employment_duration_years, application.employment_duration_months)}
-                        </span>
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-gray-400" />
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <DollarSign className="h-4 w-4 text-[#3BAA75]" />
                       <span className="text-gray-700">Annual Income: ${application.annual_income?.toLocaleString()}</span>
                     </div>
                     
-                    {application.other_income !== null && application.other_income > 0 && (
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="h-4 w-4 text-gray-400" />
-                        <span className="text-gray-700">Other Income: ${application.other_income?.toLocaleString()}</span>
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center gap-2">
-                      <CreditCard className="h-4 w-4 text-gray-400" />
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                      <CreditCard className="h-4 w-4 text-[#3BAA75]" />
                       <span className="text-gray-700">Credit Score: {application.credit_score}</span>
                     </div>
-                    
-                    {application.collects_government_benefits && (
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="h-4 w-4 text-gray-400" />
-                        <span className="text-gray-700">
-                          Collects Government Benefits: {application.government_benefit_types?.map(type => 
-                            type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-                          ).join(', ')}
-                        </span>
-                      </div>
-                    )}
-                    
-                    {application.has_debt_discharge_history && (
-                      <div className="flex items-center gap-2">
-                        <AlertCircle className="h-4 w-4 text-gray-400" />
-                        <span className="text-gray-700">
-                          Debt Discharge: {application.debt_discharge_type?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} 
-                          ({application.debt_discharge_status?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())})
-                          {application.debt_discharge_year ? ` - ${application.debt_discharge_year}` : ''}
-                        </span>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -605,33 +575,35 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
               {/* Loan Details */}
               <div className="mt-8 pt-6 border-t border-gray-200">
                 <h3 className="text-lg font-medium flex items-center gap-2 mb-4">
-                  <DollarSign className="h-5 w-5 text-[#3BAA75]" />
-                  Loan Details
+                  <div className="p-2 bg-[#3BAA75]/10 rounded-lg">
+                    <DollarSign className="h-5 w-5 text-[#3BAA75]" />
+                  </div>
+                  <span>Loan Details</span>
                 </h3>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-gradient-to-br from-[#3BAA75]/5 to-[#3BAA75]/10 p-4 rounded-xl">
                     <div className="text-sm text-gray-500 mb-1">Loan Range</div>
                     <div className="font-semibold">
                       ${application.loan_amount_min?.toLocaleString()} - ${application.loan_amount_max?.toLocaleString()}
                     </div>
                   </div>
                   
-                  <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="bg-gradient-to-br from-[#3BAA75]/5 to-[#3BAA75]/10 p-4 rounded-xl">
                     <div className="text-sm text-gray-500 mb-1">Monthly Payment</div>
                     <div className="font-semibold">
                       ${application.desired_monthly_payment?.toLocaleString()}
                     </div>
                   </div>
                   
-                  <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="bg-gradient-to-br from-[#3BAA75]/5 to-[#3BAA75]/10 p-4 rounded-xl">
                     <div className="text-sm text-gray-500 mb-1">Interest Rate</div>
                     <div className="font-semibold">
                       {application.interest_rate}%
                     </div>
                   </div>
                   
-                  <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="bg-gradient-to-br from-[#3BAA75]/5 to-[#3BAA75]/10 p-4 rounded-xl">
                     <div className="text-sm text-gray-500 mb-1">Loan Term</div>
                     <div className="font-semibold">
                       {application.loan_term} months
@@ -646,7 +618,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                 
                 <div className="space-y-4">
                   {application.status === 'pending_documents' && (
-                    <div className="flex items-start gap-3 p-4 bg-orange-50 text-orange-700 rounded-lg">
+                    <div className="flex items-start gap-3 p-4 bg-orange-50 text-orange-700 rounded-xl shadow-sm">
                       <div className="mt-0.5">
                         <AlertCircle className="h-5 w-5" />
                       </div>
@@ -657,7 +629,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                         </p>
                         <button
                           onClick={() => setActiveSection('documents')}
-                          className="mt-2 text-sm font-medium flex items-center gap-1 hover:underline"
+                          className="mt-3 px-4 py-2 bg-orange-100 text-orange-700 rounded-lg text-sm font-medium hover:bg-orange-200 transition-colors flex items-center gap-1"
                         >
                           Go to Documents
                           <ChevronRight className="h-4 w-4" />
@@ -667,7 +639,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                   )}
                   
                   {application.status === 'pre_approved' && (
-                    <div className="flex items-start gap-3 p-4 bg-green-50 text-green-700 rounded-lg">
+                    <div className="flex items-start gap-3 p-4 bg-green-50 text-green-700 rounded-xl shadow-sm">
                       <div className="mt-0.5">
                         <CheckCircle className="h-5 w-5" />
                       </div>
@@ -678,7 +650,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                         </p>
                         <button
                           onClick={() => setActiveSection('appointment')}
-                          className="mt-2 text-sm font-medium flex items-center gap-1 hover:underline"
+                          className="mt-3 px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium hover:bg-green-200 transition-colors flex items-center gap-1"
                         >
                           Schedule Consultation
                           <ChevronRight className="h-4 w-4" />
@@ -688,7 +660,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                   )}
                   
                   {application.status === 'under_review' && (
-                    <div className="flex items-start gap-3 p-4 bg-yellow-50 text-yellow-700 rounded-lg">
+                    <div className="flex items-start gap-3 p-4 bg-yellow-50 text-yellow-700 rounded-xl shadow-sm">
                       <div className="mt-0.5">
                         <Clock className="h-5 w-5" />
                       </div>
@@ -702,15 +674,20 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                   )}
                 </div>
               </div>
-            </div>
+            </motion.div>
             
             {/* Benefits Section */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h2 className="text-xl font-semibold mb-6">Your Benefits</h2>
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.2 }}
+              className="bg-white rounded-xl shadow-xl p-6 border border-gray-100"
+            >
+              <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259] mb-6">Your Benefits</h2>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="flex flex-col items-center text-center p-4">
-                  <div className="bg-[#3BAA75]/10 rounded-full p-4 mb-4">
+                <div className="flex flex-col items-center text-center p-4 bg-gradient-to-br from-[#3BAA75]/5 to-[#3BAA75]/10 rounded-xl transition-transform hover:scale-105 duration-300">
+                  <div className="bg-white rounded-full p-4 mb-4 shadow-md">
                     <Shield className="h-6 w-6 text-[#3BAA75]" />
                   </div>
                   <h3 className="font-medium text-lg mb-2">Secure Process</h3>
@@ -719,8 +696,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                   </p>
                 </div>
                 
-                <div className="flex flex-col items-center text-center p-4">
-                  <div className="bg-[#3BAA75]/10 rounded-full p-4 mb-4">
+                <div className="flex flex-col items-center text-center p-4 bg-gradient-to-br from-[#3BAA75]/5 to-[#3BAA75]/10 rounded-xl transition-transform hover:scale-105 duration-300">
+                  <div className="bg-white rounded-full p-4 mb-4 shadow-md">
                     <BadgeCheck className="h-6 w-6 text-[#3BAA75]" />
                   </div>
                   <h3 className="font-medium text-lg mb-2">Pre-Qualified</h3>
@@ -729,8 +706,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                   </p>
                 </div>
                 
-                <div className="flex flex-col items-center text-center p-4">
-                  <div className="bg-[#3BAA75]/10 rounded-full p-4 mb-4">
+                <div className="flex flex-col items-center text-center p-4 bg-gradient-to-br from-[#3BAA75]/5 to-[#3BAA75]/10 rounded-xl transition-transform hover:scale-105 duration-300">
+                  <div className="bg-white rounded-full p-4 mb-4 shadow-md">
                     <Award className="h-6 w-6 text-[#3BAA75]" />
                   </div>
                   <h3 className="font-medium text-lg mb-2">Credit Building</h3>
@@ -739,16 +716,21 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                   </p>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
         );
         
       case 'documents':
         return (
           <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="bg-white rounded-xl shadow-xl p-6 border border-gray-100"
+            >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold">Required Documents</h2>
+                <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259]">Required Documents</h2>
                 <button
                   onClick={handleRefresh}
                   className="flex items-center gap-2 text-[#3BAA75] hover:text-[#2D8259] transition-colors"
@@ -764,9 +746,14 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                 isUploading={isUploadingDocument}
                 uploadError={uploadError}
               />
-            </div>
+            </motion.div>
             
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+              className="bg-white rounded-xl shadow-xl p-6 border border-gray-100"
+            >
               <DocumentManager
                 applicationId={application.id}
                 documents={documents}
@@ -775,32 +762,42 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                 isUploading={isUploadingDocument}
                 uploadError={uploadError}
               />
-            </div>
+            </motion.div>
           </div>
         );
         
       case 'notifications':
         return (
           <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="bg-white rounded-xl shadow-xl p-6 border border-gray-100"
+            >
               <NotificationCenter
                 notifications={notifications}
                 onMarkAsRead={handleMarkNotificationAsRead}
                 onNavigate={setActiveSection}
               />
-            </div>
+            </motion.div>
           </div>
         );
         
       case 'profile':
         return (
           <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h2 className="text-xl font-semibold mb-6">Your Profile</h2>
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="bg-white rounded-xl shadow-xl p-6 border border-gray-100"
+            >
+              <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259] mb-6">Your Profile</h2>
               
               <div className="space-y-6">
                 <div className="flex items-center gap-4">
-                  <div className="bg-[#3BAA75] rounded-full w-16 h-16 flex items-center justify-center text-white text-2xl font-bold">
+                  <div className="bg-gradient-to-br from-[#3BAA75] to-[#2D8259] rounded-full w-16 h-16 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
                     {application.first_name?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
                   </div>
                   <div>
@@ -819,36 +816,51 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Email Address
                         </label>
-                        <input
-                          type="email"
-                          value={user?.email || application.email || ''}
-                          disabled
-                          className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700"
-                        />
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <Mail className="h-5 w-5 text-gray-400" />
+                          </div>
+                          <input
+                            type="email"
+                            value={user?.email || application.email || ''}
+                            disabled
+                            className="w-full pl-10 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700"
+                          />
+                        </div>
                       </div>
                       
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Phone Number
                         </label>
-                        <input
-                          type="tel"
-                          value={application.phone || ''}
-                          disabled
-                          className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700"
-                        />
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <Phone className="h-5 w-5 text-gray-400" />
+                          </div>
+                          <input
+                            type="tel"
+                            value={application.phone || ''}
+                            disabled
+                            className="w-full pl-10 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700"
+                          />
+                        </div>
                       </div>
                       
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Address
                         </label>
-                        <input
-                          type="text"
-                          value={`${application.address || ''}, ${application.city || ''}, ${application.province || ''} ${application.postal_code || ''}`}
-                          disabled
-                          className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700"
-                        />
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <MapPin className="h-5 w-5 text-gray-400" />
+                          </div>
+                          <input
+                            type="text"
+                            value={`${application.address || ''}, ${application.city || ''}, ${application.province || ''} ${application.postal_code || ''}`}
+                            disabled
+                            className="w-full pl-10 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700"
+                          />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -861,15 +873,20 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                           Password
                         </label>
                         <div className="flex">
-                          <input
-                            type="password"
-                            value="••••••••"
-                            disabled
-                            className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-l-lg text-gray-700"
-                          />
+                          <div className="relative flex-grow">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                              <Lock className="h-5 w-5 text-gray-400" />
+                            </div>
+                            <input
+                              type="password"
+                              value="••••••••"
+                              disabled
+                              className="w-full pl-10 px-4 py-2 bg-gray-50 border border-gray-200 rounded-l-lg text-gray-700"
+                            />
+                          </div>
                           <Link
                             to="/reset-password"
-                            className="px-4 py-2 bg-[#3BAA75] text-white rounded-r-lg hover:bg-[#2D8259] transition-colors"
+                            className="px-4 py-2 bg-[#3BAA75] text-white rounded-r-lg hover:bg-[#2D8259] transition-colors flex items-center"
                           >
                             Change
                           </Link>
@@ -880,7 +897,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Notification Preferences
                         </label>
-                        <div className="space-y-2">
+                        <div className="space-y-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
                           <div className="flex items-center">
                             <input
                               type="checkbox"
@@ -931,29 +948,45 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           </div>
         );
         
       case 'help':
         return (
-          <HelpCenter userId={user?.id || tempUserId || ''} applicationId={application.id} />
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <HelpCenter userId={user?.id || tempUserId || ''} applicationId={application.id} />
+          </motion.div>
         );
         
       case 'messages':
         return (
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-6"
+          >
+            <div className="bg-white rounded-xl shadow-xl overflow-hidden border border-gray-100">
               <UserMessageCenter userId={user?.id || tempUserId || ''} applicationId={application.id} />
             </div>
-          </div>
+          </motion.div>
         );
         
       case 'appointment':
         return (
-          <div className="space-y-6">
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-6"
+          >
             <AppointmentScheduler onSchedule={handleScheduleAppointment} />
-          </div>
+          </motion.div>
         );
         
       default:
@@ -978,6 +1011,11 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
           </motion.div>
         </AnimatePresence>
       </div>
+      
+      {/* Mobile Navigation Bar */}
+      {user && (
+        <MobileNavBar onNavigate={setActiveSection} activeSection={activeSection} />
+      )}
     </div>
   );
 };
@@ -994,6 +1032,25 @@ const formatDuration = (years: number | null, months: number | null): string => 
   }
   
   return yearText || monthText;
+};
+
+// Mock Lock component for the profile section
+const Lock = ({ className }: { className?: string }) => {
+  return (
+    <svg 
+      xmlns="http://www.w3.org/2000/svg" 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round" 
+      className={className}
+    >
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+    </svg>
+  );
 };
 
 export default Dashboard;

@@ -78,5 +78,34 @@ export default {
       }
     }
   },
-  plugins: [require('tailwindcss-animate')]
+  plugins: [
+    require('tailwindcss-animate'),
+    function({ addUtilities }) {
+      const newUtilities = {
+        '.scrollbar-thin': {
+          'scrollbarWidth': 'thin',
+          '&::-webkit-scrollbar': {
+            width: '6px',
+            height: '6px',
+          },
+        },
+        '.scrollbar-thumb-gray-300': {
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: '#D1D5DB',
+            borderRadius: '3px',
+          },
+          '&::-webkit-scrollbar-thumb:hover': {
+            backgroundColor: '#9CA3AF',
+          },
+        },
+        '.scrollbar-track-gray-100': {
+          '&::-webkit-scrollbar-track': {
+            backgroundColor: '#F3F4F6',
+            borderRadius: '3px',
+          },
+        },
+      };
+      addUtilities(newUtilities, ['responsive', 'hover']);
+    }
+  ]
 };

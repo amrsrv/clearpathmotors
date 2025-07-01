@@ -84,32 +84,32 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({ applicat
   }, []);
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
-      <h2 className="text-xl sm:text-2xl font-semibold mb-4 sm:mb-6">Application Progress</h2>
+    <div className="bg-white rounded-xl overflow-hidden">
+      <h2 className="text-xl font-semibold mb-4 hidden">Application Progress</h2>
       
       {isMobile ? (
         // Mobile view - horizontal progress bar with collapsible details
         <div className="space-y-6">
           {/* Horizontal progress bar */}
-          <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div className="relative h-3 bg-gray-100 rounded-full overflow-hidden">
             <motion.div 
-              className="absolute inset-y-0 left-0 bg-[#3BAA75] rounded-full"
+              className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#3BAA75] to-[#2D8259] rounded-full"
               initial={{ width: 0 }}
               animate={{ width: `${(currentStage / 7) * 100}%` }}
-              transition={{ duration: 0.5 }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
             />
           </div>
           
           <div className="flex justify-between text-xs text-gray-500">
             <span>Start</span>
-            <span>Stage {currentStage}/7</span>
+            <span className="font-medium text-[#3BAA75]">Stage {currentStage}/7</span>
             <span>Complete</span>
           </div>
           
           {/* Current stage details */}
-          <div className="bg-[#3BAA75]/5 rounded-lg p-4 border border-[#3BAA75]/20">
+          <div className="bg-gradient-to-br from-[#3BAA75]/5 to-[#3BAA75]/10 rounded-xl p-4 border border-[#3BAA75]/10 shadow-sm">
             <div className="flex items-center gap-3 mb-2">
-              <div className="bg-[#3BAA75] text-white rounded-full p-2">
+              <div className="bg-[#3BAA75] text-white rounded-full p-2 shadow-md">
                 {stageDefinitions[currentStage - 1].icon}
               </div>
               <h3 className="font-semibold text-gray-900">
@@ -129,25 +129,27 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({ applicat
           </div>
           
           {/* Completed stages */}
-          <div className="space-y-2">
-            <h4 className="text-sm font-medium text-gray-700">Completed Stages</h4>
-            {stageDefinitions.slice(0, currentStage - 1).map((stage, index) => (
-              <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                <div className="bg-green-100 text-green-700 rounded-full p-1.5">
-                  <CheckCircle className="w-4 h-4" />
+          {currentStage > 1 && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium text-gray-700">Completed Stages</h4>
+              {stageDefinitions.slice(0, currentStage - 1).map((stage, index) => (
+                <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="bg-green-100 text-green-700 rounded-full p-1.5 shadow-sm">
+                    <CheckCircle className="w-4 h-4" />
+                  </div>
+                  <span className="text-sm font-medium">{stage.title}</span>
                 </div>
-                <span className="text-sm font-medium">{stage.title}</span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
           
           {/* Upcoming stages */}
           {currentStage < 7 && (
             <div className="space-y-2">
               <h4 className="text-sm font-medium text-gray-700">Upcoming Stages</h4>
               {stageDefinitions.slice(currentStage).map((stage, index) => (
-                <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg opacity-60">
-                  <div className="bg-gray-100 text-gray-400 rounded-full p-1.5">
+                <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 opacity-60">
+                  <div className="bg-gray-100 text-gray-400 rounded-full p-1.5 shadow-sm">
                     {stage.icon}
                   </div>
                   <span className="text-sm font-medium text-gray-500">{stage.title}</span>
@@ -160,7 +162,7 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({ applicat
         // Desktop view - vertical timeline
         <div className="relative">
           {/* Vertical line */}
-          <div className="absolute left-[21px] top-0 h-full w-px bg-gray-200" />
+          <div className="absolute left-[21px] top-0 h-full w-0.5 bg-gradient-to-b from-[#3BAA75]/20 via-[#3BAA75] to-[#3BAA75]/20" />
 
           {stageDefinitions.map((stage, index) => {
             const stageNumber = index + 1;
@@ -171,19 +173,27 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({ applicat
             return (
               <div key={index} className="relative flex items-start mb-8 last:mb-0">
                 {/* Stage indicator */}
-                <div
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: index * 0.1, duration: 0.3 }}
                   className={`
-                    w-11 h-11 rounded-full flex items-center justify-center z-10
-                    ${isCompleted ? 'bg-[#3BAA75] text-white' : 
-                      isCurrent ? 'bg-[#3BAA75]/20 text-[#3BAA75]' : 
-                      'bg-gray-100 text-gray-400'}
+                    w-11 h-11 rounded-full flex items-center justify-center z-10 shadow-md
+                    ${isCompleted ? 'bg-gradient-to-br from-[#3BAA75] to-[#2D8259] text-white' : 
+                      isCurrent ? 'bg-gradient-to-br from-[#3BAA75]/20 to-[#3BAA75]/30 text-[#3BAA75] border border-[#3BAA75]/30' : 
+                      'bg-gray-100 text-gray-400 border border-gray-200'}
                   `}
                 >
                   {isCompleted ? <CheckCircle className="w-5 h-5" /> : stage.icon}
-                </div>
+                </motion.div>
 
                 {/* Stage content */}
-                <div className="ml-4 flex-1">
+                <motion.div 
+                  initial={{ x: -10, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: index * 0.1 + 0.1, duration: 0.3 }}
+                  className="ml-4 flex-1"
+                >
                   <h3 className={`font-semibold ${isCompleted || isCurrent ? 'text-gray-900' : 'text-gray-500'}`}>
                     {stage.title}
                   </h3>
@@ -207,7 +217,7 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({ applicat
                       )}
                     </div>
                   )}
-                </div>
+                </motion.div>
               </div>
             );
           })}

@@ -94,7 +94,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     <div className="bg-white rounded-xl shadow-lg p-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center">
-          <h2 className="text-xl font-semibold">Notifications</h2>
+          <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259]">Notifications</h2>
           {unreadCount > 0 && (
             <span className="ml-2 bg-[#3BAA75] text-white px-2 py-1 rounded-full text-sm">
               {unreadCount} new
@@ -147,15 +147,15 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
             exit={{ height: 0, opacity: 0 }}
             className="mb-4 overflow-hidden"
           >
-            <div className="bg-gray-50 p-3 rounded-lg">
+            <div className="bg-gray-50 p-3 rounded-xl shadow-sm">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-700">Filter by:</span>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setFilterType('all')}
-                    className={`px-3 py-1 text-xs rounded-full ${
+                    className={`px-3 py-1.5 text-xs rounded-full ${
                       filterType === 'all' 
-                        ? 'bg-[#3BAA75] text-white' 
+                        ? 'bg-[#3BAA75] text-white shadow-sm' 
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                     }`}
                   >
@@ -163,9 +163,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                   </button>
                   <button
                     onClick={() => setFilterType('unread')}
-                    className={`px-3 py-1 text-xs rounded-full ${
+                    className={`px-3 py-1.5 text-xs rounded-full ${
                       filterType === 'unread' 
-                        ? 'bg-[#3BAA75] text-white' 
+                        ? 'bg-[#3BAA75] text-white shadow-sm' 
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                     }`}
                   >
@@ -173,9 +173,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                   </button>
                   <button
                     onClick={() => setFilterType('read')}
-                    className={`px-3 py-1 text-xs rounded-full ${
+                    className={`px-3 py-1.5 text-xs rounded-full ${
                       filterType === 'read' 
-                        ? 'bg-[#3BAA75] text-white' 
+                        ? 'bg-[#3BAA75] text-white shadow-sm' 
                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                     }`}
                   >
@@ -188,7 +188,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         )}
       </AnimatePresence>
 
-      <div className="space-y-4 max-h-[400px] overflow-y-auto">
+      <div className="space-y-4 max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
         <AnimatePresence>
           {filteredNotifications.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
@@ -203,18 +203,26 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 className={`
-                  p-4 rounded-lg transition-colors relative
-                  ${notification.read ? 'bg-gray-50' : 'bg-[#3BAA75]/5 border border-[#3BAA75]/10'}
+                  p-4 rounded-xl transition-all duration-200 relative
+                  ${notification.read 
+                    ? 'bg-gray-50 border border-gray-100' 
+                    : 'bg-gradient-to-br from-[#3BAA75]/5 to-[#3BAA75]/10 border border-[#3BAA75]/20 shadow-sm'}
                 `}
               >
                 <div className="flex items-start gap-3">
                   <div className="flex-shrink-0">
                     {notification.title.includes('Approved') ? (
-                      <CheckCircle className="w-5 h-5 text-green-500" />
+                      <div className="p-2 bg-green-100 rounded-full">
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                      </div>
                     ) : notification.title.includes('Rejected') ? (
-                      <AlertCircle className="w-5 h-5 text-red-500" />
+                      <div className="p-2 bg-red-100 rounded-full">
+                        <AlertCircle className="w-5 h-5 text-red-500" />
+                      </div>
                     ) : (
-                      <Info className="w-5 h-5 text-[#3BAA75]" />
+                      <div className="p-2 bg-[#3BAA75]/10 rounded-full">
+                        <Info className="w-5 h-5 text-[#3BAA75]" />
+                      </div>
                     )}
                   </div>
                   
