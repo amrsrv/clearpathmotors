@@ -27,6 +27,7 @@ interface Message {
   is_admin: boolean;
   read: boolean;
   created_at: string;
+  temp_user_id: string | null;
 }
 
 interface UserMessageCenterProps {
@@ -68,6 +69,41 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({
   useEffect(() => {
     if (userId) {
       loadMessages();
+      
+      // Set up real-time subscription for messages
+      const messagesChannel = supabase
+        .channel('user-messages')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'admin_messages',
+            filter: `user_id=eq.${userId}`
+          },
+          (payload) => {
+            if (payload.eventType === 'INSERT') {
+              // Add the new message to our state
+              setMessages(prev => [...prev, payload.new as Message]);
+              
+              // If it's an admin message, mark it as read when we're viewing it
+              if ((payload.new as Message).is_admin) {
+                markMessageAsRead(payload.new.id);
+                
+                // Show toast notification for new message
+                toast.success('New message from support team');
+              }
+              
+              // Scroll to bottom
+              scrollToBottom();
+            }
+          }
+        )
+        .subscribe();
+        
+      return () => {
+        supabase.removeChannel(messagesChannel);
+      };
     }
   }, [userId, applicationId]);
 
@@ -92,11 +128,17 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({
     try {
       setLoading(true);
       
-      const { data, error } = await supabase
+      let query = supabase
         .from('admin_messages')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: true });
+        .select('*');
+        
+      if (user) {
+        query = query.eq('user_id', userId);
+      } else {
+        query = query.eq('temp_user_id', userId);
+      }
+      
+      const { data, error } = await query.order('created_at', { ascending: true });
         
       if (error) throw error;
       
@@ -144,7 +186,10 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({
         .update({ read: true })
         .in('id', messageIds);
         
-      if (error) throw error;
+      if (error) {
+        console.error('Error marking messages as read:', error);
+        return;
+      }
       
       // Update local state
       setMessages(prev => 
@@ -163,15 +208,27 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({
     try {
       setSendingMessage(true);
       
+      const messageData = user 
+        ? {
+            user_id: userId,
+            admin_id: null,
+            application_id: applicationId,
+            message: messageText,
+            is_admin: false,
+            read: false
+          }
+        : {
+            temp_user_id: userId,
+            admin_id: null,
+            application_id: applicationId,
+            message: messageText,
+            is_admin: false,
+            read: false
+          };
+      
       const { error } = await supabase
         .from('admin_messages')
-        .insert({
-          user_id: userId,
-          application_id: applicationId,
-          message: messageText,
-          is_admin: false,
-          read: false
-        });
+        .insert(messageData);
         
       if (error) throw error;
       
@@ -382,7 +439,7 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({
             value={messageText}
             onChange={(e) => setMessageText(e.target.value)}
             placeholder="Type your message here..."
-            className="flex-1 border rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent text-base resize-none"
+            className="flex-1 border rounded-lg px-4 py-3 focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent text-sm resize-none"
             rows={1}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
