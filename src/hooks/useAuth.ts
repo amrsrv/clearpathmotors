@@ -257,8 +257,14 @@ export const useAuth = () => {
       setUser(null);
       setSession(null);
       
-      // Clear any temporary user ID from localStorage
-      localStorage.removeItem('tempUserId');
+      // Clear all Supabase-related items from localStorage
+      console.log('useAuth: clearing all Supabase-related localStorage items');
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sb-') || key === 'tempUserId' || key === 'chatAnonymousId') {
+          console.log('useAuth: removing localStorage item:', key);
+          localStorage.removeItem(key);
+        }
+      });
       
       // Then attempt to sign out from Supabase
       const { error } = await supabase.auth.signOut();
