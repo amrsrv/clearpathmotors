@@ -302,11 +302,14 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       }
       
       // Call onComplete with the application ID, temp user ID, and form data
-      toast.success('Application submitted successfully! Redirecting...');
+      toast.success('Application submitted successfully!');
       onComplete(application.id, currentTempUserId, {
         ...data,
         email: data.email,
         password: data.password || '', // Password will be set in the claim page
+        loan_amount_min: loanAmountMin,
+        loan_amount_max: loanAmountMax,
+        interest_rate: interestRate
       });
       
     } catch (error) {

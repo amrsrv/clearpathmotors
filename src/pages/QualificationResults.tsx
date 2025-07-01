@@ -227,12 +227,9 @@ const QualificationResults = () => {
         throw signUpError;
       }
 
-      console.log('QualificationResults: Sign up successful, user:', data?.user?.id);
+      console.log('QualificationResults: Sign up successful:', data?.user?.id);
 
       if (data?.user) {
-        // Get the anonymous session ID from localStorage
-        const anonymousId = localStorage.getItem('anonymousUserId');
-        
         // Update the application with the new user_id
         console.log('QualificationResults: Updating application with user_id:', data.user.id);
         const { error: updateError } = await supabase
@@ -248,8 +245,8 @@ const QualificationResults = () => {
           throw updateError;
         }
 
-        // Clear the anonymous ID from localStorage
-        localStorage.removeItem('anonymousUserId');
+        // Clear the temporary user ID from localStorage
+        localStorage.removeItem('tempUserId');
 
         console.log('QualificationResults: Application updated successfully, redirecting to dashboard');
         // Redirect to dashboard

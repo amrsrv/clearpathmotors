@@ -35,10 +35,11 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
   const [tempUserId, setTempUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check for anonymous ID in localStorage
-    const storedAnonymousId = localStorage.getItem('chatAnonymousId');
-    if (storedAnonymousId) {
-      setTempUserId(storedAnonymousId);
+    // Check for temporary user ID in localStorage
+    const storedTempUserId = localStorage.getItem('tempUserId');
+    if (storedTempUserId) {
+      console.log('Dashboard: Using stored tempUserId:', storedTempUserId);
+      setTempUserId(storedTempUserId);
     }
     
     if (user || tempUserId) {

@@ -89,8 +89,8 @@ export const useAuth = () => {
         setUser(null);
         setSession(null);
         
-        // Clear any anonymous user ID from localStorage
-        localStorage.removeItem('anonymousUserId');
+        // Clear any temporary user ID from localStorage
+        localStorage.removeItem('tempUserId');
       }
     });
 
@@ -196,8 +196,8 @@ export const useAuth = () => {
       setUser(null);
       setSession(null);
       
-      // Clear any anonymous user ID from localStorage
-      localStorage.removeItem('anonymousUserId');
+      // Clear any temporary user ID from localStorage
+      localStorage.removeItem('tempUserId');
       
       // Then attempt to sign out from Supabase
       const { error } = await supabase.auth.signOut();
@@ -322,34 +322,6 @@ export const useAuth = () => {
     }
   };
 
-  // Function to sign in anonymously
-  const signInAnonymously = async () => {
-    try {
-      console.log('useAuth: attempting anonymous sign-in');
-      
-      const { data, error } = await supabase.auth.signInAnonymously();
-      
-      if (error) {
-        console.error('useAuth: Anonymous sign-in error:', error);
-        throw error;
-      }
-      
-      console.log('useAuth: Anonymous sign-in successful:', {
-        userId: data.user?.id
-      });
-      
-      // Store the anonymous user ID
-      if (data.user) {
-        localStorage.setItem('anonymousUserId', data.user.id);
-      }
-      
-      return { data, error: null };
-    } catch (error: any) {
-      console.error('useAuth: Anonymous sign-in error:', error);
-      return { data: null, error };
-    }
-  };
-
   return {
     user,
     session,
@@ -361,7 +333,6 @@ export const useAuth = () => {
     resetPassword,
     updatePassword,
     getUser,
-    refreshUser,
-    signInAnonymously
+    refreshUser
   };
 };

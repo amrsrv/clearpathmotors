@@ -35,48 +35,27 @@ export const ChatWidget = () => {
   // Generate or retrieve anonymousId for non-authenticated users
   useEffect(() => {
     if (!user) {
-      // First check if we have an anonymousId from the auth system
-      const storedAnonymousId = localStorage.getItem('anonymousUserId');
-      if (storedAnonymousId) {
-        setAnonymousId(storedAnonymousId);
+      // First check if we have a tempUserId from the standardized location
+      const storedTempUserId = localStorage.getItem('tempUserId');
+      if (storedTempUserId) {
+        console.log('ChatWidget: Using stored tempUserId:', storedTempUserId);
+        setAnonymousId(storedTempUserId);
         return;
       }
       
       // Fall back to the chat-specific anonymousId if needed
       const chatAnonymousId = localStorage.getItem('chatAnonymousId');
       if (chatAnonymousId) {
+        console.log('ChatWidget: Using stored chatAnonymousId:', chatAnonymousId);
         setAnonymousId(chatAnonymousId);
       } else {
-        // If no ID exists, create a new anonymous session
-        const createAnonymousSession = async () => {
-          try {
-            const { data, error } = await supabase.auth.signInAnonymously();
-            if (error) {
-              console.error('Error creating anonymous session:', error);
-              // Fall back to UUID if anonymous auth fails
-              const newAnonymousId = uuidv4();
-              localStorage.setItem('chatAnonymousId', newAnonymousId);
-              setAnonymousId(newAnonymousId);
-              return;
-            }
-            
-            if (data.user) {
-              localStorage.setItem('anonymousUserId', data.user.id);
-              setAnonymousId(data.user.id);
-            }
-          } catch (error) {
-            console.error('Exception creating anonymous session:', error);
-            // Fall back to UUID if anonymous auth fails
-            const newAnonymousId = uuidv4();
-            localStorage.setItem('chatAnonymousId', newAnonymousId);
-            setAnonymousId(newAnonymousId);
-          }
-        };
-        
-        createAnonymousSession();
+        // Generate a new UUID and store it
+        const newAnonymousId = uuidv4();
+        console.log('ChatWidget: Generated new anonymousId:', newAnonymousId);
+        localStorage.setItem('tempUserId', newAnonymousId);
+        localStorage.setItem('chatAnonymousId', newAnonymousId); // For backward compatibility
+        setAnonymousId(newAnonymousId);
       }
-    } else {
-      setAnonymousId(null);
     }
   }, [user]);
 
