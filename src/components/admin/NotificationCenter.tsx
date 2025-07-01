@@ -174,7 +174,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', user.Id)
         .order('created_at', { ascending: false });
         
       if (error) throw error;
