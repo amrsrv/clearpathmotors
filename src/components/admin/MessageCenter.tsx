@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   MessageSquare, 
@@ -175,7 +175,7 @@ export const MessageCenter: React.FC = () => {
       const { data, error } = await supabase
         .from('admin_messages')
         .select('*')
-        .eq('user_id', user.Id)
+        .eq('user_id', userId)
         .order('created_at', { ascending: true });
         
       if (error) throw error;

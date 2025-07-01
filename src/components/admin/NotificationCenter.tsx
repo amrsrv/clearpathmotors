@@ -138,7 +138,10 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         .not('user_id', 'is', null)
         .order('created_at', { ascending: false });
         
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading users:', error);
+        throw error;
+      }
       
       // Filter out duplicates and format user data
       const uniqueUsers = Array.from(
@@ -174,7 +177,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
-        .eq('user_id', user.Id)
+        .eq('user_id', userId)
         .order('created_at', { ascending: false });
         
       if (error) throw error;
