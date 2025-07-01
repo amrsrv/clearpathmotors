@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
@@ -30,7 +30,7 @@ function isUuid(value: string | null | undefined): boolean {
 const FALLBACK_UUID = '00000000-0000-0000-0000-000000000000';
 
 const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }) => {
-  const { user } = useAuth();
+  const { user, initialized } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [application, setApplication] = useState<Application | null>(null);
@@ -43,32 +43,44 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
   const [refreshing, setRefreshing] = useState(false);
   const [loadingAttempts, setLoadingAttempts] = useState(0);
   const [tempUserId, setTempUserId] = useState<string | null>(null);
+  const [creatingApplication, setCreatingApplication] = useState(false);
 
   useEffect(() => {
     // Check for temporary user ID in localStorage
     const storedTempUserId = localStorage.getItem('tempUserId');
-    if (storedTempUserId) {
+    if (storedTempUserId && isUuid(storedTempUserId)) {
       console.log('Dashboard: Using stored tempUserId:', storedTempUserId);
       setTempUserId(storedTempUserId);
     }
     
-    if (user || tempUserId) {
+    // Wait for auth to be initialized before loading data
+    if (initialized) {
+      console.log('Dashboard: Auth initialized, loading dashboard data');
       loadDashboardData();
     } else {
-      setLoading(false);
+      console.log('Dashboard: Auth not yet initialized, waiting...');
     }
-  }, [user, tempUserId]);
+  }, [initialized]);
 
   const loadDashboardData = async () => {
-    if (!user && !tempUserId) return;
+    if (!initialized) {
+      console.log('Dashboard: Auth not initialized yet, skipping data load');
+      return;
+    }
     
     try {
       setLoading(true);
       setError(null);
       
-      // Load user profile with retry mechanism
+      console.log('Dashboard: Loading dashboard data with user:', user ? {
+        id: user.id,
+        email: user.email,
+        app_metadata: user.app_metadata
+      } : 'null', 'and tempUserId:', tempUserId);
+      
+      // Load user profile if authenticated
       if (user) {
-        await loadUserProfileWithRetry();
+        await loadUserProfile();
       }
       
       // Load application data
@@ -90,7 +102,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         .order('created_at', { ascending: false });
       
       if (applicationError) {
-        console.error('Error loading applications:', applicationError);
+        console.error('Dashboard: Error loading applications:', applicationError);
         if (loadingAttempts < 3) {
           // Retry loading after a delay
           setLoadingAttempts(prev => prev + 1);
@@ -102,9 +114,19 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       
       // Get the most recent application
       const latestApplication = applications && applications.length > 0 ? applications[0] : null;
+      
+      // If no application found and user is authenticated, create one
+      if (!latestApplication && user && !creatingApplication) {
+        console.log('Dashboard: No application found for authenticated user, creating one');
+        await createDefaultApplication();
+        return; // This will trigger a reload via the useEffect
+      }
+      
       setApplication(latestApplication);
       
       if (latestApplication) {
+        console.log('Dashboard: Application found:', latestApplication.id);
+        
         // Load documents
         const { data: documentData, error: documentError } = await supabase
           .from('documents')
@@ -113,7 +135,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
           .order('uploaded_at', { ascending: false });
         
         if (documentError) {
-          console.error('Error loading documents:', documentError);
+          console.error('Dashboard: Error loading documents:', documentError);
           // Continue despite document error
         } else {
           setDocuments(documentData || []);
@@ -127,11 +149,13 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
           .order('stage_number', { ascending: true });
         
         if (stageError) {
-          console.error('Error loading application stages:', stageError);
+          console.error('Dashboard: Error loading application stages:', stageError);
           // Continue despite stage error
         } else {
           setStages(stageData || []);
         }
+      } else {
+        console.log('Dashboard: No application found');
       }
       
       // Load notifications
@@ -152,7 +176,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         .order('created_at', { ascending: false });
       
       if (notificationError) {
-        console.error('Error loading notifications:', notificationError);
+        console.error('Dashboard: Error loading notifications:', notificationError);
         // Continue despite notification error
       } else {
         setNotifications(notificationData || []);
@@ -161,7 +185,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       setLoadingAttempts(0); // Reset attempts counter on success
       
     } catch (error) {
-      console.error('Error loading dashboard data:', error);
+      console.error('Dashboard: Error loading dashboard data:', error);
       setError('Failed to load dashboard data. Please try again.');
     } finally {
       setLoading(false);
@@ -169,20 +193,132 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
     }
   };
 
+  // Function to create a default application for a new user
+  const createDefaultApplication = async () => {
+    if (!user || creatingApplication) return;
+    
+    try {
+      setCreatingApplication(true);
+      console.log('Dashboard: Creating default application for user:', user.id);
+      
+      // Extract name parts from email if available
+      const emailName = user.email?.split('@')[0] || '';
+      const nameParts = emailName.split(/[._-]/);
+      const firstName = nameParts[0]?.charAt(0).toUpperCase() + nameParts[0]?.slice(1) || '';
+      const lastName = nameParts[1]?.charAt(0).toUpperCase() + nameParts[1]?.slice(1) || '';
+      
+      // Create a new application
+      const { data: newApp, error: createError } = await supabase
+        .from('applications')
+        .insert({
+          user_id: user.id,
+          status: 'pending_documents',
+          current_stage: 1,
+          email: user.email,
+          first_name: firstName,
+          last_name: lastName
+        })
+        .select()
+        .single();
+      
+      if (createError) {
+        console.error('Dashboard: Error creating default application:', createError);
+        throw createError;
+      }
+      
+      console.log('Dashboard: Default application created:', newApp.id);
+      
+      // Create initial application stage
+      const { error: stageError } = await supabase
+        .from('application_stages')
+        .insert({
+          application_id: newApp.id,
+          stage_number: 1,
+          status: 'completed',
+          notes: 'Application submitted successfully'
+        });
+      
+      if (stageError) {
+        console.error('Dashboard: Error creating initial stage:', stageError);
+        // Continue despite error
+      }
+      
+      // Create welcome notification
+      const { error: notificationError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: user.id,
+          title: 'Welcome to Clearpath!',
+          message: 'Your account has been created successfully. Start your application process now.',
+          read: false
+        });
+      
+      if (notificationError) {
+        console.error('Dashboard: Error creating welcome notification:', notificationError);
+        // Continue despite error
+      }
+      
+      // Reload dashboard data to show the new application
+      await loadDashboardData();
+      
+    } catch (error) {
+      console.error('Dashboard: Error in createDefaultApplication:', error);
+      toast.error('Failed to create application. Please try again.');
+    } finally {
+      setCreatingApplication(false);
+    }
+  };
+
   // Function to load user profile with retry mechanism
-  const loadUserProfileWithRetry = async (maxRetries = 3, delay = 1000) => {
+  const loadUserProfile = async (maxRetries = 3, delay = 1000) => {
+    if (!user || !isUuid(user.id)) return;
+    
     let retries = 0;
     
     while (retries < maxRetries) {
       try {
-        await loadUserProfile();
-        return; // Success, exit the retry loop
+        // Check if user profile exists
+        const { data: profile, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (profileError) {
+          // If the error is not that the profile doesn't exist, throw it
+          if (profileError.code !== 'PGRST116') {
+            console.error('Dashboard: Error loading user profile:', profileError);
+            throw profileError;
+          }
+          
+          // If the profile doesn't exist, we'll try to create it
+          console.log('Dashboard: User profile not found, creating one');
+          
+          const { data: newProfile, error: createError } = await supabase
+            .from('user_profiles')
+            .insert([{ user_id: user.id }])
+            .select()
+            .single();
+          
+          if (createError) {
+            console.error('Dashboard: Error creating user profile:', createError);
+            throw createError;
+          }
+          
+          setUserProfile(newProfile);
+          return;
+        }
+        
+        setUserProfile(profile);
+        return;
       } catch (error) {
-        console.warn(`Attempt ${retries + 1}/${maxRetries} to load user profile failed:`, error);
+        console.warn(`Dashboard: Attempt ${retries + 1}/${maxRetries} to load user profile failed:`, error);
         
         // If we've reached max retries, throw the error
         if (retries === maxRetries - 1) {
-          throw error;
+          console.error('Dashboard: All attempts to load user profile failed');
+          // Don't throw, just continue without the profile
+          return;
         }
         
         // Wait before retrying
@@ -192,49 +328,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         delay *= 1.5;
         retries++;
       }
-    }
-  };
-
-  const loadUserProfile = async () => {
-    if (!user || !isUuid(user.id)) return;
-    
-    try {
-      // Check if user profile exists
-      const { data: profile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-      
-      if (profileError) {
-        // If the error is not that the profile doesn't exist, throw it
-        if (profileError.code !== 'PGRST116') {
-          console.error('Error loading user profile:', profileError);
-          throw profileError;
-        }
-        
-        // If the profile doesn't exist, we'll try to create it
-        console.log('User profile not found, creating one');
-        
-        const { data: newProfile, error: createError } = await supabase
-          .from('user_profiles')
-          .insert([{ user_id: user.id }])
-          .select()
-          .single();
-        
-        if (createError) {
-          console.error('Error creating user profile:', createError);
-          throw createError;
-        }
-        
-        setUserProfile(newProfile);
-        return;
-      }
-      
-      setUserProfile(profile);
-    } catch (error) {
-      console.error('Error in loadUserProfile:', error);
-      throw error;
     }
   };
 
@@ -287,7 +380,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       
       return document;
     } catch (error) {
-      console.error('Error uploading document:', error);
+      console.error('Dashboard: Error uploading document:', error);
       setUploadError('Failed to upload document. Please try again.');
       toast.error('Failed to upload document');
       return null;
@@ -310,7 +403,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         .remove([documentToDelete.filename]);
         
       if (storageError) {
-        console.error('Error deleting from storage:', storageError);
+        console.error('Dashboard: Error deleting from storage:', storageError);
         // Continue with database deletion even if storage deletion fails
       }
       
@@ -330,7 +423,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       toast.success('Document deleted successfully');
       return true;
     } catch (error) {
-      console.error('Error deleting document:', error);
+      console.error('Dashboard: Error deleting document:', error);
       toast.error('Failed to delete document');
       throw error;
     }
@@ -358,7 +451,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       
       return true;
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      console.error('Dashboard: Error marking notification as read:', error);
       toast.error('Failed to mark notification as read');
       return false;
     }
@@ -393,13 +486,26 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       toast.success(`Consultation scheduled for ${date.toLocaleString()}`);
       return true;
     } catch (error) {
-      console.error('Error scheduling appointment:', error);
+      console.error('Dashboard: Error scheduling appointment:', error);
       toast.error('Failed to schedule appointment');
       return false;
     }
   };
 
-  if (loading) {
+  // Show loading state while auth is initializing
+  if (!initialized) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent mb-4" />
+          <p className="text-gray-600">Initializing your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state while data is being fetched
+  if (loading && !application) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex flex-col items-center">

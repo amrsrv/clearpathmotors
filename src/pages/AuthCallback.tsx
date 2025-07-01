@@ -15,114 +15,66 @@ const AuthCallback = () => {
         setLoading(true);
         console.log('AuthCallback: Processing auth callback');
 
+        // Get the current session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
+        if (sessionError) {
+          console.error('AuthCallback: Error getting session:', sessionError);
+          throw sessionError;
+        }
 
         const user = session?.user;
         if (!user) {
+          console.log('AuthCallback: No user found in session, redirecting to login');
           navigate('/login');
           return;
         }
 
-        console.log('Authenticated user:', user.email);
+        console.log('AuthCallback: Authenticated user:', user.email);
 
-        // Set default role if not present
-        let refreshedUser = user;
+        // Check if user has a role, if not set default role
         if (!user.app_metadata?.role) {
-          const { error: updateError } = await supabase.auth.updateUser({
-            data: { role: 'customer' }
-          });
+          console.log('AuthCallback: User has no role, setting default role');
+          try {
+            const { error: updateError } = await supabase.auth.updateUser({
+              data: { role: 'customer' }
+            });
 
-          if (updateError) {
-            console.error('Error updating user role:', updateError);
-            throw updateError;
+            if (updateError) {
+              console.error('AuthCallback: Error updating user role:', updateError);
+              // Continue despite error - we'll try again in useAuth hook
+            } else {
+              console.log('AuthCallback: Default role set successfully');
+            }
+          } catch (roleError) {
+            console.error('AuthCallback: Exception setting role:', roleError);
+            // Continue despite error - we'll try again in useAuth hook
           }
-
-          const { data: refreshed, error: refreshError } = await supabase.auth.getUser();
-          if (refreshError) throw refreshError;
-          refreshedUser = refreshed.user!;
-        }
-
-        // Attempt to parse name from email
-        const emailName = user.email?.split('@')[0] || '';
-        const nameParts = emailName.split(/[._-]/);
-        const firstName = nameParts[0]?.charAt(0).toUpperCase() + nameParts[0]?.slice(1) || '';
-        const lastName = nameParts[1]?.charAt(0).toUpperCase() + nameParts[1]?.slice(1) || '';
-
-        // Link existing applications by email (if not yet linked to user_id)
-        const { data: unlinkedApps } = await supabase
-          .from('applications')
-          .select('id')
-          .eq('email', user.email)
-          .is('user_id', null);
-
-        if (unlinkedApps && unlinkedApps.length > 0) {
-          const { error: linkError } = await supabase
-            .from('applications')
-            .update({
-              user_id: user.id,
-              first_name: firstName,
-              last_name: lastName
-            })
-            .eq('email', user.email)
-            .is('user_id', null);
-
-          if (linkError) console.error('Error linking applications:', linkError);
-          else toast.success(`Linked ${unlinkedApps.length} existing applications.`);
         }
 
         // Check if the user already has applications
-        const { data: existingApps } = await supabase
-          .from('applications')
-          .select('id')
-          .eq('user_id', user.id);
-
-        if (!existingApps || existingApps.length === 0) {
-          const { data: newApp, error: insertError } = await supabase
+        try {
+          const { data: existingApps, error: appsError } = await supabase
             .from('applications')
-            .insert({
-              user_id: user.id,
-              status: 'submitted',
-              current_stage: 1,
-              employment_status: 'employed',
-              email: user.email,
-              first_name: firstName,
-              last_name: lastName
-            })
-            .select()
-            .single();
+            .select('id')
+            .eq('user_id', user.id);
 
-          if (insertError) throw insertError;
+          if (appsError) {
+            console.error('AuthCallback: Error checking for existing applications:', appsError);
+            // Continue despite error
+          }
 
-          await supabase
-            .from('application_stages')
-            .insert({
-              application_id: newApp.id,
-              stage_number: 1,
-              status: 'completed',
-              notes: 'Application submitted successfully'
-            });
-
-          await supabase
-            .from('notifications')
-            .insert({
-              user_id: user.id,
-              title: 'Welcome to Clearpath!',
-              message: 'Your account has been created successfully. Start your application process now.',
-              read: false
-            });
-
-          toast.success('Your application has been created!');
+          // If no applications found, we'll create one in the Dashboard component
+          // This is a change from the previous approach where we created it here
+          console.log('AuthCallback: Found', existingApps?.length || 0, 'existing applications');
+        } catch (error) {
+          console.error('AuthCallback: Error in application check:', error);
+          // Continue despite error
         }
 
         // Redirect based on user role
-        const role = refreshedUser.app_metadata?.role;
-        if (role === 'super_admin') navigate('/admin');
-        else if (role === 'dealer') navigate('/dealer');
-        else navigate('/dashboard'); // Default customer
-
+        redirectBasedOnRole(user);
       } catch (err) {
-        console.error('AuthCallback Error:', err);
+        console.error('AuthCallback: Unhandled error:', err);
         setError('Authentication error. Please try logging in again.');
         navigate('/login');
       } finally {
@@ -133,10 +85,28 @@ const AuthCallback = () => {
     handleAuthCallback();
   }, [navigate]);
 
+  const redirectBasedOnRole = (user: any) => {
+    console.log('AuthCallback: Redirecting based on role:', user?.app_metadata?.role);
+    
+    // Redirect based on user role
+    const role = user.app_metadata?.role;
+    if (role === 'super_admin') {
+      navigate('/admin');
+    } else if (role === 'dealer') {
+      navigate('/dealer');
+    } else {
+      // Default to dashboard for regular users
+      navigate('/dashboard');
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent" />
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent mb-4" />
+          <p className="text-gray-600">Finalizing your authentication...</p>
+        </div>
       </div>
     );
   }

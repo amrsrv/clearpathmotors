@@ -52,6 +52,64 @@ export const useAuth = () => {
   // Initialize auth state
   useEffect(() => {
     console.log('useAuth: initializing auth hook');
+    setLoading(true);
+    
+    // First, get the current session
+    const initializeAuth = async () => {
+      try {
+        // Get current session
+        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('useAuth: Error getting initial session:', sessionError);
+          setLoading(false);
+          setInitialized(true);
+          return;
+        }
+        
+        if (currentSession) {
+          console.log('useAuth: Initial session found:', {
+            user: currentSession.user ? {
+              id: currentSession.user.id,
+              email: currentSession.user.email,
+              app_metadata: currentSession.user.app_metadata
+            } : 'null'
+          });
+          
+          setSession(currentSession);
+          setUser(currentSession.user);
+          
+          // Ensure user has a role
+          if (currentSession.user && !currentSession.user.app_metadata?.role) {
+            console.log('useAuth: Setting default role for user during initialization');
+            try {
+              await supabase.auth.updateUser({
+                data: { role: 'customer' }
+              });
+              
+              // Refresh user data to get updated metadata
+              const { data: { user: updatedUser } } = await supabase.auth.getUser();
+              setUser(updatedUser);
+              
+              console.log('useAuth: Default role set during initialization');
+            } catch (updateError) {
+              console.error('useAuth: Error setting default role during initialization:', updateError);
+            }
+          }
+        } else {
+          console.log('useAuth: No initial session found');
+        }
+        
+        setLoading(false);
+        setInitialized(true);
+      } catch (error) {
+        console.error('useAuth: Error in initializeAuth:', error);
+        setLoading(false);
+        setInitialized(true);
+      }
+    };
+    
+    initializeAuth();
     
     // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
@@ -67,7 +125,6 @@ export const useAuth = () => {
       setUser(currentSession?.user || null);
       setSession(currentSession);
       setLoading(false);
-      setInitialized(true);
       
       // Handle specific auth events
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
@@ -78,8 +135,12 @@ export const useAuth = () => {
             await supabase.auth.updateUser({
               data: { role: 'customer' }
             });
+            
+            // Refresh user data to get updated metadata
+            const { data: { user: updatedUser } } = await supabase.auth.getUser();
+            setUser(updatedUser);
+            
             console.log('useAuth: default role set to customer');
-            // Don't call refreshUser here - the updateUser will trigger another auth state change
           } catch (error) {
             console.error('useAuth: Error setting default role:', error);
           }
@@ -262,17 +323,17 @@ export const useAuth = () => {
         hasResetPasswordMethod: !!supabase?.auth?.resetPasswordForEmail
       });
       
-      const { data, error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+      const { data, error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
         redirectTo
       });
 
-      console.log('useAuth: resetPasswordForEmail response:', { data, error });
+      console.log('useAuth: resetPasswordForEmail response:', { data, error: resetError });
 
-      if (error) {
-        console.error('useAuth: Reset password error:', error);
-        console.error('useAuth: Error details:', JSON.stringify(error, null, 2));
-        toast.error(error.message || 'Failed to send reset email. Please try again.');
-        throw error;
+      if (resetError) {
+        console.error('useAuth: Reset password error:', resetError);
+        console.error('useAuth: Error details:', JSON.stringify(resetError, null, 2));
+        toast.error(resetError.message || 'Failed to send reset email. Please try again.');
+        throw resetError;
       }
 
       console.log('useAuth: password reset email sent successfully');
