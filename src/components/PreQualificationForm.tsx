@@ -375,7 +375,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
   return (
     <FormProvider {...methods}>
       <div className="w-full max-w-3xl mx-auto" ref={formRef}>
-        <form className="bg-white rounded-xl shadow-lg p-6 md:p-8 mb-0">
+        <form className="bg-white rounded-xl shadow-card-hover p-6 md:p-8 mb-0">
           <AnimatePresence mode="wait">
             {/* Step 1: Vehicle Type */}
             {currentStep === 1 && (
