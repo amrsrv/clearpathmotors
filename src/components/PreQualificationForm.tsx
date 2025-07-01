@@ -384,11 +384,8 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                 transition={{ duration: 0.3 }}
                 className="space-y-6"
               >
-<h2 className="text-3xl font-bold text-gray-900 leading-tight text-center mx-auto">
-  Select Your Vehicle Type
-</h2>               <p className="text-gray-600 mt-1 text-center mx-auto">
-  Choose the type of vehicle you're interested in financing.
-</p>
+                <h2 className="text-2xl font-semibold text-gray-900 leading-tight">Select Your Vehicle Type</h2>
+                <p className="text-gray-600 mt-1">Choose the type of vehicle you're interested in financing.</p>
                 
                 <div className="grid grid-cols-2 gap-4">
                   {vehicles.map((vehicle) => (
@@ -867,7 +864,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                               htmlFor="terms_accepted"
                               className="ml-2 text-sm text-gray-600"
                             >
-                              I accept the <a href="/terms" className="text-[#3BAA75] hover:underline">terms and conditions</a> and <a href="/privacy" className="text-[#3BAA75] hover:underline">privacy policy</a>
+                              I accept the <a href="/terms" className="text-[#3BAA75] hover:underline">terms and conditions</a> and <a href="/privacy" className=\"text-[#3BAA75] hover:underline">privacy policy</a>
                             </label>
                           </div>
                         )}
