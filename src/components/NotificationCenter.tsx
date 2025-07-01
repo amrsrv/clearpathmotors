@@ -188,7 +188,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         )}
       </AnimatePresence>
 
-      <div className="space-y-4 max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 pb-1">
+      <div className="space-y-4">
         <AnimatePresence>
           {filteredNotifications.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
