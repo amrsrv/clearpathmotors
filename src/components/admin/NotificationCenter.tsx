@@ -27,7 +27,8 @@ import toast from 'react-hot-toast';
 
 interface Notification {
   id: string;
-  user_id: string;
+  user_id: string | null;
+  temp_user_id: string | null;
   title: string;
   message: string;
   read: boolean;
@@ -48,6 +49,18 @@ interface ApplicationUpdate {
   };
 }
 
+interface UserWithMessages {
+  id: string;
+  email: string;
+  authUserId: string | null;
+  tempUserId: string | null;
+  unreadCount: number;
+  lastMessage: string;
+  lastMessageTime: string;
+  ticketSubject?: string;
+  name?: string;
+}
+
 interface NotificationCenterProps {
   showAllUsers?: boolean;
   onMarkAsRead?: (id: string) => Promise<void>;
@@ -62,7 +75,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   const [applicationUpdates, setApplicationUpdates] = useState<ApplicationUpdate[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [users, setUsers] = useState<any[]>([]);
+  const [selectedTempUserId, setSelectedTempUserId] = useState<string | null>(null);
+  const [users, setUsers] = useState<UserWithMessages[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showUserSelector, setShowUserSelector] = useState(false);
   const [notificationTitle, setNotificationTitle] = useState('');
@@ -90,8 +104,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
           filter: showAllUsers ? undefined : `user_id=eq.${user?.id}`
         },
         () => {
-          if (showAllUsers && selectedUserId) {
-            loadNotifications(selectedUserId);
+          if (showAllUsers && (selectedUserId || selectedTempUserId)) {
+            loadNotifications(selectedUserId, selectedTempUserId);
           } else {
             loadNotifications(user?.id);
           }
@@ -119,7 +133,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       supabase.removeChannel(notificationsChannel);
       supabase.removeChannel(activityLogChannel);
     };
-  }, [user?.id, showAllUsers, selectedUserId]);
+  }, [user?.id, showAllUsers, selectedUserId, selectedTempUserId]);
 
   useEffect(() => {
     if (showAllUsers) {
@@ -131,32 +145,144 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     try {
       setLoading(true);
       
-      // Get users from applications table instead of auth API
-      const { data, error } = await supabase
+      // Get users from applications table
+      const { data: applicationUsers, error: appError } = await supabase
         .from('applications')
-        .select('user_id, email, first_name, last_name')
-        .not('user_id', 'is', null)
+        .select('user_id, temp_user_id, email, first_name, last_name')
         .order('created_at', { ascending: false });
         
-      if (error) throw error;
+      if (appError) throw appError;
       
-      // Filter out duplicates and format user data
-      const uniqueUsers = Array.from(
-        new Map(data?.map(item => [item.user_id, item]).filter(item => item[0] !== null))
-        .values()
-      );
+      // Create a map to store unique users
+      const userMap = new Map<string, UserWithMessages>();
       
-      setUsers(uniqueUsers.map(u => ({
-        id: u.user_id,
-        email: u.email,
-        name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email
-      })));
+      // Process application users
+      applicationUsers?.forEach(app => {
+        // Handle authenticated users
+        if (app.user_id) {
+          const userId = app.user_id;
+          if (!userMap.has(userId)) {
+            userMap.set(userId, {
+              id: userId,
+              email: app.email || 'Unknown Email',
+              authUserId: userId,
+              tempUserId: null,
+              name: `${app.first_name || ''} ${app.last_name || ''}`.trim() || app.email,
+              unreadCount: 0,
+              lastMessage: '',
+              lastMessageTime: new Date().toISOString()
+            });
+          }
+        }
+        
+        // Handle anonymous users
+        if (app.temp_user_id) {
+          const tempId = app.temp_user_id;
+          if (!userMap.has(`temp_${tempId}`)) {
+            userMap.set(`temp_${tempId}`, {
+              id: `temp_${tempId}`,
+              email: app.email || 'Anonymous User',
+              authUserId: null,
+              tempUserId: tempId,
+              name: `${app.first_name || ''} ${app.last_name || ''}`.trim() || app.email || 'Anonymous User',
+              unreadCount: 0,
+              lastMessage: '',
+              lastMessageTime: new Date().toISOString()
+            });
+          }
+        }
+      });
       
-      // If no user is selected, select the first one
-      if (uniqueUsers.length > 0 && !selectedUserId) {
-        setSelectedUserId(uniqueUsers[0].user_id);
-        loadNotifications(uniqueUsers[0].user_id);
+      // Get all notifications to count unread and get last message
+      const { data: allNotifications, error: notifError } = await supabase
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      if (notifError) throw notifError;
+      
+      // Update user map with notification data
+      allNotifications?.forEach(notification => {
+        // Handle authenticated user notifications
+        if (notification.user_id) {
+          const userId = notification.user_id;
+          if (userMap.has(userId)) {
+            const user = userMap.get(userId)!;
+            
+            // Update unread count
+            if (!notification.read) {
+              user.unreadCount += 1;
+            }
+            
+            // Update last message if this is the first one we're processing
+            if (!user.lastMessage) {
+              user.lastMessage = notification.message;
+              user.lastMessageTime = notification.created_at;
+            }
+            
+            userMap.set(userId, user);
+          }
+        }
+        
+        // Handle anonymous user notifications
+        if (notification.temp_user_id) {
+          const tempId = notification.temp_user_id;
+          const mapKey = `temp_${tempId}`;
+          
+          if (userMap.has(mapKey)) {
+            const user = userMap.get(mapKey)!;
+            
+            // Update unread count
+            if (!notification.read) {
+              user.unreadCount += 1;
+            }
+            
+            // Update last message if this is the first one we're processing
+            if (!user.lastMessage) {
+              user.lastMessage = notification.message;
+              user.lastMessageTime = notification.created_at;
+            }
+            
+            userMap.set(mapKey, user);
+          }
+        }
+      });
+      
+      // Get support tickets to add subject information
+      const { data: tickets, error: ticketsError } = await supabase
+        .from('support_tickets')
+        .select('user_id, subject')
+        .order('created_at', { ascending: false });
+        
+      if (ticketsError) {
+        console.warn('Error fetching tickets (non-critical):', ticketsError);
+      } else {
+        // Add ticket subjects to user data
+        tickets?.forEach(ticket => {
+          if (ticket.user_id && userMap.has(ticket.user_id)) {
+            const user = userMap.get(ticket.user_id)!;
+            if (!user.ticketSubject) {
+              user.ticketSubject = ticket.subject;
+            }
+            userMap.set(ticket.user_id, user);
+          }
+        });
       }
+      
+      // Convert map to array and sort by last message time
+      const userArray = Array.from(userMap.values())
+        .sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime());
+      
+      setUsers(userArray);
+      
+      // If no user is selected and we have users, select the first one
+      if (userArray.length > 0 && !selectedUserId && !selectedTempUserId) {
+        const firstUser = userArray[0];
+        setSelectedUserId(firstUser.authUserId);
+        setSelectedTempUserId(firstUser.tempUserId);
+        loadNotifications(firstUser.authUserId, firstUser.tempUserId);
+      }
+      
     } catch (error) {
       console.error('Error loading users:', error);
       toast.error('Failed to load users');
@@ -165,21 +291,34 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     }
   };
 
-  const loadNotifications = async (userId: string | undefined) => {
-    if (!userId) return;
-    
+  const loadNotifications = async (userId?: string | null, tempUserId?: string | null) => {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase
+      let query = supabase
         .from('notifications')
-        .select('*')
-        .eq('user_id', userId)
+        .select('*');
+        
+      if (userId) {
+        query = query.eq('user_id', userId);
+      } else if (tempUserId) {
+        query = query.eq('temp_user_id', tempUserId);
+      } else {
+        // If neither ID is provided, use a fallback to prevent returning all notifications
+        query = query.eq('user_id', 'no-user-found');
+      }
+      
+      const { data, error } = await query
         .order('created_at', { ascending: false });
         
       if (error) throw error;
       
       setNotifications(data || []);
+      
+      if (showAllUsers) {
+        setSelectedUserId(userId || null);
+        setSelectedTempUserId(tempUserId || null);
+      }
     } catch (error) {
       console.error('Error loading notifications:', error);
       toast.error('Failed to load notifications');
@@ -242,22 +381,32 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   };
 
   const handleSendNotification = async () => {
-    if (!notificationTitle.trim() || !notificationMessage.trim() || !selectedUserId) {
-      toast.error('Please fill in all fields');
+    if (!notificationTitle.trim() || !notificationMessage.trim() || (!selectedUserId && !selectedTempUserId)) {
+      toast.error('Please fill in all fields and select a user');
       return;
     }
     
     try {
       setIsSending(true);
       
+      // Prepare notification data based on whether we're sending to an authenticated or anonymous user
+      const notificationData = selectedUserId 
+        ? {
+            user_id: selectedUserId,
+            title: notificationTitle,
+            message: notificationMessage,
+            read: false
+          }
+        : {
+            temp_user_id: selectedTempUserId,
+            title: notificationTitle,
+            message: notificationMessage,
+            read: false
+          };
+      
       const { error } = await supabase
         .from('notifications')
-        .insert({
-          user_id: selectedUserId,
-          title: notificationTitle,
-          message: notificationMessage,
-          read: false
-        });
+        .insert(notificationData);
         
       if (error) throw error;
       
@@ -267,7 +416,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       toast.success('Notification sent successfully');
       
       // Refresh notifications
-      loadNotifications(selectedUserId);
+      loadNotifications(selectedUserId, selectedTempUserId);
     } catch (error) {
       console.error('Error sending notification:', error);
       toast.error('Failed to send notification');
@@ -276,9 +425,10 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
     }
   };
 
-  const handleUserSelect = (userId: string) => {
-    setSelectedUserId(userId);
-    loadNotifications(userId);
+  const handleUserSelect = (user: UserWithMessages) => {
+    setSelectedUserId(user.authUserId);
+    setSelectedTempUserId(user.tempUserId);
+    loadNotifications(user.authUserId, user.tempUserId);
     setShowUserSelector(false);
   };
 
@@ -307,7 +457,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
   const filteredUsers = users.filter(u => 
     u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.name.toLowerCase().includes(searchTerm.toLowerCase())
+    (u.name && u.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -348,7 +498,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
         <div className="flex border-b border-gray-200 mb-4">
           <button
             onClick={() => setActiveTab('notifications')}
-            className={`px-4 py-2 font-medium text-sm ${
+            className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
               activeTab === 'notifications'
                 ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
                 : 'text-gray-500 hover:text-gray-700'
@@ -361,7 +511,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('updates')}
-            className={`px-4 py-2 font-medium text-sm ${
+            className={`px-4 py-2 font-medium text-sm whitespace-nowrap ${
               activeTab === 'updates'
                 ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
                 : 'text-gray-500 hover:text-gray-700'
@@ -400,17 +550,33 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                 {filteredUsers.map(u => (
                   <button
                     key={u.id}
-                    onClick={() => handleUserSelect(u.id)}
+                    onClick={() => handleUserSelect(u)}
                     className={`flex items-center w-full p-2 rounded-lg text-left mb-1 ${
-                      selectedUserId === u.id
+                      (selectedUserId === u.authUserId && u.authUserId) || 
+                      (selectedTempUserId === u.tempUserId && u.tempUserId)
                         ? 'bg-[#3BAA75]/10 text-[#3BAA75]'
                         : 'hover:bg-gray-100 text-gray-700'
                     }`}
                   >
                     <UserIcon className="h-4 w-4 mr-2" />
                     <span className="truncate">{u.name || u.email}</span>
+                    {u.tempUserId && (
+                      <span className="ml-2 text-xs bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded">
+                        Anonymous
+                      </span>
+                    )}
+                    {u.unreadCount > 0 && (
+                      <span className="ml-auto bg-[#3BAA75] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                        {u.unreadCount}
+                      </span>
+                    )}
                   </button>
                 ))}
+                {filteredUsers.length === 0 && (
+                  <div className="text-center py-2 text-gray-500">
+                    <p>No users found</p>
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>
@@ -429,7 +595,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
             <div className="border border-gray-200 rounded-lg p-4">
               <h3 className="font-medium mb-3">Send New Notification</h3>
               
-              {showAllUsers && !selectedUserId && (
+              {showAllUsers && !selectedUserId && !selectedTempUserId && (
                 <div className="mb-3 p-3 bg-amber-50 text-amber-700 rounded-lg flex items-center gap-2">
                   <AlertCircle className="h-5 w-5" />
                   <span>Please select a user first</span>
@@ -447,7 +613,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                     onChange={(e) => setNotificationTitle(e.target.value)}
                     className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
                     placeholder="Notification title..."
-                    disabled={!selectedUserId}
+                    disabled={!selectedUserId && !selectedTempUserId}
                   />
                 </div>
                 
@@ -461,7 +627,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                     className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
                     rows={3}
                     placeholder="Notification message..."
-                    disabled={!selectedUserId}
+                    disabled={!selectedUserId && !selectedTempUserId}
                   />
                 </div>
                 
@@ -475,7 +641,7 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                   
                   <button
                     onClick={handleSendNotification}
-                    disabled={isSending || !notificationTitle.trim() || !notificationMessage.trim() || !selectedUserId}
+                    disabled={isSending || !notificationTitle.trim() || !notificationMessage.trim() || (!selectedUserId && !selectedTempUserId)}
                     className="flex items-center gap-2 px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50"
                   >
                     {isSending ? (
@@ -518,8 +684,10 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
                   className={`
-                    p-4 rounded-lg transition-colors
-                    ${notification.read ? 'bg-gray-50' : 'bg-[#3BAA75]/5 border border-[#3BAA75]/10'}
+                    p-4 rounded-lg transition-all duration-200 relative
+                    ${notification.read 
+                      ? 'bg-gray-50' 
+                      : 'bg-gradient-to-br from-[#3BAA75]/5 to-[#3BAA75]/10 border border-[#3BAA75]/20 shadow-sm'}
                   `}
                 >
                   <div className="flex items-start gap-3">
