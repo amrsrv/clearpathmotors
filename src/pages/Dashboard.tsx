@@ -455,39 +455,130 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       case 'overview':
         return (
           <div className="space-y-6">
-            {/* Application Status Card */}
+            {/* Loan Details Card with Application Status */}
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
-              className="bg-white rounded-xl shadow-xl p-6 border border-gray-100"
+              className="bg-[#2A7A5B] rounded-xl shadow-xl p-6 text-white"
             >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259]">Application Status</h2>
-                <div className="flex items-center">
-                  <span className={`
-                    px-3 py-1.5 text-sm font-medium rounded-full
-                    ${application.status === 'pre_approved' ? 'bg-green-100 text-green-700' : 
-                      application.status === 'pending_documents' ? 'bg-orange-100 text-orange-700' :
-                      application.status === 'under_review' ? 'bg-yellow-100 text-yellow-700' :
-                      application.status === 'finalized' ? 'bg-blue-100 text-blue-700' :
-                      'bg-gray-100 text-gray-700'}
-                  `}>
-                    {application.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                  </span>
+              <h2 className="text-xl font-semibold mb-4">Available Loan Amount</h2>
+              <p className="text-white/80 text-sm mb-6">
+                You've been pre-qualified for the following loan range with a 95% chance of approval.
+              </p>
+              
+              <div className="grid grid-cols-3 gap-2 text-center mb-6">
+                <div>
+                  <div className="text-xs text-white/60 mb-1">Minimum</div>
+                  <div className="text-xl font-semibold">${application.loan_amount_min?.toLocaleString()}</div>
+                </div>
+                
+                <div>
+                  <div className="text-xs text-white/60 mb-1">Recommended</div>
+                  <div className="text-xl font-semibold">${((application.loan_amount_min || 0) + (application.loan_amount_max || 0)) / 2 | 0}</div>
+                </div>
+                
+                <div>
+                  <div className="text-xs text-white/60 mb-1">Maximum</div>
+                  <div className="text-xl font-semibold">${application.loan_amount_max?.toLocaleString()}</div>
                 </div>
               </div>
               
-              <ApplicationTracker application={application} stages={stages} />
+              <div className="relative mb-6">
+                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: '100%' }}
+                    transition={{ duration: 1, ease: "easeOut" }}
+                    className="h-full bg-emerald-500 rounded-full"
+                  />
+                </div>
+              </div>
               
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={handleRefresh}
-                  className="flex items-center gap-2 text-[#3BAA75] hover:text-[#2D8259] transition-colors"
-                >
-                  <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                  <span>Refresh Status</span>
-                </button>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <div className="text-xs text-white/60 mb-1">Other Lenders</div>
+                  <div className="text-lg font-semibold">{(application.interest_rate || 0) + 3}% APR</div>
+                </div>
+                
+                <div>
+                  <div className="text-xs text-white/60 mb-1">Our Rate</div>
+                  <div className="text-lg font-semibold">{application.interest_rate}% APR</div>
+                </div>
+              </div>
+              
+              {/* Application Progress Status */}
+              <div className="pt-6 border-t border-white/20">
+                <h3 className="text-lg font-semibold mb-4">Application Progress</h3>
+                <ApplicationTracker application={application} stages={stages} />
+              </div>
+            </motion.div>
+            
+            {/* Next Steps */}
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+              className="bg-white rounded-xl shadow-xl p-6 border border-gray-100"
+            >
+              <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259] mb-6">Next Steps</h2>
+              
+              <div className="space-y-4">
+                {application.status === 'pending_documents' && (
+                  <div className="flex items-start gap-3 p-4 bg-orange-50 text-orange-700 rounded-xl shadow-sm">
+                    <div className="mt-0.5">
+                      <AlertCircle className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Documents Required</p>
+                      <p className="text-sm mt-1">
+                        Please upload the required documents to proceed with your application.
+                      </p>
+                      <button
+                        onClick={() => setActiveSection('documents')}
+                        className="mt-3 px-4 py-2 bg-orange-100 text-orange-700 rounded-lg text-sm font-medium hover:bg-orange-200 transition-colors flex items-center gap-1"
+                      >
+                        Go to Documents
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                {application.status === 'pre_approved' && (
+                  <div className="flex items-start gap-3 p-4 bg-green-50 text-green-700 rounded-xl shadow-sm">
+                    <div className="mt-0.5">
+                      <CheckCircle className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Pre-Approved!</p>
+                      <p className="text-sm mt-1">
+                        Congratulations! Your application has been pre-approved. Schedule a consultation to discuss next steps.
+                      </p>
+                      <button
+                        onClick={() => setActiveSection('appointment')}
+                        className="mt-3 px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium hover:bg-green-200 transition-colors flex items-center gap-1"
+                      >
+                        Schedule Consultation
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                {application.status === 'under_review' && (
+                  <div className="flex items-start gap-3 p-4 bg-yellow-50 text-yellow-700 rounded-xl shadow-sm">
+                    <div className="mt-0.5">
+                      <Clock className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Application Under Review</p>
+                      <p className="text-sm mt-1">
+                        Our team is currently reviewing your application. We'll notify you once we have an update.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </motion.div>
             
@@ -495,7 +586,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
+              transition={{ duration: 0.3, delay: 0.2 }}
               className="bg-white rounded-xl shadow-xl p-6 border border-gray-100"
             >
               <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259] mb-6">Application Details</h2>
@@ -571,116 +662,13 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                   </div>
                 </div>
               </div>
-              
-              {/* Loan Details */}
-              <div className="mt-8 pt-6 border-t border-gray-200">
-                <h3 className="text-lg font-medium flex items-center gap-2 mb-4">
-                  <div className="p-2 bg-[#3BAA75]/10 rounded-lg">
-                    <DollarSign className="h-5 w-5 text-[#3BAA75]" />
-                  </div>
-                  <span>Loan Details</span>
-                </h3>
-                
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-gradient-to-br from-[#3BAA75]/5 to-[#3BAA75]/10 p-4 rounded-xl">
-                    <div className="text-sm text-gray-500 mb-1">Loan Range</div>
-                    <div className="font-semibold">
-                      ${application.loan_amount_min?.toLocaleString()} - ${application.loan_amount_max?.toLocaleString()}
-                    </div>
-                  </div>
-                  
-                  <div className="bg-gradient-to-br from-[#3BAA75]/5 to-[#3BAA75]/10 p-4 rounded-xl">
-                    <div className="text-sm text-gray-500 mb-1">Monthly Payment</div>
-                    <div className="font-semibold">
-                      ${application.desired_monthly_payment?.toLocaleString()}
-                    </div>
-                  </div>
-                  
-                  <div className="bg-gradient-to-br from-[#3BAA75]/5 to-[#3BAA75]/10 p-4 rounded-xl">
-                    <div className="text-sm text-gray-500 mb-1">Interest Rate</div>
-                    <div className="font-semibold">
-                      {application.interest_rate}%
-                    </div>
-                  </div>
-                  
-                  <div className="bg-gradient-to-br from-[#3BAA75]/5 to-[#3BAA75]/10 p-4 rounded-xl">
-                    <div className="text-sm text-gray-500 mb-1">Loan Term</div>
-                    <div className="font-semibold">
-                      {application.loan_term} months
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Next Steps */}
-              <div className="mt-8 pt-6 border-t border-gray-200">
-                <h3 className="text-lg font-medium mb-4">Next Steps</h3>
-                
-                <div className="space-y-4">
-                  {application.status === 'pending_documents' && (
-                    <div className="flex items-start gap-3 p-4 bg-orange-50 text-orange-700 rounded-xl shadow-sm">
-                      <div className="mt-0.5">
-                        <AlertCircle className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Documents Required</p>
-                        <p className="text-sm mt-1">
-                          Please upload the required documents to proceed with your application.
-                        </p>
-                        <button
-                          onClick={() => setActiveSection('documents')}
-                          className="mt-3 px-4 py-2 bg-orange-100 text-orange-700 rounded-lg text-sm font-medium hover:bg-orange-200 transition-colors flex items-center gap-1"
-                        >
-                          Go to Documents
-                          <ChevronRight className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {application.status === 'pre_approved' && (
-                    <div className="flex items-start gap-3 p-4 bg-green-50 text-green-700 rounded-xl shadow-sm">
-                      <div className="mt-0.5">
-                        <CheckCircle className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Pre-Approved!</p>
-                        <p className="text-sm mt-1">
-                          Congratulations! Your application has been pre-approved. Schedule a consultation to discuss next steps.
-                        </p>
-                        <button
-                          onClick={() => setActiveSection('appointment')}
-                          className="mt-3 px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium hover:bg-green-200 transition-colors flex items-center gap-1"
-                        >
-                          Schedule Consultation
-                          <ChevronRight className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {application.status === 'under_review' && (
-                    <div className="flex items-start gap-3 p-4 bg-yellow-50 text-yellow-700 rounded-xl shadow-sm">
-                      <div className="mt-0.5">
-                        <Clock className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="font-medium">Application Under Review</p>
-                        <p className="text-sm mt-1">
-                          Our team is currently reviewing your application. We'll notify you once we have an update.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
             </motion.div>
             
             {/* Benefits Section */}
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.2 }}
+              transition={{ duration: 0.3, delay: 0.3 }}
               className="bg-white rounded-xl shadow-xl p-6 border border-gray-100"
             >
               <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259] mb-6">Your Benefits</h2>
