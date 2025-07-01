@@ -101,7 +101,7 @@ const GetPrequalified = () => {
           {/* Title Section */}
           <div className="mb-6 md:mb-10">
             <h1 className="text-3xl md:text-5xl font-bold mb-3 md:mb-4 text-gray-900">
-              Pre-qualify for a car loan in <span className="text-[#008060]">minutes</span>
+              Pre-qualify for a car loan in <span className="text-[#33a381]">minutes</span>
             </h1>
             
             {/* Bank Logos */}
