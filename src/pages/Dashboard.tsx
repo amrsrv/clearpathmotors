@@ -450,135 +450,120 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
     );
   }
 
+  // Function to get the next step message based on application status
+  const getNextStepMessage = (status: string) => {
+    const nextStepMessage = {
+      submitted: "Sit tight — our team is reviewing your application.",
+      under_review: "We're assessing your details — no action needed for now.",
+      pending_documents: "Upload the required documents to keep your application moving.",
+      pre_approved: "You're pre-approved! Book a time to discuss vehicle options.",
+      vehicle_selection: "Browse and select your vehicle to proceed.",
+      final_approval: "You're almost done — confirm final details to wrap things up.",
+      finalized: "Your financing is complete — we'll reach out with next steps!",
+    }[status];
+    
+    return nextStepMessage || "Your application is being processed.";
+  };
+
   const renderDashboardSection = () => {
     switch (activeSection) {
       case 'overview':
         return (
           <div className="space-y-6">
-            {/* Loan Details Card with Application Status */}
+            {/* New Top Section with Personalized Greeting and Loan Summary */}
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
-              className="bg-[#2A7A5B] rounded-xl shadow-xl p-6 text-white"
+              className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100"
             >
-              <h2 className="text-xl font-semibold mb-4">Available Loan Amount</h2>
-              <p className="text-white/80 text-sm mb-6">
-                You've been pre-qualified for the following loan range with a 95% chance of approval.
-              </p>
+              {/* Personalized Greeting */}
+              <div className="p-6 bg-gradient-to-r from-[#3BAA75]/10 to-[#3BAA75]/5">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Hi {application.first_name || 'there'}!
+                </h2>
+                <p className="text-gray-600 mt-1">Here are your current loan results</p>
+              </div>
               
-              <div className="grid grid-cols-3 gap-2 text-center mb-6">
-                <div>
-                  <div className="text-xs text-white/60 mb-1">Minimum</div>
-                  <div className="text-xl font-semibold">${application.loan_amount_min?.toLocaleString()}</div>
+              {/* Loan Snapshot Data */}
+              <div className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-gray-50 p-4 rounded-xl shadow-sm">
+                  <div className="text-xs text-gray-500 mb-1">Status</div>
+                  <div className="font-semibold text-gray-900 flex items-center">
+                    <span className={`inline-block w-2 h-2 rounded-full mr-2 ${
+                      application.status === 'pre_approved' ? 'bg-green-500' :
+                      application.status === 'under_review' ? 'bg-yellow-500' :
+                      application.status === 'pending_documents' ? 'bg-orange-500' :
+                      'bg-gray-500'
+                    }`}></span>
+                    {application.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </div>
                 </div>
                 
-                <div>
-                  <div className="text-xs text-white/60 mb-1">Recommended</div>
-                  <div className="text-xl font-semibold">${((application.loan_amount_min || 0) + (application.loan_amount_max || 0)) / 2 | 0}</div>
+                <div className="bg-gray-50 p-4 rounded-xl shadow-sm">
+                  <div className="text-xs text-gray-500 mb-1">Rate</div>
+                  <div className="font-semibold text-gray-900">
+                    {application.interest_rate}%
+                  </div>
                 </div>
                 
-                <div>
-                  <div className="text-xs text-white/60 mb-1">Maximum</div>
-                  <div className="text-xl font-semibold">${application.loan_amount_max?.toLocaleString()}</div>
-                </div>
-              </div>
-              
-              <div className="relative mb-6">
-                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: '100%' }}
-                    transition={{ duration: 1, ease: "easeOut" }}
-                    className="h-full bg-emerald-500 rounded-full"
-                  />
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <div className="text-xs text-white/60 mb-1">Other Lenders</div>
-                  <div className="text-lg font-semibold">{(application.interest_rate || 0) + 3}% APR</div>
+                <div className="bg-gray-50 p-4 rounded-xl shadow-sm">
+                  <div className="text-xs text-gray-500 mb-1">Loan Amount</div>
+                  <div className="font-semibold text-gray-900">
+                    ${application.loan_amount_min?.toLocaleString()}
+                  </div>
                 </div>
                 
-                <div>
-                  <div className="text-xs text-white/60 mb-1">Our Rate</div>
-                  <div className="text-lg font-semibold">{application.interest_rate}% APR</div>
+                <div className="bg-gray-50 p-4 rounded-xl shadow-sm">
+                  <div className="text-xs text-gray-500 mb-1">Term</div>
+                  <div className="font-semibold text-gray-900">
+                    {application.loan_term} months
+                  </div>
                 </div>
               </div>
               
-              {/* Application Progress Status */}
-              <div className="pt-6 border-t border-white/20">
-                <h3 className="text-lg font-semibold mb-4">Application Progress</h3>
-                <ApplicationTracker application={application} stages={stages} />
-              </div>
-            </motion.div>
-            
-            {/* Next Steps */}
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-              className="bg-white rounded-xl shadow-xl p-6 border border-gray-100"
-            >
-              <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259] mb-6">Next Steps</h2>
-              
-              <div className="space-y-4">
-                {application.status === 'pending_documents' && (
-                  <div className="flex items-start gap-3 p-4 bg-orange-50 text-orange-700 rounded-xl shadow-sm">
-                    <div className="mt-0.5">
-                      <AlertCircle className="h-5 w-5" />
+              {/* Next Step Box */}
+              <div className="px-6 pb-6">
+                <div className="bg-[#3BAA75]/10 rounded-xl p-4 border border-[#3BAA75]/20">
+                  <div className="flex items-start gap-3">
+                    <div className="mt-0.5 bg-[#3BAA75] rounded-full p-1.5">
+                      {application.status === 'pre_approved' ? (
+                        <CheckCircle className="h-4 w-4 text-white" />
+                      ) : application.status === 'pending_documents' ? (
+                        <FileText className="h-4 w-4 text-white" />
+                      ) : (
+                        <Clock className="h-4 w-4 text-white" />
+                      )}
                     </div>
                     <div>
-                      <p className="font-medium">Documents Required</p>
-                      <p className="text-sm mt-1">
-                        Please upload the required documents to proceed with your application.
+                      <p className="font-medium text-gray-900">Next Step</p>
+                      <p className="text-sm text-gray-700 mt-1">
+                        {getNextStepMessage(application.status)}
                       </p>
-                      <button
-                        onClick={() => setActiveSection('documents')}
-                        className="mt-3 px-4 py-2 bg-orange-100 text-orange-700 rounded-lg text-sm font-medium hover:bg-orange-200 transition-colors flex items-center gap-1"
-                      >
-                        Go to Documents
-                        <ChevronRight className="h-4 w-4" />
-                      </button>
+                      
+                      {/* Action buttons based on status */}
+                      {application.status === 'pending_documents' && (
+                        <button
+                          onClick={() => setActiveSection('documents')}
+                          className="mt-3 px-4 py-2 bg-[#3BAA75] text-white rounded-lg text-sm font-medium hover:bg-[#2D8259] transition-colors flex items-center gap-1 shadow-sm"
+                        >
+                          Upload Documents
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      )}
+                      
+                      {application.status === 'pre_approved' && (
+                        <button
+                          onClick={() => setActiveSection('appointment')}
+                          className="mt-3 px-4 py-2 bg-[#3BAA75] text-white rounded-lg text-sm font-medium hover:bg-[#2D8259] transition-colors flex items-center gap-1 shadow-sm"
+                        >
+                          Schedule Consultation
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
-                )}
-                
-                {application.status === 'pre_approved' && (
-                  <div className="flex items-start gap-3 p-4 bg-green-50 text-green-700 rounded-xl shadow-sm">
-                    <div className="mt-0.5">
-                      <CheckCircle className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Pre-Approved!</p>
-                      <p className="text-sm mt-1">
-                        Congratulations! Your application has been pre-approved. Schedule a consultation to discuss next steps.
-                      </p>
-                      <button
-                        onClick={() => setActiveSection('appointment')}
-                        className="mt-3 px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium hover:bg-green-200 transition-colors flex items-center gap-1"
-                      >
-                        Schedule Consultation
-                        <ChevronRight className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-                
-                {application.status === 'under_review' && (
-                  <div className="flex items-start gap-3 p-4 bg-yellow-50 text-yellow-700 rounded-xl shadow-sm">
-                    <div className="mt-0.5">
-                      <Clock className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Application Under Review</p>
-                      <p className="text-sm mt-1">
-                        Our team is currently reviewing your application. We'll notify you once we have an update.
-                      </p>
-                    </div>
-                  </div>
-                )}
+                </div>
               </div>
             </motion.div>
             
@@ -587,7 +572,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: 0.2 }}
-              className="bg-white rounded-xl shadow-xl p-6 border border-gray-100"
+              className="bg-white rounded-xl shadow-lg p-6 border border-gray-100"
             >
               <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259] mb-6">Application Details</h2>
               
@@ -664,12 +649,23 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
               </div>
             </motion.div>
             
-            {/* Benefits Section */}
+            {/* Application Progress Tracker */}
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: 0.3 }}
-              className="bg-white rounded-xl shadow-xl p-6 border border-gray-100"
+              className="bg-white rounded-xl shadow-lg p-6 border border-gray-100"
+            >
+              <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259] mb-6">Application Progress</h2>
+              <ApplicationTracker application={application} stages={stages} />
+            </motion.div>
+            
+            {/* Benefits Section */}
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.4 }}
+              className="bg-white rounded-xl shadow-lg p-6 border border-gray-100"
             >
               <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259] mb-6">Your Benefits</h2>
               
@@ -715,7 +711,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
-              className="bg-white rounded-xl shadow-xl p-6 border border-gray-100"
+              className="bg-white rounded-xl shadow-lg p-6 border border-gray-100"
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259]">Required Documents</h2>
@@ -740,7 +736,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: 0.1 }}
-              className="bg-white rounded-xl shadow-xl p-6 border border-gray-100"
+              className="bg-white rounded-xl shadow-lg p-6 border border-gray-100"
             >
               <DocumentManager
                 applicationId={application.id}
@@ -761,7 +757,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
-              className="bg-white rounded-xl shadow-xl p-6 border border-gray-100"
+              className="bg-white rounded-xl shadow-lg p-6 border border-gray-100"
             >
               <NotificationCenter
                 notifications={notifications}
@@ -779,7 +775,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
-              className="bg-white rounded-xl shadow-xl p-6 border border-gray-100"
+              className="bg-white rounded-xl shadow-lg p-6 border border-gray-100"
             >
               <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259] mb-6">Your Profile</h2>
               
@@ -959,7 +955,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
             transition={{ duration: 0.3 }}
             className="space-y-6"
           >
-            <div className="bg-white rounded-xl shadow-xl overflow-hidden border border-gray-100">
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
               <UserMessageCenter userId={user?.id || tempUserId || ''} applicationId={application.id} />
             </div>
           </motion.div>
