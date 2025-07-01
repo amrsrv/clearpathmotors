@@ -19,6 +19,15 @@ interface DashboardProps {
   setActiveSection: (section: string) => void;
 }
 
+// Utility function to validate UUID format
+function isUuid(value: string | null | undefined): boolean {
+  if (!value) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+// Fallback UUID to use when an invalid UUID is detected
+const FALLBACK_UUID = '00000000-0000-0000-0000-000000000000';
+
 const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -66,10 +75,14 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         .from('applications')
         .select('*');
         
-      if (user) {
+      if (user && isUuid(user.id)) {
         applicationQuery = applicationQuery.eq('user_id', user.id);
-      } else if (tempUserId) {
+      } else if (tempUserId && isUuid(tempUserId)) {
         applicationQuery = applicationQuery.eq('temp_user_id', tempUserId);
+      } else {
+        // If neither user.id nor tempUserId is a valid UUID, use a fallback
+        // This prevents the database error but ensures no results are returned
+        applicationQuery = applicationQuery.eq('user_id', FALLBACK_UUID);
       }
       
       const { data: applications, error: applicationError } = await applicationQuery
@@ -125,10 +138,13 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         .from('notifications')
         .select('*');
         
-      if (user) {
+      if (user && isUuid(user.id)) {
         notificationQuery = notificationQuery.eq('user_id', user.id);
-      } else if (tempUserId) {
+      } else if (tempUserId && isUuid(tempUserId)) {
         notificationQuery = notificationQuery.eq('temp_user_id', tempUserId);
+      } else {
+        // If neither user.id nor tempUserId is a valid UUID, use a fallback
+        notificationQuery = notificationQuery.eq('user_id', FALLBACK_UUID);
       }
       
       const { data: notificationData, error: notificationError } = await notificationQuery
@@ -179,7 +195,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
   };
 
   const loadUserProfile = async () => {
-    if (!user) return;
+    if (!user || !isUuid(user.id)) return;
     
     try {
       // Check if user profile exists
@@ -222,7 +238,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
   };
 
   const handleDocumentUpload = async (file: File, category: string) => {
-    if (!user && !tempUserId || !application) return;
+    if ((!user && !tempUserId) || !application) return;
     
     try {
       setIsUploadingDocument(true);
