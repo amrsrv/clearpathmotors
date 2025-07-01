@@ -338,15 +338,10 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
 
   const handleMarkNotificationAsRead = async (notificationId: string) => {
     try {
-      // Determine which ID field to use in the query
-      const idField = user ? 'user_id' : 'temp_user_id';
-      const idValue = user ? user.id : tempUserId;
-      
       const { error } = await supabase
         .from('notifications')
         .update({ read: true })
-        .eq('id', notificationId)
-        .eq(idField, idValue);
+        .eq('id', notificationId);
         
       if (error) {
         throw error;
