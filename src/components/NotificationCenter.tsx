@@ -92,23 +92,23 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-6">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center">
-          <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259]">Notifications</h2>
+      <div className="flex justify-between items-start sm:items-center flex-wrap mb-6">
+        <div className="flex items-center gap-2">
+          <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259]">Notifications</h2>
           {unreadCount > 0 && (
-            <span className="ml-2 bg-[#3BAA75] text-white px-2.5 py-1.5 rounded-full text-sm font-medium">
+            <span className="bg-[#3BAA75] text-white px-2.5 py-1.5 rounded-full text-sm font-medium">
               {unreadCount} new
             </span>
           )}
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 mt-2 sm:mt-0">
           <button
             onClick={() => setShowFilters(!showFilters)}
             className="p-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
             title="Filter notifications"
           >
-            <Filter className="h-5 w-5" />
+            <Filter className="h-5 w-5 sm:h-6 sm:w-6" />
           </button>
           
           <button
@@ -118,9 +118,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
             title="Mark all as read"
           >
             {isMarkingAllAsRead ? (
-              <div className="h-5 w-5 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
+              <div className="h-5 w-5 sm:h-6 sm:w-6 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
             ) : (
-              <Check className="h-5 w-5" />
+              <Check className="h-5 w-5 sm:h-6 sm:w-6" />
             )}
           </button>
           
@@ -131,9 +131,9 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
             title="Clear all notifications"
           >
             {isClearingAll ? (
-              <div className="h-5 w-5 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
+              <div className="h-5 w-5 sm:h-6 sm:w-6 border-2 border-gray-500 border-t-transparent rounded-full animate-spin" />
             ) : (
-              <Trash2 className="h-5 w-5" />
+              <Trash2 className="h-5 w-5 sm:h-6 sm:w-6" />
             )}
           </button>
         </div>
