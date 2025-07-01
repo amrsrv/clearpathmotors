@@ -96,9 +96,59 @@ const GetPrequalified = () => {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center"
+          className="text-center mb-8"
         >
-          {/* Optional Header Message */}
+          {/* Title Section */}
+          <div className="mb-10">
+            <h1 className="text-4xl md:text-5xl font-bold mb-4 text-gray-900">
+              Pre-qualify for a car loan in <span className="text-[#FF5757]">minutes</span>
+            </h1>
+            <p className="text-xl text-gray-600 mb-8">
+              No impact on your credit score
+            </p>
+            
+            {/* Bank Logos */}
+            <div className="mt-8">
+              <p className="text-lg text-gray-700 mb-4">Our top lenders</p>
+              <div className="flex justify-center items-center gap-4 flex-wrap">
+                <div className="bg-gray-50 rounded-full p-3 w-16 h-16 flex items-center justify-center">
+                  <img 
+                    src="https://ontarioautoapprovals.ca/wp-content/uploads/2024/11/Untitled-1024-x-1023-px.png" 
+                    alt="TD Bank" 
+                    className="w-12 h-auto"
+                  />
+                </div>
+                <div className="bg-gray-50 rounded-full p-3 w-16 h-16 flex items-center justify-center">
+                  <img 
+                    src="https://ontarioautoapprovals.ca/wp-content/uploads/2024/11/Untitled-1024-x-1023-px-2.png" 
+                    alt="CIBC" 
+                    className="w-12 h-auto"
+                  />
+                </div>
+                <div className="bg-gray-50 rounded-full p-3 w-16 h-16 flex items-center justify-center">
+                  <img 
+                    src="https://ontarioautoapprovals.ca/wp-content/uploads/2024/11/Untitled-1024-x-1023-px-3.png" 
+                    alt="RBC" 
+                    className="w-12 h-auto"
+                  />
+                </div>
+                <div className="bg-gray-50 rounded-full p-3 w-16 h-16 flex items-center justify-center">
+                  <img 
+                    src="https://ontarioautoapprovals.ca/wp-content/uploads/2024/11/Untitled-1024-x-1023-px-4.png" 
+                    alt="Scotiabank" 
+                    className="w-12 h-auto"
+                  />
+                </div>
+                <div className="bg-gray-50 rounded-full p-3 w-16 h-16 flex items-center justify-center">
+                  <img 
+                    src="https://ontarioautoapprovals.ca/wp-content/uploads/2024/11/Untitled-1024-x-1023-px-7.png" 
+                    alt="iA Financial" 
+                    className="w-12 h-auto"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         </motion.div>
 
         <PreQualificationForm onComplete={handleFormComplete} />
