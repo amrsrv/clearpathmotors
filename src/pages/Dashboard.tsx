@@ -567,6 +567,17 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
               </div>
             </motion.div>
             
+            {/* Application Progress Tracker */}
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.1 }}
+              className="bg-white rounded-xl shadow-lg p-6 border border-gray-100"
+            >
+              <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259] mb-6">Application Progress</h2>
+              <ApplicationTracker application={application} stages={stages} />
+            </motion.div>
+            
             {/* Application Details Card */}
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
@@ -649,22 +660,11 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
               </div>
             </motion.div>
             
-            {/* Application Progress Tracker */}
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.3 }}
-              className="bg-white rounded-xl shadow-lg p-6 border border-gray-100"
-            >
-              <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259] mb-6">Application Progress</h2>
-              <ApplicationTracker application={application} stages={stages} />
-            </motion.div>
-            
             {/* Benefits Section */}
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.4 }}
+              transition={{ duration: 0.3, delay: 0.3 }}
               className="bg-white rounded-xl shadow-lg p-6 border border-gray-100"
             >
               <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259] mb-6">Your Benefits</h2>
