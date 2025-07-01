@@ -67,7 +67,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 6;
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [anonymousSession, setAnonymousSession] = useState<string | null>(null);
+  const [tempUserId, setTempUserId] = useState<string | null>(null);
   
   // Initialize form with default values
   const methods = useForm<FormValues>({
@@ -101,37 +101,25 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
   const vehicleType = watch('vehicle_type');
   const creditScore = watch('credit_score');
 
-  // Create anonymous session on component mount
+  // Generate a temporary user ID on component mount
   useEffect(() => {
-    const createAnonymousSession = async () => {
-      try {
-        // Check if we already have an anonymous ID stored
-        const storedAnonymousId = localStorage.getItem('anonymousUserId');
-        if (storedAnonymousId) {
-          console.log('Using existing anonymous ID:', storedAnonymousId);
-          setAnonymousSession(storedAnonymousId);
-          return;
-        }
-
-        // Sign in anonymously
-        const { data, error } = await supabase.auth.signInAnonymously();
-        
-        if (error) {
-          console.error('Error creating anonymous session:', error);
-          return;
-        }
-        
-        if (data.user) {
-          console.log('Anonymous session created with ID:', data.user.id);
-          localStorage.setItem('anonymousUserId', data.user.id);
-          setAnonymousSession(data.user.id);
-        }
-      } catch (error) {
-        console.error('Exception creating anonymous session:', error);
+    const generateTempUserId = () => {
+      // Check if we already have a temp user ID stored
+      const storedTempUserId = localStorage.getItem('tempUserId');
+      if (storedTempUserId) {
+        console.log('Using existing temp user ID:', storedTempUserId);
+        setTempUserId(storedTempUserId);
+        return;
       }
+
+      // Generate a new temporary UUID
+      const newTempUserId = crypto.randomUUID();
+      console.log('Generated new temp user ID:', newTempUserId);
+      localStorage.setItem('tempUserId', newTempUserId);
+      setTempUserId(newTempUserId);
     };
 
-    createAnonymousSession();
+    generateTempUserId();
   }, []);
   
   // Function to handle next step
@@ -178,25 +166,14 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         confirmPassword: data.confirmPassword ? '********' : undefined
       });
       
-      // Get the anonymous user ID
-      let tempUserId = anonymousSession;
+      // Use the temp user ID we generated
+      let currentTempUserId = tempUserId;
       
-      // If we don't have an anonymous session yet, create one
-      if (!tempUserId) {
-        try {
-          const { data: authData, error } = await supabase.auth.signInAnonymously();
-          if (error) throw error;
-          
-          if (authData.user) {
-            tempUserId = authData.user.id;
-            localStorage.setItem('anonymousUserId', tempUserId);
-            console.log('Created anonymous session on submit:', tempUserId);
-          }
-        } catch (error) {
-          console.error('Error creating anonymous session on submit:', error);
-          // Fall back to a random UUID if anonymous auth fails
-          tempUserId = crypto.randomUUID();
-        }
+      // If we don't have a temp user ID, generate one now
+      if (!currentTempUserId) {
+        currentTempUserId = crypto.randomUUID();
+        localStorage.setItem('tempUserId', currentTempUserId);
+        console.log('Generated temp user ID on submit:', currentTempUserId);
       }
       
       // Calculate loan amount range based on monthly payment
@@ -215,7 +192,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       
       // Prepare application data
       const applicationData = {
-        temp_user_id: tempUserId,
+        temp_user_id: currentTempUserId,
         vehicle_type: data.vehicle_type,
         desired_monthly_payment: data.desired_monthly_payment,
         credit_score: data.credit_score,
@@ -309,7 +286,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
           .from('notifications')
           .insert({
             user_id: null,
-            temp_user_id: tempUserId,
+            temp_user_id: currentTempUserId,
             title: 'Welcome to Clearpath Motors!',
             message: 'Thank you for starting your auto financing journey with us. Create an account to continue your application.',
             read: false
@@ -326,7 +303,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       
       // Call onComplete with the application ID, temp user ID, and form data
       toast.success('Application submitted successfully! Redirecting...');
-      onComplete(application.id, tempUserId, {
+      onComplete(application.id, currentTempUserId, {
         ...data,
         email: data.email,
         password: data.password || '', // Password will be set in the claim page
