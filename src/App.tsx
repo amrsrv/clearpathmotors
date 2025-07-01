@@ -100,7 +100,7 @@ const App = () => {
   return (
     <div className="min-h-screen bg-secondary-50 text-gray-900 font-sans">
       {!location.pathname.startsWith('/admin') && <Navbar />}
-      <main className={location.pathname.startsWith('/admin') ? '' : 'pt-16 md:pt-24 pb-16 sm:pb-0'}> {/* Add pb-16 for mobile nav bar */}
+      <main className={location.pathname.startsWith('/admin') ? '' : 'pt-16 md:pt-24 pb-20 sm:pb-0'}> {/* Adjusted pb-20 for mobile sticky footer */}
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<Home />} />

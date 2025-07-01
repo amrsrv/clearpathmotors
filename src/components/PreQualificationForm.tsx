@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm, FormProvider, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,7 +9,6 @@ import { Input } from './ui/input';
 import { Slider } from './ui/slider';
 import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
-import { ProgressBar } from './ProgressBar';
 import CurrencyInputField from './CurrencyInputField';
 import { vehicles } from '../pages/Vehicles';
 
@@ -68,6 +67,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
   const totalSteps = 6;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tempUserId, setTempUserId] = useState<string | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
   
   // Initialize form with default values
   const methods = useForm<FormValues>({
@@ -95,11 +95,12 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
     mode: 'onChange',
   });
   
-  const { handleSubmit, trigger, watch, setValue, control, formState: { errors } } = methods;
+  const { handleSubmit, trigger, watch, setValue, control, formState: { errors, isValid } } = methods;
   
   // Watch values for validation and UI updates
   const vehicleType = watch('vehicle_type');
   const creditScore = watch('credit_score');
+  const currentStepFields = watch();
 
   // Generate a temporary user ID on component mount
   useEffect(() => {
@@ -121,6 +122,23 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
 
     generateTempUserId();
   }, []);
+
+  // Check if current step is valid
+  const isStepValid = () => {
+    const fieldsToValidate = {
+      1: ['vehicle_type'],
+      2: ['desired_monthly_payment'],
+      3: ['credit_score'],
+      4: ['address', 'city', 'province', 'postal_code', 'housing_status', 'housing_payment'],
+      5: ['employment_status', 'employer_name', 'annual_income'],
+      6: ['first_name', 'last_name', 'email', 'phone', 'consent_soft_check', 'terms_accepted'],
+    };
+    
+    const currentStepFieldsArray = fieldsToValidate[currentStep as keyof typeof fieldsToValidate];
+    
+    // Check if any of the current step fields have errors
+    return !currentStepFieldsArray.some(field => !!errors[field as keyof FormValues]);
+  };
   
   // Function to handle next step
   const handleNextStep = async () => {
@@ -140,6 +158,10 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
     if (isStepValid) {
       if (currentStep < totalSteps) {
         setCurrentStep(currentStep + 1);
+        // Scroll to top of form
+        setTimeout(() => {
+          formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
       } else {
         // Final step submission
         handleSubmit(onSubmit)();
@@ -151,6 +173,10 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
   const handlePrevStep = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
+      // Scroll to top of form
+      setTimeout(() => {
+        formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
     }
   };
   
@@ -348,11 +374,8 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
   
   return (
     <FormProvider {...methods}>
-      <div className="w-full max-w-3xl mx-auto">
-        {/* Progress Bar */}
-        <ProgressBar currentStep={currentStep} totalSteps={totalSteps} />
-        
-        <form className="bg-white rounded-xl shadow-lg p-6 md:p-8">
+      <div className="w-full max-w-3xl mx-auto" ref={formRef}>
+        <form className="bg-white rounded-xl shadow-lg p-6 md:p-8 mb-20">
           <AnimatePresence mode="wait">
             {/* Step 1: Vehicle Type */}
             {currentStep === 1 && (
@@ -859,43 +882,61 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
               </motion.div>
             )}
           </AnimatePresence>
-          
-          {/* Navigation Buttons */}
-          <div className="flex justify-between mt-8">
-            {currentStep > 1 ? (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handlePrevStep}
-                disabled={isSubmitting}
-              >
-                Back
-              </Button>
-            ) : (
-              <div></div> // Empty div to maintain flex spacing
-            )}
-            
+        </form>
+      </div>
+
+      {/* Sticky Footer Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white p-4 shadow-lg border-t border-gray-100 z-50">
+        <div className="max-w-3xl mx-auto flex justify-between">
+          {currentStep > 1 ? (
             <Button
               type="button"
-              onClick={handleNextStep}
+              variant="outline"
+              onClick={handlePrevStep}
               disabled={isSubmitting}
-              className="bg-[#3BAA75] hover:bg-[#2D8259]"
+              className="w-24"
             >
-              {currentStep === totalSteps ? (
-                isSubmitting ? (
-                  <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                    Submitting...
-                  </div>
-                ) : (
-                  'Submit Application'
-                )
-              ) : (
-                'Next'
-              )}
+              Back
             </Button>
+          ) : (
+            <div className="w-24"></div> {/* Empty div to maintain flex spacing */}
+          )}
+          
+          <div className="flex items-center justify-center">
+            {Array.from({ length: totalSteps }).map((_, index) => (
+              <div 
+                key={index}
+                className={`w-2 h-2 rounded-full mx-1 ${
+                  index + 1 === currentStep 
+                    ? 'bg-[#3BAA75]' 
+                    : index + 1 < currentStep 
+                      ? 'bg-[#3BAA75]/50' 
+                      : 'bg-gray-200'
+                }`}
+              />
+            ))}
           </div>
-        </form>
+          
+          <Button
+            type="button"
+            onClick={handleNextStep}
+            disabled={isSubmitting || !isStepValid()}
+            className="bg-[#3BAA75] hover:bg-[#2D8259] w-24"
+          >
+            {currentStep === totalSteps ? (
+              isSubmitting ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                  Submit
+                </div>
+              ) : (
+                'Submit'
+              )
+            ) : (
+              'Next'
+            )}
+          </Button>
+        </div>
       </div>
     </FormProvider>
   );
