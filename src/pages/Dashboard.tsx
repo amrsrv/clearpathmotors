@@ -31,31 +31,57 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingAttempts, setLoadingAttempts] = useState(0);
+  const [tempUserId, setTempUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user) {
-      loadDashboardData();
+    // Check for anonymous ID in localStorage
+    const storedAnonymousId = localStorage.getItem('chatAnonymousId');
+    if (storedAnonymousId) {
+      setTempUserId(storedAnonymousId);
     }
-  }, [user]);
+    
+    if (user || tempUserId) {
+      loadDashboardData();
+    } else {
+      setLoading(false);
+    }
+  }, [user, tempUserId]);
 
   const loadDashboardData = async () => {
-    if (!user) return;
+    if (!user && !tempUserId) return;
     
     try {
       setLoading(true);
       setError(null);
       
       // Load user profile with retry mechanism
-      await loadUserProfileWithRetry();
+      if (user) {
+        await loadUserProfileWithRetry();
+      }
       
       // Load application data
-      const { data: applications, error: applicationError } = await supabase
+      let applicationQuery = supabase
         .from('applications')
-        .select('*')
-        .eq('user_id', user.id)
+        .select('*');
+        
+      if (user) {
+        applicationQuery = applicationQuery.eq('user_id', user.id);
+      } else if (tempUserId) {
+        applicationQuery = applicationQuery.eq('temp_user_id', tempUserId);
+      }
+      
+      const { data: applications, error: applicationError } = await applicationQuery
         .order('created_at', { ascending: false });
       
       if (applicationError) {
+        console.error('Error loading applications:', applicationError);
+        if (loadingAttempts < 3) {
+          // Retry loading after a delay
+          setLoadingAttempts(prev => prev + 1);
+          setTimeout(loadDashboardData, 1000);
+          return;
+        }
         throw applicationError;
       }
       
@@ -72,10 +98,11 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
           .order('uploaded_at', { ascending: false });
         
         if (documentError) {
-          throw documentError;
+          console.error('Error loading documents:', documentError);
+          // Continue despite document error
+        } else {
+          setDocuments(documentData || []);
         }
-        
-        setDocuments(documentData || []);
         
         // Load application stages
         const { data: stageData, error: stageError } = await supabase
@@ -85,24 +112,35 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
           .order('stage_number', { ascending: true });
         
         if (stageError) {
-          throw stageError;
+          console.error('Error loading application stages:', stageError);
+          // Continue despite stage error
+        } else {
+          setStages(stageData || []);
         }
-        
-        setStages(stageData || []);
       }
       
       // Load notifications
-      const { data: notificationData, error: notificationError } = await supabase
+      let notificationQuery = supabase
         .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
+        .select('*');
+        
+      if (user) {
+        notificationQuery = notificationQuery.eq('user_id', user.id);
+      } else if (tempUserId) {
+        notificationQuery = notificationQuery.eq('temp_user_id', tempUserId);
+      }
+      
+      const { data: notificationData, error: notificationError } = await notificationQuery
         .order('created_at', { ascending: false });
       
       if (notificationError) {
-        throw notificationError;
+        console.error('Error loading notifications:', notificationError);
+        // Continue despite notification error
+      } else {
+        setNotifications(notificationData || []);
       }
       
-      setNotifications(notificationData || []);
+      setLoadingAttempts(0); // Reset attempts counter on success
       
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -183,7 +221,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
   };
 
   const handleDocumentUpload = async (file: File, category: string) => {
-    if (!user || !application) return;
+    if (!user && !tempUserId || !application) return;
     
     try {
       setIsUploadingDocument(true);
@@ -191,7 +229,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       
       // Create a unique filename
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/${application.id}/${Date.now()}.${fileExt}`;
+      const userId = user?.id || tempUserId;
+      const fileName = `${userId}/${application.id}/${Date.now()}.${fileExt}`;
       
       // Upload to Supabase Storage
       const { error: storageError } = await supabase.storage
@@ -345,7 +384,10 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent" />
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent mb-4" />
+          <p className="text-gray-600">Loading your dashboard...</p>
+        </div>
       </div>
     );
   }
@@ -742,13 +784,13 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
               <div className="space-y-6">
                 <div className="flex items-center gap-4">
                   <div className="bg-[#3BAA75] rounded-full w-16 h-16 flex items-center justify-center text-white text-2xl font-bold">
-                    {application.first_name?.[0] || user.email?.[0]?.toUpperCase() || 'U'}
+                    {application.first_name?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
                   </div>
                   <div>
                     <h3 className="text-lg font-medium">
                       {application.first_name} {application.last_name}
                     </h3>
-                    <p className="text-gray-600">{user.email}</p>
+                    <p className="text-gray-600">{user?.email || application.email}</p>
                   </div>
                 </div>
                 
@@ -762,7 +804,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                         </label>
                         <input
                           type="email"
-                          value={user.email || ''}
+                          value={user?.email || application.email || ''}
                           disabled
                           className="w-full px-4 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700"
                         />
@@ -878,14 +920,14 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         
       case 'help':
         return (
-          <HelpCenter userId={user.id} applicationId={application.id} />
+          <HelpCenter userId={user?.id || tempUserId || ''} applicationId={application.id} />
         );
         
       case 'messages':
         return (
           <div className="space-y-6">
             <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              <UserMessageCenter userId={user.id} applicationId={application.id} />
+              <UserMessageCenter userId={user?.id || tempUserId || ''} applicationId={application.id} />
             </div>
           </div>
         );

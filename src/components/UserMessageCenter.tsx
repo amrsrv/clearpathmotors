@@ -66,42 +66,9 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    loadMessages();
-    
-    // Set up real-time subscription for messages
-    const messagesChannel = supabase
-      .channel('user-messages')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'admin_messages',
-          filter: `user_id=eq.${userId}`
-        },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            // Add the new message to our state
-            setMessages(prev => [...prev, payload.new as Message]);
-            
-            // If it's an admin message, mark it as read when we're viewing it
-            if ((payload.new as Message).is_admin) {
-              markMessageAsRead(payload.new.id);
-              
-              // Show toast notification for new message
-              toast.success('New message from support team');
-            }
-            
-            // Scroll to bottom
-            scrollToBottom();
-          }
-        }
-      )
-      .subscribe();
-      
-    return () => {
-      supabase.removeChannel(messagesChannel);
-    };
+    if (userId) {
+      loadMessages();
+    }
   }, [userId, applicationId]);
 
   // Scroll to bottom when messages change
@@ -191,7 +158,7 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({
   };
 
   const handleSendMessage = async () => {
-    if (!messageText.trim() || !user) return;
+    if (!messageText.trim() || !userId) return;
     
     try {
       setSendingMessage(true);
