@@ -99,12 +99,7 @@ const GetPrequalified = () => {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-8"
         >
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4 px-4">
-            Get Pre-Qualified Today
-          </h1>
-          <p className="text-lg sm:text-xl text-gray-600 px-4">
-            Complete this application to see your personalized financing options
-          </p>
+    
         </motion.div>
         
         <div className="w-full flex">
