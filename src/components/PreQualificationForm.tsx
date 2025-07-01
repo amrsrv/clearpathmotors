@@ -386,7 +386,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
               >
 <h2 className="text-3xl font-bold text-gray-900 leading-tight text-center mx-auto">
   Select Your Vehicle Type
-</h2>               <p className="text-gray-600 mt-1 text-center mx-auto">
+</h2>               <p className="text-gray-600 mt-0.5 text-center mx-auto">
   Choose the type of vehicle you're interested in financing.
 </p>
                 
