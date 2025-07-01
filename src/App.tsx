@@ -4,7 +4,6 @@ import { AnimatePresence } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
 import { useAuth } from './hooks/useAuth';
 import Navbar from './components/Navbar';
-import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
 import Home from './pages/Home';
 import HowItWorks from './pages/HowItWorks';
@@ -95,12 +94,12 @@ const App = () => {
   };
 
   // Check if we should show the footer (hide on dashboard and admin pages)
-  const shouldShowFooter = !location.pathname.startsWith('/admin') && location.pathname !== '/dashboard';
+  const shouldShowFooter = false;
 
   return (
     <div className="min-h-screen bg-secondary-50 text-gray-900 font-sans">
       {!location.pathname.startsWith('/admin') && <Navbar />}
-      <main className={location.pathname.startsWith('/admin') ? '' : 'pt-16 md:pt-24 pb-20 sm:pb-0'}> {/* Adjusted pb-20 for mobile sticky footer */}
+      <main className={location.pathname.startsWith('/admin') ? '' : 'pt-16 md:pt-24'}> 
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<Home />} />
@@ -216,7 +215,7 @@ const App = () => {
           </Routes>
         </AnimatePresence>
       </main>
-      {shouldShowFooter && <Footer />}
+      {shouldShowFooter && <></>}
       {!location.pathname.startsWith('/admin') && user && location.pathname === '/dashboard' && (
         <MobileNavBar onNavigate={handleMobileNav} activeSection={activeDashboardSection} />
       )}

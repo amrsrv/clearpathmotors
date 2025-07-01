@@ -158,10 +158,8 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
     if (isStepValid) {
       if (currentStep < totalSteps) {
         setCurrentStep(currentStep + 1);
-        // Scroll to top of form
-        setTimeout(() => {
-          formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 100);
+        // Scroll to top of viewport
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       } else {
         // Final step submission
         handleSubmit(onSubmit)();
@@ -173,10 +171,8 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
   const handlePrevStep = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
-      // Scroll to top of form
-      setTimeout(() => {
-        formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 100);
+      // Scroll to top of viewport
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
   
@@ -375,7 +371,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
   return (
     <FormProvider {...methods}>
       <div className="w-full max-w-3xl mx-auto" ref={formRef}>
-        <form className="bg-white rounded-xl shadow-card-hover p-6 md:p-8 mb-0">
+        <form className="bg-white rounded-xl shadow-card-hover p-4 mb-0">
           <AnimatePresence mode="wait">
             {/* Step 1: Vehicle Type */}
             {currentStep === 1 && (
@@ -388,8 +384,8 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                 transition={{ duration: 0.3 }}
                 className="space-y-6"
               >
-                <h2 className="text-2xl font-semibold text-gray-900">Select Your Vehicle Type</h2>
-                <p className="text-gray-600">Choose the type of vehicle you're interested in financing.</p>
+                <h2 className="text-2xl font-semibold text-gray-900 leading-tight">Select Your Vehicle Type</h2>
+                <p className="text-gray-600 mt-1">Choose the type of vehicle you're interested in financing.</p>
                 
                 <div className="grid grid-cols-2 gap-4">
                   {vehicles.map((vehicle) => (
@@ -442,8 +438,8 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                 transition={{ duration: 0.3 }}
                 className="space-y-6"
               >
-                <h2 className="text-2xl font-semibold text-gray-900">Monthly Budget</h2>
-                <p className="text-gray-600">What's your monthly budget for a vehicle?</p>
+                <h2 className="text-2xl font-semibold text-gray-900 leading-tight">Monthly Budget</h2>
+                <p className="text-gray-600 mt-1">What's your monthly budget for a vehicle?</p>
                 
                 <CurrencyInputField
                   control={control}
@@ -491,8 +487,8 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                 transition={{ duration: 0.3 }}
                 className="space-y-6"
               >
-                <h2 className="text-2xl font-semibold text-gray-900">Credit Score</h2>
-                <p className="text-gray-600">Estimate your current credit score.</p>
+                <h2 className="text-2xl font-semibold text-gray-900 leading-tight">Credit Score</h2>
+                <p className="text-gray-600 mt-1">Estimate your current credit score.</p>
                 
                 <div className="mt-8">
                   <div className="flex justify-between items-center mb-2">
@@ -559,8 +555,8 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                 transition={{ duration: 0.3 }}
                 className="space-y-6"
               >
-                <h2 className="text-2xl font-semibold text-gray-900">Home Address & Housing</h2>
-                <p className="text-gray-600">Tell us about where you live.</p>
+                <h2 className="text-2xl font-semibold text-gray-900 leading-tight">Home Address & Housing</h2>
+                <p className="text-gray-600 mt-1">Tell us about where you live.</p>
                 
                 <div className="space-y-4">
                   <Controller
@@ -679,8 +675,8 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                 transition={{ duration: 0.3 }}
                 className="space-y-6"
               >
-                <h2 className="text-2xl font-semibold text-gray-900">Employment & Income</h2>
-                <p className="text-gray-600">Tell us about your employment and income.</p>
+                <h2 className="text-2xl font-semibold text-gray-900 leading-tight">Employment & Income</h2>
+                <p className="text-gray-600 mt-1">Tell us about your employment and income.</p>
                 
                 <div className="space-y-4">
                   <Controller
@@ -746,8 +742,8 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                 transition={{ duration: 0.3 }}
                 className="space-y-6"
               >
-                <h2 className="text-2xl font-semibold text-gray-900">Personal Information</h2>
-                <p className="text-gray-600">Tell us about yourself.</p>
+                <h2 className="text-2xl font-semibold text-gray-900 leading-tight">Personal Information</h2>
+                <p className="text-gray-600 mt-1">Tell us about yourself.</p>
                 
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -868,7 +864,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                               htmlFor="terms_accepted"
                               className="ml-2 text-sm text-gray-600"
                             >
-                              I accept the <a href="/terms" className="text-[#3BAA75] hover:underline">terms and conditions</a> and <a href="/privacy" className=\"text-[#3BAA75] hover:underline">privacy policy</a>
+                              I accept the <a href="/terms" className="text-[#3BAA75] hover:underline">terms and conditions</a> and <a href="/privacy" className="text-[#3BAA75] hover:underline">privacy policy</a>
                             </label>
                           </div>
                         )}
