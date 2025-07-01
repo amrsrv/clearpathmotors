@@ -375,7 +375,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
   return (
     <FormProvider {...methods}>
       <div className="w-full max-w-3xl mx-auto" ref={formRef}>
-        <form className="bg-white rounded-xl shadow-lg p-6 md:p-8 mb-20">
+        <form className="bg-white rounded-xl shadow-lg p-6 md:p-8 mb-0">
           <AnimatePresence mode="wait">
             {/* Step 1: Vehicle Type */}
             {currentStep === 1 && (
@@ -899,7 +899,8 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
               Back
             </Button>
           ) : (
-<div className="w-24">{/* Empty div to maintain flex spacing */}</div>          )}
+            <div className="w-24">{/* Empty div to maintain flex spacing */}</div>
+          )}
           
           <div className="flex items-center justify-center">
             {Array.from({ length: totalSteps }).map((_, index) => (
