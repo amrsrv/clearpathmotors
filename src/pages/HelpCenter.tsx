@@ -72,7 +72,7 @@ const HelpCenter: React.FC<HelpCenterProps> = ({ userId, applicationId }) => {
       const { data, error } = await supabase
         .from('support_tickets')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', user.Id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
