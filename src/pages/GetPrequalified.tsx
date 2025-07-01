@@ -10,8 +10,39 @@ const GetPrequalified = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // We're removing the check for existing applications to allow users to create multiple applications
-  // This enables users to submit new prequalification forms even if they already have applications
+  // Check if user is already authenticated
+  useEffect(() => {
+    if (user) {
+      // Check if user already has an application
+      const checkExistingApplication = async () => {
+        try {
+          console.log('GetPrequalified: Checking for existing application for user:', user.id);
+          const { data: existingApp, error } = await supabase
+            .from('applications')
+            .select('id')
+            .eq('user_id', user.id)
+            .maybeSingle();
+            
+          if (error) {
+            console.error('GetPrequalified: Error checking for existing application:', error);
+            return;
+          }
+            
+          if (existingApp) {
+            // User already has an application, redirect to dashboard
+            console.log('GetPrequalified: Existing application found, redirecting to dashboard');
+            navigate('/dashboard');
+          } else {
+            console.log('GetPrequalified: No existing application found for user');
+          }
+        } catch (error) {
+          console.error('GetPrequalified: Error checking for existing application:', error);
+        }
+      };
+      
+      checkExistingApplication();
+    }
+  }, [user, navigate]);
 
   const handleFormComplete = async (applicationId: string, tempUserId: string, formData: any) => {
     console.log('GetPrequalified: Form completed with applicationId:', applicationId);

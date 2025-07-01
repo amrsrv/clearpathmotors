@@ -114,51 +114,23 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
 
   // Generate a temporary user ID on component mount
   useEffect(() => {
-    const initializeAnonymousSession = async () => {
+    const generateTempUserId = () => {
       // Check if we already have a temp user ID stored
       const storedTempUserId = localStorage.getItem('tempUserId');
-      
-      if (user) {
-        // If user is authenticated, we don't need an anonymous session
-        console.log('PreQualificationForm: User is authenticated, no need for anonymous session');
-        return;
-      }
-      
       if (storedTempUserId) {
-        console.log('PreQualificationForm: Using existing temp user ID:', storedTempUserId);
+        console.log('Using existing temp user ID:', storedTempUserId);
         setTempUserId(storedTempUserId);
         return;
       }
-      
-      try {
-        // Create an anonymous session
-        console.log('PreQualificationForm: Creating anonymous session');
-        const { data, error } = await supabase.auth.signInAnonymously();
-        
-        if (error) {
-          console.error('PreQualificationForm: Error creating anonymous session:', error);
-          // Fallback to using a random UUID
-          const fallbackId = crypto.randomUUID();
-          localStorage.setItem('tempUserId', fallbackId);
-          setTempUserId(fallbackId);
-          return;
-        }
-        
-        if (data.user) {
-          console.log('PreQualificationForm: Anonymous session created, user ID:', data.user.id);
-          localStorage.setItem('tempUserId', data.user.id);
-          setTempUserId(data.user.id);
-        }
-      } catch (error) {
-        console.error('PreQualificationForm: Error in anonymous auth:', error);
-        // Fallback to using a random UUID
-        const fallbackId = crypto.randomUUID();
-        localStorage.setItem('tempUserId', fallbackId);
-        setTempUserId(fallbackId);
-      }
+
+      // Generate a new temporary UUID
+      const newTempUserId = crypto.randomUUID();
+      console.log('Generated new temp user ID:', newTempUserId);
+      localStorage.setItem('tempUserId', newTempUserId);
+      setTempUserId(newTempUserId);
     };
 
-    initializeAnonymousSession();
+    generateTempUserId();
     
     // Check for saved form data in sessionStorage
     const savedFormData = sessionStorage.getItem(FORM_STORAGE_KEY);
@@ -178,7 +150,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         console.error('Error parsing saved form data:', error);
       }
     }
-  }, [setValue, user]);
+  }, [setValue]);
 
   // If user is logged in, set email field to user's email and make it read-only
   useEffect(() => {
@@ -226,6 +198,10 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         console.log('Found existing application with user account:', existingApplication);
         return true;
       }
+      
+      // As a fallback, we can check if the email exists in auth.users
+      // This would require a Supabase Edge Function in a real implementation
+      // For now, we'll just use the application check
       
       return false;
     } catch (error) {
