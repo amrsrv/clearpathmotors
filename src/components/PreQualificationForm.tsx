@@ -883,7 +883,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                               htmlFor="terms_accepted"
                               className="ml-2 text-sm text-gray-600"
                             >
-                              I accept the <a href="/terms" className="text-[#3BAA75] hover:underline">terms and conditions</a> and <a href="/privacy" className="text-[#3BAA75] hover:underline">privacy policy</a>
+                              I accept the <a href="/terms" className="text-[#3BAA75] hover:underline">terms and conditions</a> and <a href="/privacy" className=\"text-[#3BAA75] hover:underline">privacy policy</a>
                             </label>
                           </div>
                         )}
