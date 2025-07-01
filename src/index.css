@@ -110,4 +110,10 @@
     transform: translateY(-2px);
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.07);
   }
+
+  /* New gradient background for prequalification form */
+  .bg-gradient-subtle-green {
+    background: linear-gradient(135deg, rgba(59, 170, 117, 0.08) 0%, rgba(255, 255, 255, 0.9) 100%);
+    backdrop-filter: blur(10px);
+  }
 }
