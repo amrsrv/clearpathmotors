@@ -3,7 +3,6 @@ import { useForm, FormProvider, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
-import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../lib/supabaseClient';
 import { toast } from 'react-hot-toast';
 import { Input } from './ui/input';
@@ -68,6 +67,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 6;
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [anonymousSession, setAnonymousSession] = useState<string | null>(null);
   
   // Initialize form with default values
   const methods = useForm<FormValues>({
@@ -100,6 +100,39 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
   // Watch values for validation and UI updates
   const vehicleType = watch('vehicle_type');
   const creditScore = watch('credit_score');
+
+  // Create anonymous session on component mount
+  useEffect(() => {
+    const createAnonymousSession = async () => {
+      try {
+        // Check if we already have an anonymous ID stored
+        const storedAnonymousId = localStorage.getItem('anonymousUserId');
+        if (storedAnonymousId) {
+          console.log('Using existing anonymous ID:', storedAnonymousId);
+          setAnonymousSession(storedAnonymousId);
+          return;
+        }
+
+        // Sign in anonymously
+        const { data, error } = await supabase.auth.signInAnonymously();
+        
+        if (error) {
+          console.error('Error creating anonymous session:', error);
+          return;
+        }
+        
+        if (data.user) {
+          console.log('Anonymous session created with ID:', data.user.id);
+          localStorage.setItem('anonymousUserId', data.user.id);
+          setAnonymousSession(data.user.id);
+        }
+      } catch (error) {
+        console.error('Exception creating anonymous session:', error);
+      }
+    };
+
+    createAnonymousSession();
+  }, []);
   
   // Function to handle next step
   const handleNextStep = async () => {
@@ -145,8 +178,26 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         confirmPassword: data.confirmPassword ? '********' : undefined
       });
       
-      // Generate a temporary user ID for anonymous submissions
-      const tempUserId = uuidv4();
+      // Get the anonymous user ID
+      let tempUserId = anonymousSession;
+      
+      // If we don't have an anonymous session yet, create one
+      if (!tempUserId) {
+        try {
+          const { data: authData, error } = await supabase.auth.signInAnonymously();
+          if (error) throw error;
+          
+          if (authData.user) {
+            tempUserId = authData.user.id;
+            localStorage.setItem('anonymousUserId', tempUserId);
+            console.log('Created anonymous session on submit:', tempUserId);
+          }
+        } catch (error) {
+          console.error('Error creating anonymous session on submit:', error);
+          // Fall back to a random UUID if anonymous auth fails
+          tempUserId = crypto.randomUUID();
+        }
+      }
       
       // Calculate loan amount range based on monthly payment
       // This is a simplified calculation and should be replaced with your actual business logic
@@ -236,7 +287,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
             application_id: application.id,
             stage_number: 1,
             status: 'completed',
-            notes: 'Application submitted successfully',
+            notes: 'Application submitted successfully'
           });
           
         if (stageError) {

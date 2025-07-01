@@ -120,6 +120,8 @@ const QualificationResults = () => {
           // Set email from form data if available
           if (originalFormData?.email) {
             setEmail(originalFormData.email);
+          } else if (application.email) {
+            setEmail(application.email);
           }
         } else {
           // Fallback to application data if location state is missing
@@ -228,6 +230,9 @@ const QualificationResults = () => {
       console.log('QualificationResults: Sign up successful, user:', data?.user?.id);
 
       if (data?.user) {
+        // Get the anonymous session ID from localStorage
+        const anonymousId = localStorage.getItem('anonymousUserId');
+        
         // Update the application with the new user_id
         console.log('QualificationResults: Updating application with user_id:', data.user.id);
         const { error: updateError } = await supabase
@@ -236,13 +241,15 @@ const QualificationResults = () => {
             user_id: data.user.id,
             temp_user_id: null
           })
-          .eq('id', applicationId)
-          .eq('temp_user_id', tempUserId);
+          .eq('id', applicationId);
 
         if (updateError) {
           console.error('QualificationResults: Error updating application:', updateError);
           throw updateError;
         }
+
+        // Clear the anonymous ID from localStorage
+        localStorage.removeItem('anonymousUserId');
 
         console.log('QualificationResults: Application updated successfully, redirecting to dashboard');
         // Redirect to dashboard

@@ -35,13 +35,45 @@ export const ChatWidget = () => {
   // Generate or retrieve anonymousId for non-authenticated users
   useEffect(() => {
     if (!user) {
-      const storedAnonymousId = localStorage.getItem('chatAnonymousId');
+      // First check if we have an anonymousId from the auth system
+      const storedAnonymousId = localStorage.getItem('anonymousUserId');
       if (storedAnonymousId) {
         setAnonymousId(storedAnonymousId);
+        return;
+      }
+      
+      // Fall back to the chat-specific anonymousId if needed
+      const chatAnonymousId = localStorage.getItem('chatAnonymousId');
+      if (chatAnonymousId) {
+        setAnonymousId(chatAnonymousId);
       } else {
-        const newAnonymousId = uuidv4();
-        localStorage.setItem('chatAnonymousId', newAnonymousId);
-        setAnonymousId(newAnonymousId);
+        // If no ID exists, create a new anonymous session
+        const createAnonymousSession = async () => {
+          try {
+            const { data, error } = await supabase.auth.signInAnonymously();
+            if (error) {
+              console.error('Error creating anonymous session:', error);
+              // Fall back to UUID if anonymous auth fails
+              const newAnonymousId = uuidv4();
+              localStorage.setItem('chatAnonymousId', newAnonymousId);
+              setAnonymousId(newAnonymousId);
+              return;
+            }
+            
+            if (data.user) {
+              localStorage.setItem('anonymousUserId', data.user.id);
+              setAnonymousId(data.user.id);
+            }
+          } catch (error) {
+            console.error('Exception creating anonymous session:', error);
+            // Fall back to UUID if anonymous auth fails
+            const newAnonymousId = uuidv4();
+            localStorage.setItem('chatAnonymousId', newAnonymousId);
+            setAnonymousId(newAnonymousId);
+          }
+        };
+        
+        createAnonymousSession();
       }
     } else {
       setAnonymousId(null);

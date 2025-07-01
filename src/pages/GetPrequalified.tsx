@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import PreQualificationForm from '../components/PreQualificationForm';
 import { useNavigate } from 'react-router-dom';
@@ -10,6 +10,31 @@ import toast from 'react-hot-toast';
 const GetPrequalified = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  // Check if user is already authenticated
+  useEffect(() => {
+    if (user) {
+      // Check if user already has an application
+      const checkExistingApplication = async () => {
+        try {
+          const { data: existingApp } = await supabase
+            .from('applications')
+            .select('id')
+            .eq('user_id', user.id)
+            .maybeSingle();
+            
+          if (existingApp) {
+            // User already has an application, redirect to dashboard
+            navigate('/dashboard');
+          }
+        } catch (error) {
+          console.error('Error checking for existing application:', error);
+        }
+      };
+      
+      checkExistingApplication();
+    }
+  }, [user, navigate]);
 
   const handleFormComplete = async (applicationId: string, tempUserId: string, formData: any) => {
     console.log('GetPrequalified: Form completed with applicationId:', applicationId);
@@ -54,7 +79,14 @@ const GetPrequalified = () => {
         fromApproval: true,
         applicationId,
         tempUserId,
-        originalFormData: formData
+        originalFormData: formData,
+        loanRange: {
+          min: formData.loan_amount_min || 15000,
+          max: formData.loan_amount_max || 50000,
+          rate: formData.interest_rate || 5.99
+        },
+        vehicleType: formData.vehicle_type,
+        monthlyBudget: formData.desired_monthly_payment
       }
     });
   };
