@@ -79,7 +79,7 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({
             event: '*',
             schema: 'public',
             table: 'admin_messages',
-            filter: `user_id=eq.${userId}`
+            filter: user ? `user_id=eq.${userId}` : `temp_user_id=eq.${userId}`
           },
           (payload) => {
             if (payload.eventType === 'INSERT') {
@@ -105,7 +105,7 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({
         supabase.removeChannel(messagesChannel);
       };
     }
-  }, [userId, applicationId]);
+  }, [userId, applicationId, user]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -164,7 +164,10 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({
         .update({ read: true })
         .eq('id', messageId);
         
-      if (error) throw error;
+      if (error) {
+        console.error('Error marking message as read:', error);
+        return;
+      }
       
       // Update local state
       setMessages(prev => 
