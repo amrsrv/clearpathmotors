@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useLayoutEffect, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
@@ -14,6 +14,8 @@ import toast from 'react-hot-toast';
 import type { Application, ApplicationStage, Document, Notification } from '../types/database';
 import HelpCenter from '../pages/HelpCenter';
 import { MobileNavBar } from '../components/MobileNavBar';
+import UserApplicationsTable from '../components/UserApplicationsTable';
+import ApplicationDetailsView from '../components/ApplicationDetailsView';
 
 interface DashboardProps {
   activeSection: string;
@@ -33,7 +35,9 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
   const { user, initialized } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [application, setApplication] = useState<Application | null>(null);
+  const [currentApplication, setCurrentApplication] = useState<Application | null>(null);
+  const [userApplications, setUserApplications] = useState<Application[]>([]);
+  const [showApplicationDetails, setShowApplicationDetails] = useState(false);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [stages, setStages] = useState<ApplicationStage[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -121,6 +125,9 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         throw applicationError;
       }
       
+      // Set all user applications
+      setUserApplications(applications || []);
+      
       // Get the most recent application
       const latestApplication = applications && applications.length > 0 ? applications[0] : null;
       
@@ -133,7 +140,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         return; // Exit and let the useEffect trigger a reload
       }
       
-      setApplication(latestApplication);
+      setCurrentApplication(latestApplication);
+      setShowApplicationDetails(!!latestApplication);
       
       if (latestApplication) {
         console.log('Dashboard: Application found:', latestApplication.id);
@@ -339,7 +347,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
   };
 
   const handleDocumentUpload = async (file: File, category: string) => {
-    if ((!user && !tempUserId) || !application) return;
+    if ((!user && !tempUserId) || !currentApplication) return;
     
     try {
       setIsUploadingDocument(true);
@@ -348,7 +356,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       // Create a unique filename
       const fileExt = file.name.split('.').pop();
       const userId = user?.id || tempUserId;
-      const fileName = `${userId}/${application.id}/${Date.now()}.${fileExt}`;
+      const fileName = `${userId}/${currentApplication.id}/${Date.now()}.${fileExt}`;
       
       // Upload to Supabase Storage
       const { error: storageError } = await supabase.storage
@@ -367,7 +375,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         .from('documents')
         .insert([
           {
-            application_id: application.id,
+            application_id: currentApplication.id,
             category,
             filename: fileName,
             status: 'pending'
@@ -471,7 +479,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
 
   const handleScheduleAppointment = async (date: Date, type: 'video' | 'phone') => {
     try {
-      if (!application) {
+      if (!currentApplication) {
         throw new Error('No application found');
       }
       
@@ -481,14 +489,14 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         .update({
           consultation_time: date.toISOString()
         })
-        .eq('id', application.id);
+        .eq('id', currentApplication.id);
         
       if (error) {
         throw error;
       }
       
       // Update application state
-      setApplication(prev => prev ? { ...prev, consultation_time: date.toISOString() } : null);
+      setCurrentApplication(prev => prev ? { ...prev, consultation_time: date.toISOString() } : null);
       
       toast.success(`Consultation scheduled for ${date.toLocaleString()}`);
       return true;
@@ -496,6 +504,53 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       console.error('Dashboard: Error scheduling appointment:', error);
       toast.error('Failed to schedule appointment');
       return false;
+    }
+  };
+
+  const handleSelectApplication = (application: Application) => {
+    setCurrentApplication(application);
+    setShowApplicationDetails(true);
+    
+    // Load documents and stages for the selected application
+    loadApplicationDetails(application.id);
+  };
+
+  const handleBackToList = () => {
+    setShowApplicationDetails(false);
+  };
+
+  const loadApplicationDetails = async (applicationId: string) => {
+    try {
+      // Load documents
+      const { data: documentData, error: documentError } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('application_id', applicationId)
+        .order('uploaded_at', { ascending: false });
+      
+      if (documentError) {
+        console.error('Dashboard: Error loading documents:', documentError);
+        // Continue despite document error
+      } else {
+        setDocuments(documentData || []);
+      }
+      
+      // Load application stages
+      const { data: stageData, error: stageError } = await supabase
+        .from('application_stages')
+        .select('*')
+        .eq('application_id', applicationId)
+        .order('stage_number', { ascending: true });
+      
+      if (stageError) {
+        console.error('Dashboard: Error loading application stages:', stageError);
+        // Continue despite stage error
+      } else {
+        setStages(stageData || []);
+      }
+    } catch (error) {
+      console.error('Dashboard: Error loading application details:', error);
+      toast.error('Failed to load application details');
     }
   };
 
@@ -512,7 +567,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
   }
 
   // Show loading state while data is being fetched
-  if (loading && !application) {
+  if (loading && !currentApplication) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex flex-col items-center">
@@ -543,7 +598,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
     );
   }
 
-  if (!application) {
+  if (userApplications.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="bg-white p-8 rounded-xl shadow-xl text-center max-w-md">
@@ -563,215 +618,24 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
     );
   }
 
-  // Function to get the next step message based on application status
-  const getNextStepMessage = (status: string) => {
-    const nextStepMessage = {
-      submitted: "Sit tight — our team is reviewing your application.",
-      under_review: "We're assessing your details — no action needed for now.",
-      pending_documents: "Upload the required documents to keep your application moving.",
-      pre_approved: "You're pre-approved! Book a time to discuss vehicle options.",
-      vehicle_selection: "Browse and select your vehicle to proceed.",
-      final_approval: "You're almost done — confirm final details to wrap things up.",
-      finalized: "Your financing is complete — we'll reach out with next steps!",
-    }[status];
-    
-    return nextStepMessage || "Your application is being processed.";
-  };
-
   const renderDashboardSection = () => {
     switch (activeSection) {
       case 'overview':
         return (
           <div className="space-y-6">
-            {/* New Top Section with Personalized Greeting and Loan Summary */}
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-              className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100"
-            >
-              {/* Personalized Greeting */}
-              <div className="p-6 bg-gradient-to-r from-[#3BAA75]/10 to-[#3BAA75]/5">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Hi {application.first_name || 'there'}!
-                </h2>
-                <p className="text-gray-600 mt-1">Here are your current loan results</p>
-              </div>
-              
-              {/* Loan Snapshot Data */}
-              <div className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-gray-50 p-4 rounded-xl shadow-sm">
-                  <div className="text-xs text-gray-500 mb-1">Status</div>
-                  <div className="font-semibold text-gray-900 flex items-center">
-                    <span className={`inline-block w-2 h-2 rounded-full mr-2 ${
-                      application.status === 'pre_approved' ? 'bg-green-500' :
-                      application.status === 'under_review' ? 'bg-yellow-500' :
-                      application.status === 'pending_documents' ? 'bg-orange-500' :
-                      'bg-gray-500'
-                    }`}></span>
-                    {application.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                  </div>
-                </div>
-                
-                <div className="bg-gray-50 p-4 rounded-xl shadow-sm">
-                  <div className="text-xs text-gray-500 mb-1">Rate</div>
-                  <div className="font-semibold text-gray-900">
-                    {application.interest_rate}%
-                  </div>
-                </div>
-                
-                <div className="bg-gray-50 p-4 rounded-xl shadow-sm">
-                  <div className="text-xs text-gray-500 mb-1">Loan Amount</div>
-                  <div className="font-semibold text-gray-900">
-                    ${application.loan_amount_min?.toLocaleString()}
-                  </div>
-                </div>
-                
-                <div className="bg-gray-50 p-4 rounded-xl shadow-sm">
-                  <div className="text-xs text-gray-500 mb-1">Term</div>
-                  <div className="font-semibold text-gray-900">
-                    {application.loan_term} months
-                  </div>
-                </div>
-              </div>
-              
-              {/* Next Step Box */}
-              <div className="px-6 pb-6">
-                <div className="bg-[#3BAA75]/10 rounded-xl p-4 border border-[#3BAA75]/20">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 bg-[#3BAA75] rounded-full p-1.5">
-                      {application.status === 'pre_approved' ? (
-                        <CheckCircle className="h-4 w-4 text-white" />
-                      ) : application.status === 'pending_documents' ? (
-                        <FileText className="h-4 w-4 text-white" />
-                      ) : (
-                        <Clock className="h-4 w-4 text-white" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">Next Step</p>
-                      <p className="text-sm text-gray-700 mt-1">
-                        {getNextStepMessage(application.status)}
-                      </p>
-                      
-                      {/* Action buttons based on status */}
-                      {application.status === 'pending_documents' && (
-                        <button
-                          onClick={() => setActiveSection('documents')}
-                          className="mt-3 px-4 py-2 bg-[#3BAA75] text-white rounded-lg text-sm font-medium hover:bg-[#2D8259] transition-colors flex items-center gap-1 shadow-sm"
-                        >
-                          Upload Documents
-                          <ChevronRight className="h-4 w-4" />
-                        </button>
-                      )}
-                      
-                      {application.status === 'pre_approved' && (
-                        <button
-                          onClick={() => setActiveSection('appointment')}
-                          className="mt-3 px-4 py-2 bg-[#3BAA75] text-white rounded-lg text-sm font-medium hover:bg-[#2D8259] transition-colors flex items-center gap-1 shadow-sm"
-                        >
-                          Schedule Consultation
-                          <ChevronRight className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-            
-            {/* Application Progress Tracker */}
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
-              className="bg-white rounded-xl shadow-lg p-6 border border-gray-100"
-            >
-              <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259] mb-6">Application Progress</h2>
-              <ApplicationTracker application={application} stages={stages} />
-            </motion.div>
-            
-            {/* Application Details Card */}
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: 0.2 }}
-              className="bg-white rounded-xl shadow-lg p-6 border border-gray-100"
-            >
-              <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259] mb-6">Application Details</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Personal Information */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium flex items-center gap-2">
-                    <div className="p-2 bg-[#3BAA75]/10 rounded-lg">
-                      <User className="h-5 w-5 text-[#3BAA75]" />
-                    </div>
-                    <span>Personal Information</span>
-                  </h3>
-                  
-                  <div className="space-y-3 pl-2">
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                      <Mail className="h-4 w-4 text-[#3BAA75]" />
-                      <span className="text-gray-700">{application.email}</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                      <Phone className="h-4 w-4 text-[#3BAA75]" />
-                      <span className="text-gray-700">{application.phone}</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                      <MapPin className="h-4 w-4 text-[#3BAA75]" />
-                      <span className="text-gray-700 text-sm">{application.address}, {application.city}, {application.province} {application.postal_code}</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                      <Home className="h-4 w-4 text-[#3BAA75]" />
-                      <span className="text-gray-700">
-                        Housing: {application.housing_status?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Not specified'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Financial Information */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium flex items-center gap-2">
-                    <div className="p-2 bg-[#3BAA75]/10 rounded-lg">
-                      <DollarSign className="h-5 w-5 text-[#3BAA75]" />
-                    </div>
-                    <span>Financial Information</span>
-                  </h3>
-                  
-                  <div className="space-y-3 pl-2">
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                      <Briefcase className="h-4 w-4 text-[#3BAA75]" />
-                      <span className="text-gray-700">
-                        {application.employment_status?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Not specified'}
-                      </span>
-                    </div>
-                    
-                    {application.employer_name && (
-                      <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                        <Briefcase className="h-4 w-4 text-[#3BAA75]" />
-                        <span className="text-gray-700">Employer: {application.employer_name}</span>
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                      <DollarSign className="h-4 w-4 text-[#3BAA75]" />
-                      <span className="text-gray-700">Annual Income: ${application.annual_income?.toLocaleString()}</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                      <CreditCard className="h-4 w-4 text-[#3BAA75]" />
-                      <span className="text-gray-700">Credit Score: {application.credit_score}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
+            {showApplicationDetails && currentApplication ? (
+              <ApplicationDetailsView 
+                application={currentApplication}
+                stages={stages}
+                onBackToList={handleBackToList}
+              />
+            ) : (
+              <UserApplicationsTable 
+                applications={userApplications}
+                onSelectApplication={handleSelectApplication}
+                isLoading={loading}
+              />
+            )}
             
             {/* Benefits Section */}
             <motion.div 
@@ -838,7 +702,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
               </div>
               
               <UnifiedDocumentUploader
-                applicationId={application.id}
+                applicationId={currentApplication?.id || ''}
                 onUpload={handleDocumentUpload}
                 isUploading={isUploadingDocument}
                 uploadError={uploadError}
@@ -852,7 +716,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
               className="bg-white rounded-xl shadow-lg p-6 border border-gray-100"
             >
               <DocumentManager
-                applicationId={application.id}
+                applicationId={currentApplication?.id || ''}
                 documents={documents}
                 onUpload={handleDocumentUpload}
                 onDelete={handleDocumentDelete}
@@ -895,13 +759,13 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
               <div className="space-y-6">
                 <div className="flex items-center gap-4">
                   <div className="bg-gradient-to-br from-[#3BAA75] to-[#2D8259] rounded-full w-16 h-16 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
-                    {application.first_name?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
+                    {currentApplication?.first_name?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
                   </div>
                   <div>
                     <h3 className="text-lg font-medium">
-                      {application.first_name} {application.last_name}
+                      {currentApplication?.first_name} {currentApplication?.last_name}
                     </h3>
-                    <p className="text-gray-600">{user?.email || application.email}</p>
+                    <p className="text-gray-600">{user?.email || currentApplication?.email}</p>
                   </div>
                 </div>
                 
@@ -919,7 +783,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                           </div>
                           <input
                             type="email"
-                            value={user?.email || application.email || ''}
+                            value={user?.email || currentApplication?.email || ''}
                             disabled
                             className="w-full pl-10 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700"
                           />
@@ -936,7 +800,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                           </div>
                           <input
                             type="tel"
-                            value={application.phone || ''}
+                            value={currentApplication?.phone || ''}
                             disabled
                             className="w-full pl-10 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700"
                           />
@@ -953,7 +817,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                           </div>
                           <input
                             type="text"
-                            value={`${application.address || ''}, ${application.city || ''}, ${application.province || ''} ${application.postal_code || ''}`}
+                            value={`${currentApplication?.address || ''}, ${currentApplication?.city || ''}, ${currentApplication?.province || ''} ${currentApplication?.postal_code || ''}`}
                             disabled
                             className="w-full pl-10 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700"
                           />
@@ -1056,7 +920,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <HelpCenter userId={user?.id || tempUserId || ''} applicationId={application.id} />
+            <HelpCenter userId={user?.id || tempUserId || ''} applicationId={currentApplication?.id || ''} />
           </motion.div>
         );
         
@@ -1069,7 +933,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
             className="space-y-6"
           >
             <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
-              <UserMessageCenter userId={user?.id || tempUserId || ''} applicationId={application.id} />
+              <UserMessageCenter userId={user?.id || tempUserId || ''} applicationId={currentApplication?.id || ''} />
             </div>
           </motion.div>
         );
