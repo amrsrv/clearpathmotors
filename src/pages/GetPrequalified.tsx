@@ -91,59 +91,59 @@ const GetPrequalified = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#3BAA75]/10 via-white to-[#3BAA75]/5 pb-0">
-      <div className="w-full max-w-lg px-2">
+    <div className="min-h-screen flex flex-col justify-start bg-gradient-to-br from-[#3BAA75]/10 via-white to-[#3BAA75]/5 pb-0">
+      <div className="w-full max-w-lg mx-auto px-4 pt-6 md:pt-10">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-8"
+          className="text-center mb-6 md:mb-8"
         >
           {/* Title Section */}
-          <div className="mb-10">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4 text-gray-900">
+          <div className="mb-6 md:mb-10">
+            <h1 className="text-3xl md:text-5xl font-bold mb-3 md:mb-4 text-gray-900">
               Pre-qualify for a car loan in <span className="text-[#FF5757]">minutes</span>
             </h1>
-            <p className="text-xl text-gray-600 mb-8">
+            <p className="text-lg md:text-xl text-gray-600 mb-6 md:mb-8">
               No impact on your credit score
             </p>
             
             {/* Bank Logos */}
-            <div className="mt-8">
-              <p className="text-lg text-gray-700 mb-4">Our top lenders</p>
-              <div className="flex justify-center items-center gap-4 flex-wrap">
-                <div className="bg-gray-50 rounded-full p-3 w-16 h-16 flex items-center justify-center">
+            <div className="mt-6 md:mt-8">
+              <p className="text-base md:text-lg text-gray-700 mb-3 md:mb-4">Our top lenders</p>
+              <div className="flex justify-center items-center gap-3 md:gap-4 flex-wrap">
+                <div className="bg-gray-50 rounded-full p-2 w-14 h-14 md:w-16 md:h-16 flex items-center justify-center">
                   <img 
                     src="https://ontarioautoapprovals.ca/wp-content/uploads/2024/11/Untitled-1024-x-1023-px.png" 
                     alt="TD Bank" 
-                    className="w-12 h-auto"
+                    className="w-10 md:w-12 h-auto"
                   />
                 </div>
-                <div className="bg-gray-50 rounded-full p-3 w-16 h-16 flex items-center justify-center">
+                <div className="bg-gray-50 rounded-full p-2 w-14 h-14 md:w-16 md:h-16 flex items-center justify-center">
                   <img 
                     src="https://ontarioautoapprovals.ca/wp-content/uploads/2024/11/Untitled-1024-x-1023-px-2.png" 
                     alt="CIBC" 
-                    className="w-12 h-auto"
+                    className="w-10 md:w-12 h-auto"
                   />
                 </div>
-                <div className="bg-gray-50 rounded-full p-3 w-16 h-16 flex items-center justify-center">
+                <div className="bg-gray-50 rounded-full p-2 w-14 h-14 md:w-16 md:h-16 flex items-center justify-center">
                   <img 
                     src="https://ontarioautoapprovals.ca/wp-content/uploads/2024/11/Untitled-1024-x-1023-px-3.png" 
                     alt="RBC" 
-                    className="w-12 h-auto"
+                    className="w-10 md:w-12 h-auto"
                   />
                 </div>
-                <div className="bg-gray-50 rounded-full p-3 w-16 h-16 flex items-center justify-center">
+                <div className="bg-gray-50 rounded-full p-2 w-14 h-14 md:w-16 md:h-16 flex items-center justify-center">
                   <img 
                     src="https://ontarioautoapprovals.ca/wp-content/uploads/2024/11/Untitled-1024-x-1023-px-4.png" 
                     alt="Scotiabank" 
-                    className="w-12 h-auto"
+                    className="w-10 md:w-12 h-auto"
                   />
                 </div>
-                <div className="bg-gray-50 rounded-full p-3 w-16 h-16 flex items-center justify-center">
+                <div className="bg-gray-50 rounded-full p-2 w-14 h-14 md:w-16 md:h-16 flex items-center justify-center">
                   <img 
                     src="https://ontarioautoapprovals.ca/wp-content/uploads/2024/11/Untitled-1024-x-1023-px-7.png" 
                     alt="iA Financial" 
-                    className="w-12 h-auto"
+                    className="w-10 md:w-12 h-auto"
                   />
                 </div>
               </div>
