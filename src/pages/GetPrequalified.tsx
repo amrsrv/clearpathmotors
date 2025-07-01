@@ -106,40 +106,39 @@ const GetPrequalified = () => {
             
             {/* Bank Logos */}
             <div className="mt-5 md:mt-8">
-         
               <div className="flex justify-center items-center gap-3 md:gap-4 flex-wrap">
                 <div className="bg-gray-50 rounded-full p-2 w-14 h-14 md:w-16 md:h-16 flex items-center justify-center">
                   <img 
-                    src="https://ontarioautoapprovals.ca/wp-content/uploads/2024/11/Untitled-1024-x-1023-px.png" 
-                    alt="TD Bank" 
+                    src="https://ontarioautoapprovals.ca/wp-content/uploads/2024/11/Untitled-1024-x-1023-px-8.png" 
+                    alt="BMO" 
                     className="w-10 md:w-12 h-auto"
                   />
                 </div>
                 <div className="bg-gray-50 rounded-full p-2 w-14 h-14 md:w-16 md:h-16 flex items-center justify-center">
                   <img 
-                    src="https://ontarioautoapprovals.ca/wp-content/uploads/2024/11/Untitled-1024-x-1023-px-2.png" 
-                    alt="CIBC" 
+                    src="https://ontarioautoapprovals.ca/wp-content/uploads/2024/11/Untitled-1024-x-1023-px-9.png" 
+                    alt="Desjardins" 
                     className="w-10 md:w-12 h-auto"
                   />
                 </div>
                 <div className="bg-gray-50 rounded-full p-2 w-14 h-14 md:w-16 md:h-16 flex items-center justify-center">
                   <img 
-                    src="https://ontarioautoapprovals.ca/wp-content/uploads/2024/11/Untitled-1024-x-1023-px-3.png" 
-                    alt="RBC" 
+                    src="https://ontarioautoapprovals.ca/wp-content/uploads/2024/11/Untitled-1024-x-1023-px-10.png" 
+                    alt="National Bank" 
                     className="w-10 md:w-12 h-auto"
                   />
                 </div>
                 <div className="bg-gray-50 rounded-full p-2 w-14 h-14 md:w-16 md:h-16 flex items-center justify-center">
                   <img 
-                    src="https://ontarioautoapprovals.ca/wp-content/uploads/2024/11/Untitled-1024-x-1023-px-4.png" 
-                    alt="Scotiabank" 
+                    src="https://ontarioautoapprovals.ca/wp-content/uploads/2024/11/Untitled-1024-x-1023-px-11.png" 
+                    alt="Laurentian Bank" 
                     className="w-10 md:w-12 h-auto"
                   />
                 </div>
                 <div className="bg-gray-50 rounded-full p-2 w-14 h-14 md:w-16 md:h-16 flex items-center justify-center">
                   <img 
-                    src="https://ontarioautoapprovals.ca/wp-content/uploads/2024/11/Untitled-1024-x-1023-px-7.png" 
-                    alt="iA Financial" 
+                    src="https://ontarioautoapprovals.ca/wp-content/uploads/2024/11/Untitled-1024-x-1023-px-13.png" 
+                    alt="ATB Financial" 
                     className="w-10 md:w-12 h-auto"
                   />
                 </div>
