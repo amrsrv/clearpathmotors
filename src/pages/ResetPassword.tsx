@@ -17,16 +17,20 @@ const ResetPassword = () => {
     setLoading(true);
 
     try {
+      console.log('ResetPassword: Sending password reset email to:', email);
       const { error: resetError } = await resetPassword(email.trim().toLowerCase());
       
       if (resetError) {
+        console.error('ResetPassword: Detailed reset error:', resetError);
         setError(resetError.message);
+        setLoading(false);
         return;
       }
 
+      console.log('ResetPassword: Password reset email sent successfully');
       setSuccess(true);
     } catch (err: any) {
-      console.error('Reset password error:', err);
+      console.error('ResetPassword: Reset password error details:', err);
       setError('An unexpected error occurred. Please try again later.');
     } finally {
       setLoading(false);
@@ -74,7 +78,7 @@ const ResetPassword = () => {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <Link to="/">
           <img
-            src="https://iili.io/3svxrYu.md.png"
+            src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//clearpathlogo.png"
             alt="Clearpath Motors Logo"
             className="mx-auto h-16"
           />

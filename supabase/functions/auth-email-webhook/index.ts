@@ -1,45 +1,41 @@
+// This function is no longer needed as we're using Supabase's built-in email functionality
+// We're keeping this file as a placeholder to avoid deployment issues
+
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
-const MAKE_WEBHOOK_URL = 'https://hook.us2.make.com/j99faww55ghbbanssh4os6jk40d37p74';
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
 
 serve(async (req) => {
-  try {
-    const { type, email, data } = await req.json();
-
-    // Only handle password reset emails
-    if (type !== 'reset_password') {
-      return new Response(JSON.stringify({ message: 'Not a password reset email' }), {
-        headers: { 'Content-Type': 'application/json' },
-        status: 200,
-      });
-    }
-
-    // Forward the reset URL to Make.com webhook
-    const response = await fetch(MAKE_WEBHOOK_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        type: 'reset_password',
-        email,
-        resetUrl: data.reset_password_url,
-        timestamp: new Date().toISOString()
-      })
+  // Handle CORS preflight requests
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders,
     });
+  }
 
-    if (!response.ok) {
-      throw new Error(`Webhook error: ${response.statusText}`);
-    }
+  try {
+    const { type, email } = await req.json();
 
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { 'Content-Type': 'application/json' },
+    console.log(`Received email event: ${type} for ${email}`);
+    
+    // Simply log the event and return success
+    // The actual email sending is handled by Supabase
+    return new Response(JSON.stringify({ 
+      success: true,
+      message: "Email event received. Emails are handled by Supabase directly."
+    }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
   } catch (error) {
     console.error('Error processing request:', error);
     return new Response(JSON.stringify({ error: error.message }), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
     });
   }
