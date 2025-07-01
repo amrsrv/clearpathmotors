@@ -16,18 +16,27 @@ const GetPrequalified = () => {
       // Check if user already has an application
       const checkExistingApplication = async () => {
         try {
-          const { data: existingApp } = await supabase
+          console.log('GetPrequalified: Checking for existing application for user:', user.id);
+          const { data: existingApp, error } = await supabase
             .from('applications')
             .select('id')
             .eq('user_id', user.id)
             .maybeSingle();
             
+          if (error) {
+            console.error('GetPrequalified: Error checking for existing application:', error);
+            return;
+          }
+            
           if (existingApp) {
             // User already has an application, redirect to dashboard
+            console.log('GetPrequalified: Existing application found, redirecting to dashboard');
             navigate('/dashboard');
+          } else {
+            console.log('GetPrequalified: No existing application found for user');
           }
         } catch (error) {
-          console.error('Error checking for existing application:', error);
+          console.error('GetPrequalified: Error checking for existing application:', error);
         }
       };
       

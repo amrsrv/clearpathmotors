@@ -182,6 +182,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
   
   // Function to handle form submission
   const onSubmit = async (data: FormValues) => {
+    console.log('FORM SUBMISSION STARTED - Setting isSubmitting to true');
     setIsSubmitting(true);
     
     try {
@@ -255,6 +256,8 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         address: '************'
       });
       
+      console.log('PreQualificationForm: About to insert application into Supabase');
+      
       // Insert application into Supabase
       const { data: application, error } = await supabase
         .from('applications')
@@ -284,6 +287,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       
       // Create initial application stage
       try {
+        console.log('PreQualificationForm: Creating initial application stage');
         const { error: stageError } = await supabase
           .from('application_stages')
           .insert({
@@ -308,6 +312,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       
       // Create welcome notification
       try {
+        console.log('PreQualificationForm: Creating welcome notification');
         const { error: notificationError } = await supabase
           .from('notifications')
           .insert({
@@ -321,6 +326,8 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         if (notificationError) {
           console.error('PreQualificationForm: Error creating welcome notification:', notificationError);
           // Continue despite notification error
+        } else {
+          console.log('PreQualificationForm: Welcome notification created successfully');
         }
       } catch (notificationError) {
         console.error('PreQualificationForm: Exception creating notification:', notificationError);
@@ -328,6 +335,11 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       }
       
       // Call onComplete with the application ID, temp user ID, and form data
+      console.log('PreQualificationForm: About to call onComplete with:', {
+        applicationId: application.id,
+        tempUserId: currentTempUserId
+      });
+      
       toast.success('Application submitted successfully!');
       onComplete(application.id, currentTempUserId, {
         ...data,
@@ -338,11 +350,14 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         interest_rate: interestRate
       });
       
+      console.log('PreQualificationForm: onComplete called successfully');
+      
     } catch (error) {
       console.error('PreQualificationForm: Error in form submission:', error);
       console.log('PreQualificationForm: Error details:', error instanceof Error ? error.message : JSON.stringify(error));
       toast.error('An error occurred. Please try again.');
     } finally {
+      console.log('PreQualificationForm: Finally block reached, setting isSubmitting to false');
       setIsSubmitting(false);
     }
   };
