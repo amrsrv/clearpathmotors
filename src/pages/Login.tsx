@@ -3,16 +3,18 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, ArrowRight, Eye, EyeOff, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
-import { GoogleSignInButton } from '../components/GoogleSignInButton';
-import { verifyAuth } from '../lib/supabaseClient';
+import { supabase } from '../lib/supabaseClient';
 import toast from 'react-hot-toast';
+import { GoogleSignInButton } from '../components/GoogleSignInButton';
+
+const FORM_STORAGE_KEY = 'clearpath_prequalification_form_data';
 
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signIn, loading } = useAuth();
   const [formData, setFormData] = useState({
-    email: location.state?.email || '',
+    email: location.state?.email || new URLSearchParams(location.search).get('email') || '',
     password: ''
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -20,13 +22,25 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
+  const [hasSavedFormData, setHasSavedFormData] = useState(false);
+
+  // Check for return URL in query params
+  const returnUrl = new URLSearchParams(location.search).get('returnUrl') || location.state?.from?.pathname || '/dashboard';
+
+  // Check for saved form data
+  useEffect(() => {
+    const savedFormData = sessionStorage.getItem(FORM_STORAGE_KEY);
+    if (savedFormData) {
+      setHasSavedFormData(true);
+    }
+  }, []);
 
   // Check authentication status on load
   useEffect(() => {
     const checkAuth = async () => {
       console.log('Login: Checking authentication status');
       try {
-        const { user: currentUser, error } = await verifyAuth();
+        const { user: currentUser, error } = await supabase.auth.getUser();
         
         if (error) {
           console.error('Login: Error verifying auth:', error);
@@ -37,7 +51,13 @@ const Login = () => {
         // If user is logged in, redirect
         if (currentUser) {
           console.log('Login: User already logged in, redirecting');
-          redirectBasedOnRole(currentUser);
+          
+          // If there's saved form data, redirect to the form page
+          if (hasSavedFormData && returnUrl.includes('/get-prequalified')) {
+            navigate('/get-prequalified');
+          } else {
+            navigate(returnUrl);
+          }
         }
       } catch (err) {
         console.error('Login: Error in checkAuth:', err);
@@ -46,7 +66,7 @@ const Login = () => {
     };
     
     checkAuth();
-  }, []);
+  }, [navigate, returnUrl, hasSavedFormData]);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -57,25 +77,14 @@ const Login = () => {
     } : 'null', 'loading =', loading, 'authChecked =', authChecked);
     
     if (user && !loading && authChecked) {
-      redirectBasedOnRole(user);
+      // If there's saved form data, redirect to the form page
+      if (hasSavedFormData && returnUrl.includes('/get-prequalified')) {
+        navigate('/get-prequalified');
+      } else {
+        navigate(returnUrl);
+      }
     }
-  }, [user, loading, authChecked]);
-
-  const redirectBasedOnRole = (user) => {
-    console.log('Login: Redirecting based on role:', user?.app_metadata?.role);
-    
-    // Redirect based on user role
-    const role = user.app_metadata?.role;
-    if (role === 'super_admin') {
-      navigate('/admin');
-    } else if (role === 'dealer') {
-      navigate('/dealer');
-    } else {
-      // Get the intended destination, or default to dashboard
-      const from = location.state?.from?.pathname || '/dashboard';
-      navigate(from);
-    }
-  };
+  }, [user, loading, authChecked, navigate, returnUrl, hasSavedFormData]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
@@ -166,6 +175,14 @@ const Login = () => {
             <p className="mt-2 text-gray-600">
               Sign in to access your account
             </p>
+            
+            {/* Show message if there's saved form data */}
+            {hasSavedFormData && (
+              <div className="mt-4 p-3 bg-green-50 text-green-700 rounded-lg flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 flex-shrink-0" />
+                <span className="text-sm">Your form data has been saved. Sign in to continue.</span>
+              </div>
+            )}
           </div>
 
           <AnimatePresence mode="wait">
@@ -176,7 +193,7 @@ const Login = () => {
                 exit={{ opacity: 0, y: -10 }}
                 className="flex items-center gap-2 text-red-600 bg-red-50 p-3 rounded-lg mb-6"
               >
-                <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                <AlertCircle className="h-5 w-5" />
                 <span className="text-sm">{error}</span>
               </motion.div>
             )}
@@ -288,7 +305,7 @@ const Login = () => {
             </div>
 
             <div className="grid grid-cols-1 gap-4">
-              <GoogleSignInButton redirectTo={location.state?.from?.pathname} />
+              <GoogleSignInButton redirectTo={returnUrl} />
             </div>
 
             <p className="mt-8 text-center text-sm text-gray-600">

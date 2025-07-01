@@ -11,6 +11,9 @@ import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
 import CurrencyInputField from './CurrencyInputField';
 import { vehicles } from '../pages/Vehicles';
+import { useAuth } from '../hooks/useAuth';
+import { useLocation } from 'react-router-dom';
+import ExistingUserModal from './ExistingUserModal';
 
 interface PreQualificationFormProps {
   onComplete: (applicationId: string, tempUserId: string, formData: any) => void;
@@ -62,12 +65,18 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+const FORM_STORAGE_KEY = 'clearpath_prequalification_form_data';
+
 const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 6;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tempUserId, setTempUserId] = useState<string | null>(null);
+  const [showExistingUserModal, setShowExistingUserModal] = useState(false);
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const formRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+  const { user } = useAuth();
   
   // Initialize form with default values
   const methods = useForm<FormValues>({
@@ -87,7 +96,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       annual_income: 0,
       first_name: '',
       last_name: '',
-      email: '',
+      email: user?.email || '',
       phone: '',
       consent_soft_check: false,
       terms_accepted: false,
@@ -100,6 +109,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
   // Watch values for validation and UI updates
   const vehicleType = watch('vehicle_type');
   const creditScore = watch('credit_score');
+  const email = watch('email');
   const currentStepFields = watch();
 
   // Generate a temporary user ID on component mount
@@ -121,7 +131,33 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
     };
 
     generateTempUserId();
-  }, []);
+    
+    // Check for saved form data in sessionStorage
+    const savedFormData = sessionStorage.getItem(FORM_STORAGE_KEY);
+    if (savedFormData) {
+      try {
+        const parsedData = JSON.parse(savedFormData);
+        console.log('Restoring saved form data from session storage');
+        
+        // Update form with saved values
+        Object.entries(parsedData).forEach(([key, value]) => {
+          setValue(key as any, value);
+        });
+        
+        // Clear the saved data
+        sessionStorage.removeItem(FORM_STORAGE_KEY);
+      } catch (error) {
+        console.error('Error parsing saved form data:', error);
+      }
+    }
+  }, [setValue]);
+
+  // If user is logged in, set email field to user's email and make it read-only
+  useEffect(() => {
+    if (user?.email) {
+      setValue('email', user.email);
+    }
+  }, [user, setValue]);
 
   // Check if current step is valid
   const isStepValid = () => {
@@ -140,6 +176,42 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
     return !currentStepFieldsArray.some(field => !!errors[field as keyof FormValues]);
   };
   
+  // Check if email already exists in the system
+  const checkEmailExists = async (email: string): Promise<boolean> => {
+    try {
+      setIsCheckingEmail(true);
+      
+      // First check if the email exists in applications table
+      const { data: existingApplication, error: appError } = await supabase
+        .from('applications')
+        .select('id, user_id')
+        .eq('email', email)
+        .maybeSingle();
+      
+      if (appError) {
+        console.error('Error checking for existing application:', appError);
+        return false;
+      }
+      
+      // If we found an application with this email and it has a user_id, the email exists
+      if (existingApplication && existingApplication.user_id) {
+        console.log('Found existing application with user account:', existingApplication);
+        return true;
+      }
+      
+      // As a fallback, we can check if the email exists in auth.users
+      // This would require a Supabase Edge Function in a real implementation
+      // For now, we'll just use the application check
+      
+      return false;
+    } catch (error) {
+      console.error('Error checking if email exists:', error);
+      return false;
+    } finally {
+      setIsCheckingEmail(false);
+    }
+  };
+  
   // Function to handle next step
   const handleNextStep = async () => {
     // Define fields to validate for each step
@@ -156,6 +228,20 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
     const isStepValid = await trigger(fieldsToValidate[currentStep as keyof typeof fieldsToValidate]);
     
     if (isStepValid) {
+      // If we're on the final step and about to submit, check if email exists
+      if (currentStep === totalSteps && !user) {
+        const emailExists = await checkEmailExists(email);
+        
+        if (emailExists) {
+          // Save form data to sessionStorage
+          sessionStorage.setItem(FORM_STORAGE_KEY, JSON.stringify(currentStepFields));
+          
+          // Show the existing user modal
+          setShowExistingUserModal(true);
+          return;
+        }
+      }
+      
       if (currentStep < totalSteps) {
         setCurrentStep(currentStep + 1);
         // Scroll to top of form
@@ -220,6 +306,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       // Prepare application data
       const applicationData = {
         temp_user_id: currentTempUserId,
+        user_id: user?.id || null,
         vehicle_type: data.vehicle_type,
         desired_monthly_payment: data.desired_monthly_payment,
         credit_score: data.credit_score,
@@ -256,7 +343,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         address: '************'
       });
       
-      console.log('PreQualificationForm: Attempting to insert application into Supabase...');
+      console.log('PreQualificationForm: About to insert application into Supabase');
       try {
         // Insert application into Supabase
         const { data: application, error } = await supabase
@@ -823,6 +910,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                           type="email"
                           placeholder="you@example.com"
                           className={error ? 'border-red-500' : ''}
+                          readOnly={!!user} // Make read-only if user is logged in
                         />
                         {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
                       </div>
@@ -942,7 +1030,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
           <Button
             type="button"
             onClick={handleNextStep}
-            disabled={isSubmitting || !isStepValid()}
+            disabled={isSubmitting || isCheckingEmail || !isStepValid()}
             className="bg-[#3BAA75] hover:bg-[#2D8259] w-24"
           >
             {currentStep === totalSteps ? (
@@ -955,11 +1043,29 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                 'Submit'
               )
             ) : (
-              'Next'
+              isCheckingEmail ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                  Next
+                </div>
+              ) : (
+                'Next'
+              )
             )}
           </Button>
         </div>
       </div>
+
+      {/* Existing User Modal */}
+      <AnimatePresence>
+        {showExistingUserModal && (
+          <ExistingUserModal
+            email={email}
+            onClose={() => setShowExistingUserModal(false)}
+            currentPath={location.pathname}
+          />
+        )}
+      </AnimatePresence>
     </FormProvider>
   );
 };
