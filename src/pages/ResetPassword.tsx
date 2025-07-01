@@ -17,11 +17,24 @@ const ResetPassword = () => {
     setLoading(true);
 
     try {
-      console.log('ResetPassword: Sending password reset email to:', email);
-      const { error: resetError } = await resetPassword(email.trim().toLowerCase());
+      console.log('ResetPassword: Starting password reset process');
+      console.log('ResetPassword: Email to reset:', email);
+      
+      // Log environment variables availability (not their values)
+      console.log('ResetPassword: Environment check:', {
+        supabaseUrl: !!import.meta.env.VITE_SUPABASE_URL,
+        supabaseAnonKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY
+      });
+      
+      const normalizedEmail = email.trim().toLowerCase();
+      console.log('ResetPassword: Normalized email:', normalizedEmail);
+      
+      console.log('ResetPassword: Calling resetPassword function');
+      const { error: resetError } = await resetPassword(normalizedEmail);
       
       if (resetError) {
-        console.error('ResetPassword: Detailed reset error:', resetError);
+        console.error('ResetPassword: Reset error occurred:', resetError);
+        console.error('ResetPassword: Error details:', JSON.stringify(resetError, null, 2));
         setError(resetError.message);
         setLoading(false);
         return;
@@ -30,7 +43,9 @@ const ResetPassword = () => {
       console.log('ResetPassword: Password reset email sent successfully');
       setSuccess(true);
     } catch (err: any) {
-      console.error('ResetPassword: Reset password error details:', err);
+      console.error('ResetPassword: Unexpected error in reset process:', err);
+      console.error('ResetPassword: Error details:', err.message);
+      console.error('ResetPassword: Error stack:', err.stack);
       setError('An unexpected error occurred. Please try again later.');
     } finally {
       setLoading(false);

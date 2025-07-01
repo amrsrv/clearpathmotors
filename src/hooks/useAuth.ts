@@ -252,13 +252,25 @@ export const useAuth = () => {
 
       console.log('useAuth: sending password reset email to:', email);
       console.log('useAuth: redirect URL:', redirectTo);
+      console.log('useAuth: current origin:', window.location.origin);
+      console.log('useAuth: current environment:', process.env.NODE_ENV);
       
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+      // Log Supabase client state
+      console.log('useAuth: Supabase client check:', {
+        hasClient: !!supabase,
+        hasAuthModule: !!supabase?.auth,
+        hasResetPasswordMethod: !!supabase?.auth?.resetPasswordForEmail
+      });
+      
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
         redirectTo
       });
 
+      console.log('useAuth: resetPasswordForEmail response:', { data, error });
+
       if (error) {
         console.error('useAuth: Reset password error:', error);
+        console.error('useAuth: Error details:', JSON.stringify(error, null, 2));
         toast.error(error.message || 'Failed to send reset email. Please try again.');
         throw error;
       }
@@ -268,6 +280,7 @@ export const useAuth = () => {
       return { error: null };
     } catch (error: any) {
       console.error('useAuth: Reset password error:', error);
+      console.error('useAuth: Error stack:', error.stack);
       return { 
         error: {
           message: error.message || 'An error occurred while resetting the password. Please try again later.'

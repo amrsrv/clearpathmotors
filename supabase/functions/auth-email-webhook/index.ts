@@ -22,6 +22,7 @@ serve(async (req) => {
     const { type, email } = await req.json();
 
     console.log(`Received email event: ${type} for ${email}`);
+    console.log('Full request payload:', await req.json());
     
     // Simply log the event and return success
     // The actual email sending is handled by Supabase
@@ -34,7 +35,11 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error('Error processing request:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('Error details:', error.stack);
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      stack: error.stack
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500,
     });
