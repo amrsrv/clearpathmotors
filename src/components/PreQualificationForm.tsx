@@ -375,7 +375,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
   return (
     <FormProvider {...methods}>
       <div className="w-full max-w-3xl mx-auto" ref={formRef}>
-        <form className="bg-white rounded-xl shadow-lg p-8 md:p-10 mb-0">
+        <form className="bg-white rounded-xl shadow-lg p-8 md:p-10 mb-24">
           <AnimatePresence mode="wait">
             {/* Step 1: Vehicle Type */}
             {currentStep === 1 && (
@@ -391,7 +391,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                 <h2 className="text-2xl font-semibold text-gray-900">Select Your Vehicle Type</h2>
                 <p className="text-gray-600">Choose the type of vehicle you're interested in financing.</p>
                 
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-2 gap-4">
                   {vehicles.map((vehicle) => (
                     <button
                       key={vehicle.type}
@@ -868,7 +868,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                               htmlFor="terms_accepted"
                               className="ml-2 text-sm text-gray-600"
                             >
-                              I accept the <a href="/terms" className="text-[#3BAA75] hover:underline">terms and conditions</a> and <a href="/privacy" className=\"text-[#3BAA75] hover:underline">privacy policy</a>
+                              I accept the <a href="/terms" className="text-[#3BAA75] hover:underline">terms and conditions</a> and <a href="/privacy" className="text-[#3BAA75] hover:underline">privacy policy</a>
                             </label>
                           </div>
                         )}
@@ -886,7 +886,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       </div>
 
       {/* Sticky Footer Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white p-6 shadow-lg border-t border-gray-100 z-50">
+      <div className="fixed bottom-0 left-0 right-0 bg-white p-4 shadow-lg border-t border-gray-100 z-50">
         <div className="max-w-3xl mx-auto flex justify-between">
           {currentStep > 1 ? (
             <Button

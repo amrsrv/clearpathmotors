@@ -92,7 +92,7 @@ const GetPrequalified = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#3BAA75]/10 via-white to-[#3BAA75]/5 pb-0">
-      <div className="w-full max-w-lg px-4">
+      <div className="w-full max-w-lg px-2">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
