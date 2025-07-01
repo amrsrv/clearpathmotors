@@ -899,8 +899,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
               Back
             </Button>
           ) : (
-            <div className="w-24"></div> {/* Empty div to maintain flex spacing */}
-          )}
+<div className="w-24">{/* Empty div to maintain flex spacing */}</div>          )}
           
           <div className="flex items-center justify-center">
             {Array.from({ length: totalSteps }).map((_, index) => (
