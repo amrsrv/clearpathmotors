@@ -62,9 +62,18 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
     }
   }, [initialized]);
 
+  // Add user and tempUserId to the dependency array to ensure data is reloaded when these change
+  useEffect(() => {
+    if (initialized && (user || tempUserId)) {
+      console.log('Dashboard: User or tempUserId changed, reloading data');
+      loadDashboardData();
+    }
+  }, [user, tempUserId, initialized]);
+
   const loadDashboardData = async () => {
-    if (!initialized) {
-      console.log('Dashboard: Auth not initialized yet, skipping data load');
+    // Early exit if neither user nor tempUserId is available
+    if (!initialized || (!user && !tempUserId)) {
+      console.log('Dashboard: No user or tempUserId available, skipping data load');
       return;
     }
     
@@ -118,8 +127,10 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       // If no application found and user is authenticated, create one
       if (!latestApplication && user && !creatingApplication) {
         console.log('Dashboard: No application found for authenticated user, creating one');
+        setCreatingApplication(true);
         await createDefaultApplication();
-        return; // This will trigger a reload via the useEffect
+        setCreatingApplication(false);
+        return; // Exit and let the useEffect trigger a reload
       }
       
       setApplication(latestApplication);
@@ -198,7 +209,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
     if (!user || creatingApplication) return;
     
     try {
-      setCreatingApplication(true);
       console.log('Dashboard: Creating default application for user:', user.id);
       
       // Extract name parts from email if available
@@ -258,14 +268,11 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         // Continue despite error
       }
       
-      // Reload dashboard data to show the new application
-      await loadDashboardData();
+      // Don't call loadDashboardData here - let the useEffect handle it
       
     } catch (error) {
       console.error('Dashboard: Error in createDefaultApplication:', error);
       toast.error('Failed to create application. Please try again.');
-    } finally {
-      setCreatingApplication(false);
     }
   };
 
