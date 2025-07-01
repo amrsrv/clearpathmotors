@@ -5,6 +5,15 @@ import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
 import { v4 as uuidv4 } from 'uuid';
 
+// Utility function to validate UUID format
+function isUuid(value: string | null | undefined): boolean {
+  if (!value) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+// Fallback UUID to use when an invalid UUID is detected
+const FALLBACK_UUID = '00000000-0000-0000-0000-000000000000';
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -37,7 +46,7 @@ export const ChatWidget = () => {
     if (!user) {
       // First check if we have a tempUserId from the standardized location
       const storedTempUserId = localStorage.getItem('tempUserId');
-      if (storedTempUserId) {
+      if (storedTempUserId && isUuid(storedTempUserId)) {
         console.log('ChatWidget: Using stored tempUserId:', storedTempUserId);
         setAnonymousId(storedTempUserId);
         return;
@@ -45,7 +54,7 @@ export const ChatWidget = () => {
       
       // Fall back to the chat-specific anonymousId if needed
       const chatAnonymousId = localStorage.getItem('chatAnonymousId');
-      if (chatAnonymousId) {
+      if (chatAnonymousId && isUuid(chatAnonymousId)) {
         console.log('ChatWidget: Using stored chatAnonymousId:', chatAnonymousId);
         setAnonymousId(chatAnonymousId);
       } else {
@@ -120,12 +129,15 @@ export const ChatWidget = () => {
         .from('chat_messages')
         .select('*');
         
-      if (user) {
+      if (user && isUuid(user.id)) {
         // For authenticated users
         query = query.eq('user_id', user.id);
-      } else if (anonymousId) {
+      } else if (anonymousId && isUuid(anonymousId)) {
         // For anonymous users
         query = query.eq('anonymous_id', anonymousId);
+      } else {
+        // Use fallback to prevent database error
+        query = query.eq('user_id', FALLBACK_UUID);
       }
       
       const { data: messagesData, error: messagesError } = await query
@@ -143,10 +155,13 @@ export const ChatWidget = () => {
         // Check if user has an existing chat
         let chatQuery = supabase.from('chats').select('id');
         
-        if (user) {
+        if (user && isUuid(user.id)) {
           chatQuery = chatQuery.eq('user_id', user.id);
-        } else if (anonymousId) {
+        } else if (anonymousId && isUuid(anonymousId)) {
           chatQuery = chatQuery.eq('anonymous_id', anonymousId);
+        } else {
+          // Use fallback to prevent database error
+          chatQuery = chatQuery.eq('user_id', FALLBACK_UUID);
         }
         
         const { data: chatData, error: chatError } = await chatQuery.maybeSingle();

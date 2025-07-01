@@ -51,6 +51,15 @@ const formatDate = (dateStr: string) => {
   }
 };
 
+// Utility function to validate UUID format
+function isUuid(value: string | null | undefined): boolean {
+  if (!value) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+// Fallback UUID to use when an invalid UUID is detected
+const FALLBACK_UUID = '00000000-0000-0000-0000-000000000000';
+
 export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({ 
   userId, 
   applicationId,
@@ -132,10 +141,13 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({
         .from('admin_messages')
         .select('*');
         
-      if (user) {
-        query = query.eq('user_id', userId);
-      } else {
+      if (user && isUuid(user.id)) {
+        query = query.eq('user_id', user.id);
+      } else if (isUuid(userId)) {
         query = query.eq('temp_user_id', userId);
+      } else {
+        // Use fallback to prevent database error
+        query = query.eq('user_id', FALLBACK_UUID);
       }
       
       const { data, error } = await query.order('created_at', { ascending: true });
@@ -211,9 +223,9 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({
     try {
       setSendingMessage(true);
       
-      const messageData = user 
+      const messageData = user && isUuid(user.id)
         ? {
-            user_id: userId,
+            user_id: user.id,
             admin_id: null,
             application_id: applicationId,
             message: messageText,
@@ -281,7 +293,7 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({
   });
 
   return (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col h-full">
+    <div className="bg-white rounded-xl shadow-lg overflow-hidden h-full">
       {/* Header - Sticky */}
       <div className="p-4 border-b border-gray-200 sticky top-0 bg-white z-10 flex items-center">
         <Link 
@@ -297,7 +309,9 @@ export const UserMessageCenter: React.FC<UserMessageCenterProps> = ({
         </Link>
         
         <div>
-          <h2 className="text-xl font-semibold">{ticketSubject || "Message Center"}</h2>
+          <h2 className="text-xl font-semibold">
+            {ticketSubject || "Message Center"}
+          </h2>
           {!ticketSubject && (
             <p className="text-sm text-gray-600">
               Communicate with our support team about your application

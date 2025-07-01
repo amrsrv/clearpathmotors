@@ -6,6 +6,15 @@ import { format } from 'date-fns';
 import { supabase } from '../lib/supabaseClient';
 import toast from 'react-hot-toast';
 
+// Utility function to validate UUID format
+function isUuid(value: string | null | undefined): boolean {
+  if (!value) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+// Fallback UUID to use when an invalid UUID is detected
+const FALLBACK_UUID = '00000000-0000-0000-0000-000000000000';
+
 interface NotificationCenterProps {
   notifications: Notification[];
   onMarkAsRead: (id: string) => Promise<void>;
