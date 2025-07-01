@@ -175,7 +175,7 @@ export const MessageCenter: React.FC = () => {
       const { data, error } = await supabase
         .from('admin_messages')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', user.Id)
         .order('created_at', { ascending: true });
         
       if (error) throw error;
