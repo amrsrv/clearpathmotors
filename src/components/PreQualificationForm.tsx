@@ -380,17 +380,16 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                           : 'hover:shadow-md'
                       }`}
                     >
-                      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-lg">
+                      <div className="relative aspect-video w-full overflow-hidden rounded-lg">
                         <img
                           src={vehicle.image}
                           alt={vehicle.type}
                           className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                        <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-                          <h3 className="text-xl font-bold">{vehicle.type}</h3>
-                          <p className="text-sm text-white/80">{vehicle.description}</p>
-                        </div>
+                      </div>
+                      <div className="p-4 text-center">
+                        <h3 className="text-xl font-bold text-gray-900">{vehicle.type}</h3>
+                        <p className="text-sm text-gray-600">{vehicle.description}</p>
                       </div>
                       {vehicleType === vehicle.type && (
                         <div className="absolute top-2 right-2 bg-[#3BAA75] text-white p-1 rounded-full">
@@ -846,7 +845,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                               htmlFor="terms_accepted"
                               className="ml-2 text-sm text-gray-600"
                             >
-                              I accept the <a href="/terms" className="text-[#3BAA75] hover:underline">terms and conditions</a> and <a href="/privacy" className=\"text-[#3BAA75] hover:underline">privacy policy</a>
+                              I accept the <a href="/terms" className="text-[#3BAA75] hover:underline">terms and conditions</a> and <a href="/privacy" className="text-[#3BAA75] hover:underline">privacy policy</a>
                             </label>
                           </div>
                         )}
