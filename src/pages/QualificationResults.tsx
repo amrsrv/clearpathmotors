@@ -192,6 +192,11 @@ const QualificationResults = () => {
       return;
     }
     
+    if (!email || !email.trim()) {
+      setPasswordError('Email is required');
+      return;
+    }
+    
     setIsSubmitting(true);
 
     try {

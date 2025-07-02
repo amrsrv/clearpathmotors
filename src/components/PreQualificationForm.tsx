@@ -47,6 +47,7 @@ const formSchema = z.object({
   // Step 6: Personal Information
   first_name: z.string().min(1, 'First name is required'),
   last_name: z.string().min(1, 'Last name is required'),
+  email: z.string().email('Invalid email address').min(1, 'Email is required'),
   phone: z.string().min(10, 'Please enter a valid phone number'),
   
   // Terms and consent
@@ -94,6 +95,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       annual_income: 0,
       first_name: '',
       last_name: '',
+      email: '',
       phone: '',
       consent_soft_check: false,
       terms_accepted: false,
@@ -191,7 +193,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       3: ['credit_score'],
       4: ['address', 'city', 'province', 'postal_code', 'housing_status', 'housing_payment'],
       5: ['employment_status', 'employer_name', 'annual_income'],
-      6: ['first_name', 'last_name', 'phone', 'consent_soft_check', 'terms_accepted'],
+      6: ['first_name', 'last_name', 'email', 'phone', 'consent_soft_check', 'terms_accepted'],
     };
     
     const currentStepFieldsArray = fieldsToValidate[currentStep as keyof typeof fieldsToValidate];
@@ -209,7 +211,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       3: ['credit_score'],
       4: ['address', 'city', 'province', 'postal_code', 'housing_status', 'housing_payment'],
       5: ['employment_status', 'employer_name', 'annual_income'],
-      6: ['first_name', 'last_name', 'phone', 'consent_soft_check', 'terms_accepted'],
+      6: ['first_name', 'last_name', 'email', 'phone', 'consent_soft_check', 'terms_accepted'],
     };
     
     // Validate current step fields
@@ -295,6 +297,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         annual_income: data.annual_income,
         first_name: data.first_name,
         last_name: data.last_name,
+        email: data.email,
         phone: data.phone,
         loan_amount_min: loanAmountMin,
         loan_amount_max: loanAmountMax,
@@ -867,6 +870,25 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                       )}
                     />
                   </div>
+                  
+                  <Controller
+                    control={control}
+                    name="email"
+                    render={({ field, fieldState: { error } }) => (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Email Address
+                        </label>
+                        <Input
+                          {...field}
+                          placeholder="you@example.com"
+                          className={error ? 'border-red-500' : ''}
+                          disabled={!!user?.email}
+                        />
+                        {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
+                      </div>
+                    )}
+                  />
                   
                   <Controller
                     control={control}
