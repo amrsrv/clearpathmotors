@@ -22,6 +22,9 @@ const AuthCallback = () => {
           throw sessionError;
         }
 
+        // Clear the URL hash to remove the access token
+        window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+
         const user = session?.user;
         if (!user) {
           console.log('AuthCallback: No user found in session, redirecting to login');
