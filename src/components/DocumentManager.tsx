@@ -314,6 +314,7 @@ console.log('Supabase object in DocumentManager (handleViewDocument context):', 
       toast.error('Failed to open document');
     }
   };
+console.log('Supabase object in DocumentManager (handleDownloadDocument context):', supabase);
 
   const handleDownloadDocument = async (filename: string) => {
     try {
