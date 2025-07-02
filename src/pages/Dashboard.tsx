@@ -225,6 +225,9 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       const firstName = nameParts[0]?.charAt(0).toUpperCase() + nameParts[0]?.slice(1) || '';
       const lastName = nameParts[1]?.charAt(0).toUpperCase() + nameParts[1]?.slice(1) || '';
       
+      // Ensure email is either a valid email string or null (not empty string)
+      const userEmail = user.email && user.email.trim() !== '' ? user.email : null;
+      
       // Create a new application
       const { data: newApp, error: createError } = await supabase
         .from('applications')
@@ -232,7 +235,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
           user_id: user.id,
           status: 'pending_documents',
           current_stage: 1,
-          email: user.email,
+          email: userEmail,
           first_name: firstName,
           last_name: lastName
         })
