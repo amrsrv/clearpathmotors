@@ -25,7 +25,7 @@ const documentTypes = [
   { value: 'proof_of_residence', label: 'Proof of Address' }
 ];
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf', 'image/heic'];
 
 export const UnifiedDocumentUploader = ({ applicationId, onUpload, isUploading = false, uploadError = null }) => {
@@ -237,6 +237,9 @@ interface DocumentManagerProps {
   onDelete: (documentId: string) => Promise<void>;
   isUploading: boolean;
   uploadError: string | null;
+  getFileUrl?: (filename: string) => Promise<string | null>;
+  isAdmin?: boolean;
+  onUpdateStatus?: (documentId: string, status: 'approved' | 'rejected', notes?: string) => Promise<void>;
 }
 
 export const DocumentManager: React.FC<DocumentManagerProps> = ({
@@ -245,8 +248,20 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
   onUpload,
   onDelete,
   isUploading,
-  uploadError
+  uploadError,
+  getFileUrl,
+  isAdmin = false,
+  onUpdateStatus
 }) => {
+  const [viewingDocument, setViewingDocument] = useState<string | null>(null);
+  const [documentUrls, setDocumentUrls] = useState<Record<string, string>>({});
+  const [loadingUrls, setLoadingUrls] = useState<Record<string, boolean>>({});
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [newStatus, setNewStatus] = useState<'approved' | 'rejected'>('approved');
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'approved':
@@ -282,6 +297,111 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
         console.error('Error deleting document:', error);
         toast.error('Failed to delete document');
       }
+    }
+  };
+
+  const handleViewDocument = async (document: Document) => {
+    if (!getFileUrl) {
+      toast.error('Document viewing is not available');
+      return;
+    }
+
+    try {
+      setLoadingUrls(prev => ({ ...prev, [document.id]: true }));
+      
+      // Check if we already have the URL cached
+      if (documentUrls[document.id]) {
+        window.open(documentUrls[document.id], '_blank');
+        return;
+      }
+      
+      // Get the URL
+      const url = await getFileUrl(document.filename);
+      if (!url) {
+        throw new Error('Could not generate document URL');
+      }
+      
+      // Cache the URL
+      setDocumentUrls(prev => ({ ...prev, [document.id]: url }));
+      
+      // Open the document in a new tab
+      window.open(url, '_blank');
+    } catch (error) {
+      console.error('Error viewing document:', error);
+      toast.error('Failed to view document');
+    } finally {
+      setLoadingUrls(prev => ({ ...prev, [document.id]: false }));
+    }
+  };
+
+  const handleDownloadDocument = async (document: Document) => {
+    if (!getFileUrl) {
+      toast.error('Document download is not available');
+      return;
+    }
+
+    try {
+      setLoadingUrls(prev => ({ ...prev, [document.id]: true }));
+      
+      // Check if we already have the URL cached
+      let url = documentUrls[document.id];
+      
+      // If not, get the URL
+      if (!url) {
+        url = await getFileUrl(document.filename);
+        if (!url) {
+          throw new Error('Could not generate document URL');
+        }
+        
+        // Cache the URL
+        setDocumentUrls(prev => ({ ...prev, [document.id]: url! }));
+      }
+      
+      // Create a temporary anchor element to trigger the download
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = document.filename.split('/').pop() || 'document';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      toast.error('Failed to download document');
+    } finally {
+      setLoadingUrls(prev => ({ ...prev, [document.id]: false }));
+    }
+  };
+
+  const handleUpdateStatus = async () => {
+    if (!selectedDocument || !onUpdateStatus) return;
+    
+    try {
+      setIsUpdatingStatus(true);
+      
+      // If status is rejected, require a reason
+      if (newStatus === 'rejected' && !rejectionReason.trim()) {
+        toast.error('Please provide a reason for rejection');
+        return;
+      }
+      
+      await onUpdateStatus(
+        selectedDocument.id, 
+        newStatus, 
+        newStatus === 'rejected' ? rejectionReason : undefined
+      );
+      
+      // Close the modal and reset state
+      setShowStatusModal(false);
+      setSelectedDocument(null);
+      setNewStatus('approved');
+      setRejectionReason('');
+      
+      toast.success(`Document ${newStatus === 'approved' ? 'approved' : 'rejected'} successfully`);
+    } catch (error) {
+      console.error('Error updating document status:', error);
+      toast.error('Failed to update document status');
+    } finally {
+      setIsUpdatingStatus(false);
     }
   };
 
@@ -336,6 +456,48 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
                 </div>
                 
                 <div className="flex items-center space-x-2 ml-4">
+                  {getFileUrl && (
+                    <>
+                      <button
+                        onClick={() => handleViewDocument(document)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="View document"
+                        disabled={loadingUrls[document.id]}
+                      >
+                        {loadingUrls[document.id] ? (
+                          <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => handleDownloadDocument(document)}
+                        className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                        title="Download document"
+                        disabled={loadingUrls[document.id]}
+                      >
+                        {loadingUrls[document.id] ? (
+                          <div className="animate-spin h-4 w-4 border-2 border-green-600 border-t-transparent rounded-full" />
+                        ) : (
+                          <Download className="h-4 w-4" />
+                        )}
+                      </button>
+                    </>
+                  )}
+                  
+                  {isAdmin && onUpdateStatus && document.status === 'pending' && (
+                    <button
+                      onClick={() => {
+                        setSelectedDocument(document);
+                        setShowStatusModal(true);
+                      }}
+                      className="p-2 text-[#3BAA75] hover:bg-[#3BAA75]/10 rounded-lg transition-colors"
+                      title="Update status"
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                    </button>
+                  )}
+                  
                   <button
                     onClick={() => handleDelete(document.id)}
                     className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -349,6 +511,103 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
           ))}
         </div>
       )}
+
+      {/* Status Update Modal */}
+      <AnimatePresence>
+        {showStatusModal && selectedDocument && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="bg-white rounded-lg p-6 max-w-md w-full"
+            >
+              <h3 className="text-lg font-semibold mb-4">Update Document Status</h3>
+              
+              <div className="mb-4">
+                <p className="text-gray-700">
+                  Document: <span className="font-medium">{formatCategory(selectedDocument.category)}</span>
+                </p>
+              </div>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Status
+                </label>
+                <div className="flex gap-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="status"
+                      value="approved"
+                      checked={newStatus === 'approved'}
+                      onChange={() => setNewStatus('approved')}
+                      className="mr-2"
+                    />
+                    Approve
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="status"
+                      value="rejected"
+                      checked={newStatus === 'rejected'}
+                      onChange={() => setNewStatus('rejected')}
+                      className="mr-2"
+                    />
+                    Reject
+                  </label>
+                </div>
+              </div>
+              
+              {newStatus === 'rejected' && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Reason for Rejection
+                  </label>
+                  <textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                    rows={3}
+                    placeholder="Please provide a reason for rejection"
+                    required
+                  />
+                </div>
+              )}
+              
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowStatusModal(false);
+                    setSelectedDocument(null);
+                    setNewStatus('approved');
+                    setRejectionReason('');
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                
+                <button
+                  onClick={handleUpdateStatus}
+                  disabled={isUpdatingStatus || (newStatus === 'rejected' && !rejectionReason.trim())}
+                  className="px-4 py-2 text-white bg-[#3BAA75] rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50"
+                >
+                  {isUpdatingStatus ? (
+                    <div className="flex items-center">
+                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
+                      Updating...
+                    </div>
+                  ) : (
+                    'Update Status'
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
