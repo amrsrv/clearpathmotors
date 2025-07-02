@@ -28,7 +28,6 @@ import AdminDashboard from './pages/admin/Dashboard';
 import AdminApplications from './pages/admin/Applications';
 import AdminUsers from './pages/admin/Users';
 import AdminSettings from './pages/admin/Settings';
-import DealerDashboard from './pages/dealer/Dashboard';
 import ApplicationView from './pages/admin/ApplicationView';
 import AdminLayout from './components/admin/AdminLayout';
 import { MobileNavBar } from './components/MobileNavBar'; // Import MobileNavBar
@@ -182,35 +181,6 @@ const App = () => {
                   </AdminLayout>
                 </ProtectedRoute>
               }
-            />
-            {/* Dealer Routes */}
-            <Route
-              path="/dealer"
-              element={
-                <ProtectedRoute allowedRoles={['dealer', 'super_admin']}>
-                  <DealerDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dealer/applications/:id"
-              element={
-                <ProtectedRoute allowedRoles={['dealer', 'super_admin']}>
-                  <ApplicationView />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dealer/applications/new"
-              element={
-                <ProtectedRoute allowedRoles={['dealer', 'super_admin']}>
-                  <div>New Application Form</div>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/apply/:dealerSlug"
-              element={<div>Public Application Form</div>}
             />
           </Routes>
         </AnimatePresence>
