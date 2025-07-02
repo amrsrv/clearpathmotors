@@ -40,7 +40,7 @@ const Login = () => {
     const checkAuth = async () => {
       console.log('Login: Checking authentication status');
       try {
-        const { user: currentUser, error } = await supabase.auth.getUser();
+        const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
           console.error('Login: Error verifying auth:', error);
@@ -49,7 +49,7 @@ const Login = () => {
         setAuthChecked(true);
         
         // If user is logged in, redirect
-        if (currentUser) {
+        if (session?.user) {
           console.log('Login: User already logged in, redirecting');
           
           // If there's saved form data, redirect to the form page
