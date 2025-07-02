@@ -295,6 +295,7 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
       }
     }
   };
+console.log('Supabase object in DocumentManager (handleViewDocument context):', supabase);
 
   const handleViewDocument = async (filename: string) => {
     try {
