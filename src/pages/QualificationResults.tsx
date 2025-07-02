@@ -45,13 +45,6 @@ const QualificationResults = () => {
         hasMonthlyBudget: !!location.state?.monthlyBudget
       });
       
-      // If user is already authenticated, redirect directly to dashboard
-      if (user) {
-        console.log('QualificationResults: User already logged in, redirecting to dashboard');
-        navigate('/dashboard', { replace: true });
-        return;
-      }
-
       if (!location.state?.fromApproval) {
         console.log('QualificationResults: Not from approval flow, redirecting');
         navigate('/get-approved');
@@ -99,6 +92,9 @@ const QualificationResults = () => {
             navigate('/dashboard');
             return;
           }
+          
+          // If user is logged in, they can skip account creation
+          setAccountCreated(true);
         } else {
           // For unauthenticated users, check temp_user_id
           if (application.temp_user_id !== tempUserId) {
@@ -237,7 +233,8 @@ const QualificationResults = () => {
           .from('applications')
           .update({
             user_id: data.user.id,
-            temp_user_id: null
+            temp_user_id: null,
+            email: email // Also update the email field
           })
           .eq('id', applicationId);
 

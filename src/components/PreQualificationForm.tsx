@@ -72,7 +72,6 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [tempUserId, setTempUserId] = useState<string | null>(null);
   const [showExistingUserModal, setShowExistingUserModal] = useState(false);
-  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const formRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const { user } = useAuth();
@@ -180,7 +179,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
   // If user is logged in, set email field to user's email and make it read-only
   useEffect(() => {
     if (user?.email) {
-      setValue('email', user.email);
+      setValue('email' as any, user.email);
     }
   }, [user, setValue]);
 
@@ -199,42 +198,6 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
     
     // Check if any of the current step fields have errors
     return !currentStepFieldsArray.some(field => !!errors[field as keyof FormValues]);
-  };
-  
-  // Check if email already exists in the system
-  const checkEmailExists = async (email: string): Promise<boolean> => {
-    try {
-      setIsCheckingEmail(true);
-      
-      // First check if the email exists in applications table
-      const { data: existingApplication, error: appError } = await supabase
-        .from('applications')
-        .select('id, user_id')
-        .eq('email', email)
-        .maybeSingle();
-      
-      if (appError) {
-        console.error('Error checking for existing application:', appError);
-        return false;
-      }
-      
-      // If we found an application with this email and it has a user_id, the email exists
-      if (existingApplication && existingApplication.user_id) {
-        console.log('Found existing application with user account:', existingApplication);
-        return true;
-      }
-      
-      // As a fallback, we can check if the email exists in auth.users
-      // This would require a Supabase Edge Function in a real implementation
-      // For now, we'll just use the application check
-      
-      return false;
-    } catch (error) {
-      console.error('Error checking if email exists:', error);
-      return false;
-    } finally {
-      setIsCheckingEmail(false);
-    }
   };
   
   // Function to handle next step
@@ -337,7 +300,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         loan_amount_max: loanAmountMax,
         interest_rate: interestRate,
         loan_term: loanTerm,
-        status: 'submitted',
+        status: 'pending_documents',
         current_stage: 1,
         consent_soft_check: data.consent_soft_check,
         terms_accepted: data.terms_accepted,
@@ -1018,7 +981,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
           <Button
             type="button"
             onClick={handleNextStep}
-            disabled={isSubmitting || isCheckingEmail || !isStepValid()}
+            disabled={isSubmitting || !isStepValid()}
             className="bg-[#3BAA75] hover:bg-[#2D8259] w-24"
           >
             {currentStep === totalSteps ? (
@@ -1031,14 +994,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                 'Submit'
               )
             ) : (
-              isCheckingEmail ? (
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                  Next
-                </div>
-              ) : (
-                'Next'
-              )
+              'Next'
             )}
           </Button>
         </div>
