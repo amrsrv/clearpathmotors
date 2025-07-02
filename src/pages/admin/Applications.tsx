@@ -29,7 +29,7 @@ import {
 import { supabase } from '../../lib/supabaseClient';
 import type { Application } from '../../types/database';
 import toast from 'react-hot-toast';
-import { BulkActions, BulkActionsProps } from '../../components/admin/BulkActions';
+import { BulkActions } from '../../components/admin/BulkActions';
 import { toStartCase } from '../../utils/formatters';
 
 const ITEMS_PER_PAGE = 20;
