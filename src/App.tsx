@@ -14,6 +14,7 @@ import GetApproved from './pages/GetApproved';
 import GetPrequalified from './pages/GetPrequalified';
 import Blog from './pages/Blog';
 import QualificationResults from './pages/QualificationResults';
+import LoanResults from './pages/LoanResults';
 import Privacy from './pages/Privacy';
 import Terms from './pages/Terms';
 import Login from './pages/Login';
@@ -109,6 +110,7 @@ const App = () => {
             <Route path="/get-approved" element={<Navigate to="/get-prequalified" replace />} />
             <Route path="/get-prequalified" element={<GetPrequalified />} />
             <Route path="/qualification-results" element={<QualificationResults />} />
+            <Route path="/loan-results" element={<LoanResults />} />
             <Route path="/blog/:slug" element={<Blog />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
