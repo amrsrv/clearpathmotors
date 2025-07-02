@@ -30,6 +30,7 @@ import AdminApplications from './pages/admin/Applications';
 import AdminUsers from './pages/admin/Users';
 import AdminSettings from './pages/admin/Settings';
 import ApplicationView from './pages/admin/ApplicationView';
+import EditApplication from './pages/admin/EditApplication';
 import AdminLayout from './components/admin/AdminLayout';
 import { MobileNavBar } from './components/MobileNavBar';
 import Footer from './components/Footer';
@@ -163,6 +164,16 @@ const App = () => {
                 <ProtectedRoute allowedRoles={['super_admin']}>
                   <AdminLayout>
                     <ApplicationView />
+                  </AdminLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/applications/:id/edit"
+              element={
+                <ProtectedRoute allowedRoles={['super_admin']}>
+                  <AdminLayout>
+                    <EditApplication />
                   </AdminLayout>
                 </ProtectedRoute>
               }
