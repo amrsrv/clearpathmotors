@@ -1,3 +1,4 @@
+import { supabase } from '../lib/supabaseClient';
 import React, { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { motion, AnimatePresence } from 'framer-motion';
