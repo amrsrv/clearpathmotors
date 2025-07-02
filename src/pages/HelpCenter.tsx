@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
+import { slugify } from '../utils/slugify';
 import toast from 'react-hot-toast';
 import { UserMessageCenter } from '../components/UserMessageCenter';
 import { format } from 'date-fns';
@@ -210,7 +211,13 @@ const HelpCenter: React.FC<HelpCenterProps> = ({ userId, applicationId }) => {
       if (file) {
         const progressInterval = simulateProgress();
         
-        const fileName = `${user.id}/${Date.now()}-${file.name}`;
+        // Sanitize the filename to ensure it's valid for storage
+        const fileExtension = file.name.split('.').pop() || '';
+        const baseName = file.name.replace(`.${fileExtension}`, '');
+        const sanitizedBaseName = slugify(baseName);
+        const sanitizedFileName = `${sanitizedBaseName}.${fileExtension}`;
+        
+        const fileName = `${user.id}/${Date.now()}-${sanitizedFileName}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('support-tickets')
           .upload(fileName, file, {
