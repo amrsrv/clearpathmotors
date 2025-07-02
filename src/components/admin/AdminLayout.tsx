@@ -65,7 +65,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             </button>
             <Link to="/admin" className="ml-3">
               <img
-                src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//clearpathlogo.png"
+                src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//Clear%20Path%20(10%20x%203%20in).png"
                 alt="Clearpath Motors Logo"
                 className="h-8 w-auto"
               />
@@ -90,7 +90,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200">
             <Link to="/admin" className="flex items-center">
               <img
-                src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//clearpathlogo.png"
+                src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//Clear%20Path%20(10%20x%203%20in).png"
                 alt="Clearpath Motors Logo"
                 className="h-10 w-auto"
               />
@@ -147,7 +147,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200">
             <Link to="/admin" className="flex items-center">
               <img
-                src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//clearpathlogo.png"
+                src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//Clear%20Path%20(10%20x%203%20in).png"
                 alt="Clearpath Motors Logo"
                 className="h-16 w-auto"
               />

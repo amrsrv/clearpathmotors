@@ -52,7 +52,7 @@ const Navbar = () => {
           <div className="flex-shrink-0">
             <Link to="/" className="block">
               <img 
-                src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//clearpathlogo.png" 
+                src="https://xndiuangipdcwmyacalj.supabase.co/storage/v1/object/public/marketingmedia//Clear%20Path%20(10%20x%203%20in).png" 
                 alt="Clearpath Motors Logo" 
                 className="h-12 w-auto md:h-20"
               />
