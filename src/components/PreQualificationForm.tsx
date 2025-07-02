@@ -640,7 +640,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                         <Input
                           {...field}
                           placeholder="123 Main St"
-                          className={error ? 'border-red-500' : ''}
+                          className={`${error ? 'border-red-500' : ''} text-base`}
                         />
                         {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
                       </div>
@@ -658,7 +658,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                         <Input
                           {...field}
                           placeholder="Toronto"
-                          className={error ? 'border-red-500' : ''}
+                          className={`${error ? 'border-red-500' : ''} text-base`}
                         />
                         {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
                       </div>
@@ -676,7 +676,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                         <Input
                           {...field}
                           placeholder="Ontario"
-                          className={error ? 'border-red-500' : ''}
+                          className={`${error ? 'border-red-500' : ''} text-base`}
                         />
                         {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
                       </div>
@@ -694,7 +694,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                         <Input
                           {...field}
                           placeholder="M5V 2H1"
-                          className={error ? 'border-red-500' : ''}
+                          className={`${error ? 'border-red-500' : ''} text-base`}
                         />
                         {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
                       </div>
@@ -711,7 +711,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                         </label>
                         <select
                           {...field}
-                          className={`w-full h-11 rounded-lg border ${error ? 'border-red-500' : 'border-gray-300'} focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent px-4 py-2`}
+                          className={`w-full h-11 rounded-lg border ${error ? 'border-red-500' : 'border-gray-300'} focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent px-4 py-2 text-base`}
                         >
                           <option value="">Select Housing Status</option>
                           <option value="own">Own</option>
@@ -759,7 +759,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                         </label>
                         <select
                           {...field}
-                          className={`w-full h-11 rounded-lg border ${error ? 'border-red-500' : 'border-gray-300'} focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent px-4 py-2`}
+                          className={`w-full h-11 rounded-lg border ${error ? 'border-red-500' : 'border-gray-300'} focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent px-4 py-2 text-base`}
                         >
                           <option value="">Select Employment Status</option>
                           <option value="employed">Employed</option>
@@ -784,7 +784,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                         <Input
                           {...field}
                           placeholder="Where do you work?"
-                          className={error ? 'border-red-500' : ''}
+                          className={`${error ? 'border-red-500' : ''} text-base`}
                         />
                         {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
                       </div>
@@ -828,7 +828,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                           <Input
                             {...field}
                             placeholder="John"
-                            className={error ? 'border-red-500' : ''}
+                            className={`${error ? 'border-red-500' : ''} text-base`}
                           />
                           {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
                         </div>
@@ -846,7 +846,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                           <Input
                             {...field}
                             placeholder="Doe"
-                            className={error ? 'border-red-500' : ''}
+                            className={`${error ? 'border-red-500' : ''} text-base`}
                           />
                           {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
                         </div>
@@ -865,7 +865,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                         <Input
                           {...field}
                           placeholder="you@example.com"
-                          className={error ? 'border-red-500' : ''}
+                          className={`${error ? 'border-red-500' : ''} text-base`}
                           disabled={!!user?.email}
                         />
                         {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
@@ -884,7 +884,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                         <Input
                           {...field}
                           placeholder="(123) 456-7890"
-                          className={error ? 'border-red-500' : ''}
+                          className={`${error ? 'border-red-500' : ''} text-base`}
                         />
                         {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
                       </div>
