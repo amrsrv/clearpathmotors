@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
@@ -13,261 +13,91 @@ import {
   CreditCard,
   Car,
   Calendar,
+  Clock,
+  CheckCircle,
+  XCircle,
   FileText,
   MessageSquare,
-  Bell,
   Edit,
-  Save,
-  X,
-  CheckCircle,
-  Clock,
-  AlertCircle,
-  Send,
-  Plus,
   Trash2,
-  RefreshCw,
   ChevronDown,
   ChevronUp,
-  Filter,
-  Settings,
+  RefreshCw,
+  AlertCircle,
   Flag,
-  UserCheck,
-  Ban,
-  Unlock,
-  Key,
-  Building,
-  Home,
-  Users,
-  Cake,
-  Heart,
-  Wallet,
-  BadgeCheck,
-  HelpCircle,
-  FileQuestion,
-  MessageCircle
+  Send,
+  Plus,
+  Eye,
+  Download
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
-import { ApplicationTracker } from '../../components/ApplicationTracker';
-import { DocumentManager } from '../../components/DocumentManager';
-import { useDocumentUpload } from '../../hooks/useDocumentUpload';
-import type { Application, ApplicationStage, Document, Notification } from '../../types/database';
 import toast from 'react-hot-toast';
-import { useUserRole } from '../../hooks/useUserRole';
+import { ApplicationTracker } from '../../components/ApplicationTracker';
+import { useDocumentUpload } from '../../hooks/useDocumentUpload';
+import { UnifiedDocumentUploader, DocumentManager } from '../../components/DocumentManager';
+import { toStartCase } from '../../utils/formatters';
 
 const ApplicationView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { role } = useUserRole();
-  const [application, setApplication] = useState<Application | null>(null);
-  const [stages, setStages] = useState<ApplicationStage[]>([]);
-  const [documents, setDocuments] = useState<Document[]>([]);
+  const [application, setApplication] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'documents' | 'messages' | 'notes' | 'actions'>('overview');
-  
-  // Status and Stage Management
-  const [isEditingStatus, setIsEditingStatus] = useState(false);
-  const [newStatus, setNewStatus] = useState<string>('');
-  const [isEditingStage, setIsEditingStage] = useState(false);
-  const [newStage, setNewStage] = useState<number>(1);
-  const [stageNotes, setStageNotes] = useState('');
-  
-  // Notes Management
-  const [notes, setNotes] = useState('');
-  const [isEditingNotes, setIsEditingNotes] = useState(false);
-  const [isSavingNotes, setIsSavingNotes] = useState(false);
-  
-  // Messaging
-  const [messageText, setMessageText] = useState('');
-  const [messageTitle, setMessageTitle] = useState('');
-  const [isSendingMessage, setIsSendingMessage] = useState(false);
-  const [messages, setMessages] = useState<any[]>([]);
-  
-  // Notifications
-  const [notificationTitle, setNotificationTitle] = useState('');
-  const [notificationMessage, setNotificationMessage] = useState('');
-  const [isSendingNotification, setIsSendingNotification] = useState(false);
-  
-  // User Management
-  const [showUserActions, setShowUserActions] = useState(false);
-  const [isPerformingUserAction, setIsPerformingUserAction] = useState(false);
-  
-  // Appointment Management
-  const [appointmentDate, setAppointmentDate] = useState('');
-  const [appointmentTime, setAppointmentTime] = useState('');
-  const [isSchedulingAppointment, setIsSchedulingAppointment] = useState(false);
+  const [error, setError] = useState(null);
+  const [stages, setStages] = useState([]);
+  const [documents, setDocuments] = useState([]);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [newMessage, setNewMessage] = useState('');
+  const [messages, setMessages] = useState([]);
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [newNote, setNewNote] = useState('');
+  const [addingNote, setAddingNote] = useState(false);
+  const [showFlagForm, setShowFlagForm] = useState(false);
+  const [flagData, setFlagData] = useState({
+    flag_type: 'missing_information',
+    severity: 'medium',
+    description: ''
+  });
+  const [submittingFlag, setSubmittingFlag] = useState(false);
+  const messagesEndRef = useRef(null);
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
 
-  // New fields for editing
-  const [isEditingDetails, setIsEditingDetails] = useState(false);
-  const [editedApplication, setEditedApplication] = useState<Partial<Application>>({});
-
-  // Dealer Assignment
-  const [dealers, setDealers] = useState([]);
-  const [selectedDealerId, setSelectedDealerId] = useState(null);
-  const [isAssigningDealer, setIsAssigningDealer] = useState(false);
-
-  const { uploadDocument, deleteDocument, uploading, error: uploadError } = useDocumentUpload(id || '');
-
-  const statusOptions = [
-    { value: 'submitted', label: 'Submitted', color: 'bg-blue-100 text-blue-700' },
-    { value: 'under_review', label: 'Under Review', color: 'bg-yellow-100 text-yellow-700' },
-    { value: 'pending_documents', label: 'Pending Documents', color: 'bg-orange-100 text-orange-700' },
-    { value: 'pre_approved', label: 'Pre-Approved', color: 'bg-green-100 text-green-700' },
-    { value: 'vehicle_selection', label: 'Vehicle Selection', color: 'bg-purple-100 text-purple-700' },
-    { value: 'final_approval', label: 'Final Approval', color: 'bg-indigo-100 text-indigo-700' },
-    { value: 'finalized', label: 'Finalized', color: 'bg-gray-100 text-gray-700' }
-  ];
-
-  const maritalStatusOptions = [
-    { value: 'single', label: 'Single' },
-    { value: 'married', label: 'Married' },
-    { value: 'divorced', label: 'Divorced' },
-    { value: 'widowed', label: 'Widowed' },
-    { value: 'separated', label: 'Separated' },
-    { value: 'other', label: 'Other' }
-  ];
-
-  const housingStatusOptions = [
-    { value: 'own', label: 'Own' },
-    { value: 'rent', label: 'Rent' },
-    { value: 'live_with_parents', label: 'Live with Parents' },
-    { value: 'other', label: 'Other' }
-  ];
-
-  const debtDischargeTypeOptions = [
-    { value: 'bankruptcy', label: 'Bankruptcy' },
-    { value: 'consumer_proposal', label: 'Consumer Proposal' },
-    { value: 'informal_settlement', label: 'Informal Settlement' },
-    { value: 'other', label: 'Other' }
-  ];
-
-  const debtDischargeStatusOptions = [
-    { value: 'active', label: 'Active' },
-    { value: 'discharged', label: 'Discharged' },
-    { value: 'not_sure', label: 'Not Sure' }
-  ];
-
-  const preferredContactMethodOptions = [
-    { value: 'email', label: 'Email' },
-    { value: 'phone', label: 'Phone' },
-    { value: 'sms', label: 'SMS' }
-  ];
+  // Initialize document upload hook
+  const { 
+    uploadDocument, 
+    deleteDocument, 
+    updateDocumentStatus,
+    getFileUrl 
+  } = useDocumentUpload(id);
 
   useEffect(() => {
-    if (!id) {
-      navigate('/admin/applications');
-      return;
+    if (id) {
+      loadApplication();
     }
-    loadApplicationData();
   }, [id]);
 
   useEffect(() => {
-    // Only load dealers if user is super_admin
-    if (role === 'super_admin') {
-      loadDealers();
+    if (activeTab === 'messages' && application) {
+      loadMessages();
     }
-  }, [role]);
+  }, [activeTab, application]);
 
   useEffect(() => {
-    if (!application?.id || !user?.id) return;
+    // Scroll to bottom of messages when new messages are loaded
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
 
-    // Set up real-time subscriptions
-    const applicationsChannel = supabase
-      .channel('admin-application-view')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'applications',
-          filter: `id=eq.${application.id}`
-        },
-        async (payload) => {
-          console.log('Application update received:', payload);
-          
-          const oldStatus = application.status;
-          const newStatus = payload.new.status;
-          const oldStage = application.current_stage;
-          const newStage = payload.new.current_stage;
-          
-          // Update application state with new data
-          setApplication(payload.new as Application);
-          
-          // Reload stages and documents to ensure consistency
-          await loadStages(application.id);
-          await loadDocuments(application.id);
-          
-          // Create notification for status change
-          if (oldStatus !== newStatus) {
-            await createNotification(
-              `Application Status Updated`,
-              `Your application status has been updated from ${formatStatus(oldStatus)} to ${formatStatus(newStatus)}.`
-            );
-            
-            toast.success(`Application status updated to ${formatStatus(newStatus)}`);
-          }
-          
-          // Create notification for stage change
-          if (oldStage !== newStage) {
-            await createNotification(
-              `Application Stage Advanced`,
-              `Your application has moved to stage ${newStage} of 7.`
-            );
-            
-            toast.success(`Application advanced to stage ${newStage}`);
-          }
-        }
-      )
-      .subscribe();
-
-    // Set up real-time subscription for documents
-    const documentsChannel = supabase
-      .channel('admin-documents-view')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'documents',
-          filter: `application_id=eq.${application.id}`
-        },
-        () => {
-          loadDocuments(application.id);
-        }
-      )
-      .subscribe();
-
-    // Set up real-time subscription for stages
-    const stagesChannel = supabase
-      .channel('admin-stages-view')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'application_stages',
-          filter: `application_id=eq.${application.id}`
-        },
-        () => {
-          loadStages(application.id);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(applicationsChannel);
-      supabase.removeChannel(documentsChannel);
-      supabase.removeChannel(stagesChannel);
-    };
-  }, [application?.id, user?.id]);
-
-  const loadApplicationData = async () => {
+  const loadApplication = async () => {
     try {
       setLoading(true);
-      
-      // Load application
+      setError(null);
+
+      // Fetch application details
       const { data: appData, error: appError } = await supabase
         .from('applications')
         .select('*')
@@ -275,387 +105,209 @@ const ApplicationView = () => {
         .single();
 
       if (appError) throw appError;
-      if (!appData) throw new Error('Application not found');
-
       setApplication(appData);
-      setNotes(appData.internal_notes || '');
-      setNewStatus(appData.status);
-      setNewStage(appData.current_stage);
-      setEditedApplication(appData);
 
-      // Set selected dealer if application has one
-      if (appData?.dealer_id) {
-        setSelectedDealerId(appData.dealer_id);
-      }
+      // Fetch application stages
+      const { data: stageData, error: stageError } = await supabase
+        .from('application_stages')
+        .select('*')
+        .eq('application_id', id)
+        .order('stage_number', { ascending: true });
 
-      // Load related data
-      await Promise.all([
-        loadStages(appData.id),
-        loadDocuments(appData.id),
-        loadMessages(),
-      ]);
+      if (stageError) throw stageError;
+      setStages(stageData || []);
 
-    } catch (error: any) {
+      // Fetch documents
+      const { data: docData, error: docError } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('application_id', id)
+        .order('uploaded_at', { ascending: false });
+
+      if (docError) throw docError;
+      setDocuments(docData || []);
+
+    } catch (error) {
       console.error('Error loading application:', error);
-      setError(error.message);
+      setError('Failed to load application details. Please try again.');
+      toast.error('Failed to load application details');
     } finally {
       setLoading(false);
     }
   };
 
-  const loadDealers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('dealer_profiles')
-        .select('id, name, email');
-        
-      if (error) throw error;
-      setDealers(data || []);
-    } catch (error) {
-      console.error('Error loading dealers:', error);
-      toast.error('Failed to load dealers');
-    }
-  };
-
-  const loadStages = async (applicationId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('application_stages')
-        .select('*')
-        .eq('application_id', applicationId)
-        .order('stage_number', { ascending: true });
-
-      if (error) throw error;
-      setStages(data || []);
-    } catch (error) {
-      console.error('Error loading stages:', error);
-    }
-  };
-
-  const loadDocuments = async (applicationId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('documents')
-        .select('*')
-        .eq('application_id', applicationId)
-        .order('uploaded_at', { ascending: false });
-
-      if (error) throw error;
-      setDocuments(data || []);
-    } catch (error) {
-      console.error('Error loading documents:', error);
-    }
-  };
-
   const loadMessages = async () => {
     try {
+      setLoadingMessages(true);
+      
       const { data, error } = await supabase
         .from('admin_messages')
         .select('*')
         .eq('application_id', id)
-        .order('created_at', { ascending: false });
-
+        .order('created_at', { ascending: true });
+        
       if (error) throw error;
+      
       setMessages(data || []);
+      
+      // Mark unread admin messages as read
+      const unreadMessages = data?.filter(m => !m.read && m.is_admin) || [];
+      if (unreadMessages.length > 0) {
+        await supabase
+          .from('admin_messages')
+          .update({ read: true })
+          .in('id', unreadMessages.map(m => m.id));
+      }
     } catch (error) {
       console.error('Error loading messages:', error);
-    }
-  };
-
-  const createNotification = async (title: string, message: string) => {
-    if (!application?.user_id) return;
-    
-    try {
-      await supabase
-        .from('notifications')
-        .insert({
-          user_id: application.user_id,
-          title,
-          message,
-          read: false
-        });
-    } catch (error) {
-      console.error('Error creating notification:', error);
-    }
-  };
-
-  const handleStatusUpdate = async () => {
-    if (!application || newStatus === application.status) {
-      setIsEditingStatus(false);
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('applications')
-        .update({ 
-          status: newStatus,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', application.id);
-
-      if (error) throw error;
-
-      // Send notification to user
-      if (application.user_id) {
-        await supabase
-          .from('notifications')
-          .insert({
-            user_id: application.user_id,
-            title: 'Application Status Updated',
-            message: `Your application status has been updated to ${newStatus.replace(/_/g, ' ')}.`,
-            read: false
-          });
-      }
-
-      setIsEditingStatus(false);
-      toast.success('Status updated successfully');
-    } catch (error: any) {
-      console.error('Error updating status:', error);
-      toast.error('Failed to update status');
-    }
-  };
-
-  const handleStageUpdate = async () => {
-    if (!application || newStage === application.current_stage) {
-      setIsEditingStage(false);
-      return;
-    }
-
-    try {
-      // Update application stage
-      const { error: updateError } = await supabase
-        .from('applications')
-        .update({ 
-          current_stage: newStage,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', application.id);
-
-      if (updateError) throw updateError;
-
-      // Create stage record
-      const { error: stageError } = await supabase
-        .from('application_stages')
-        .insert({
-          application_id: application.id,
-          stage_number: newStage,
-          status: 'completed',
-          notes: stageNotes
-        });
-
-      if (stageError) throw stageError;
-
-      // Send notification to user
-      if (application.user_id) {
-        await supabase
-          .from('notifications')
-          .insert({
-            user_id: application.user_id,
-            title: `Application Advanced to Stage ${newStage}`,
-            message: `Your application has moved to stage ${newStage} of 7. ${stageNotes}`,
-            read: false
-          });
-      }
-
-      setIsEditingStage(false);
-      setStageNotes('');
-      toast.success('Stage updated successfully');
-    } catch (error: any) {
-      console.error('Error updating stage:', error);
-      toast.error('Failed to update stage');
-    }
-  };
-
-  const handleNotesUpdate = async () => {
-    if (!application) return;
-
-    try {
-      setIsSavingNotes(true);
-      
-      const { error } = await supabase
-        .from('applications')
-        .update({ 
-          internal_notes: notes,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', application.id);
-
-      if (error) throw error;
-
-      setIsEditingNotes(false);
-      toast.success('Notes saved successfully');
-    } catch (error: any) {
-      console.error('Error saving notes:', error);
-      toast.error('Failed to save notes');
+      toast.error('Failed to load messages');
     } finally {
-      setIsSavingNotes(false);
+      setLoadingMessages(false);
     }
   };
 
   const handleSendMessage = async () => {
-    if (!application || !messageTitle.trim() || !messageText.trim() || !user) return;
-
+    if (!newMessage.trim() || !application) return;
+    
     try {
-      setIsSendingMessage(true);
-
+      setSendingMessage(true);
+      
       const { error } = await supabase
         .from('admin_messages')
         .insert({
           user_id: application.user_id,
           admin_id: user.id,
-          application_id: application.id,
-          message: `${messageTitle}\n\n${messageText}`,
+          application_id: id,
+          message: newMessage,
           is_admin: true,
           read: false
         });
-
+        
       if (error) throw error;
-
-      // Also create a notification
-      if (application.user_id) {
-        await supabase
-          .from('notifications')
-          .insert({
-            user_id: application.user_id,
-            title: messageTitle,
-            message: messageText,
-            read: false
-          });
-      }
-
-      setMessageTitle('');
-      setMessageText('');
+      
+      // Create notification for user
+      await supabase
+        .from('notifications')
+        .insert({
+          user_id: application.user_id,
+          title: 'New Message from Support',
+          message: newMessage.length > 100 ? newMessage.substring(0, 100) + '...' : newMessage,
+          read: false
+        });
+      
+      setNewMessage('');
       loadMessages();
-      toast.success('Message sent successfully');
-    } catch (error: any) {
+      toast.success('Message sent');
+    } catch (error) {
       console.error('Error sending message:', error);
       toast.error('Failed to send message');
     } finally {
-      setIsSendingMessage(false);
+      setSendingMessage(false);
     }
   };
 
-  const handleSendNotification = async () => {
-    if (!application || !notificationTitle.trim() || !notificationMessage.trim()) return;
-
+  const handleAddNote = async () => {
+    if (!newNote.trim() || !application) return;
+    
     try {
-      setIsSendingNotification(true);
-
-      if (application.user_id) {
-        const { error } = await supabase
-          .from('notifications')
-          .insert({
-            user_id: application.user_id,
-            title: notificationTitle,
-            message: notificationMessage,
-            read: false
-          });
-
-        if (error) throw error;
-      }
-
-      setNotificationTitle('');
-      setNotificationMessage('');
-      toast.success('Notification sent successfully');
-    } catch (error: any) {
-      console.error('Error sending notification:', error);
-      toast.error('Failed to send notification');
-    } finally {
-      setIsSendingNotification(false);
-    }
-  };
-
-  const handleScheduleAppointment = async () => {
-    if (!application || !appointmentDate || !appointmentTime) return;
-
-    try {
-      setIsSchedulingAppointment(true);
-
-      const appointmentDateTime = new Date(`${appointmentDate}T${appointmentTime}`);
-
+      setAddingNote(true);
+      
       const { error } = await supabase
         .from('applications')
-        .update({ 
-          consultation_time: appointmentDateTime.toISOString(),
-          updated_at: new Date().toISOString()
+        .update({
+          internal_notes: application.internal_notes 
+            ? `${application.internal_notes}\n\n${format(new Date(), 'yyyy-MM-dd HH:mm')} - ${newNote}`
+            : `${format(new Date(), 'yyyy-MM-dd HH:mm')} - ${newNote}`
         })
-        .eq('id', application.id);
-
+        .eq('id', id);
+        
       if (error) throw error;
-
-      // Send notification to user
-      if (application.user_id) {
-        await supabase
-          .from('notifications')
-          .insert({
-            user_id: application.user_id,
-            title: 'Consultation Scheduled',
-            message: `Your consultation has been scheduled for ${format(appointmentDateTime, 'MMMM d, yyyy at h:mm a')}.`,
-            read: false
-          });
-      }
-
-      setAppointmentDate('');
-      setAppointmentTime('');
-      toast.success('Appointment scheduled successfully');
-    } catch (error: any) {
-      console.error('Error scheduling appointment:', error);
-      toast.error('Failed to schedule appointment');
+      
+      // Update local state
+      setApplication(prev => ({
+        ...prev,
+        internal_notes: prev.internal_notes 
+          ? `${prev.internal_notes}\n\n${format(new Date(), 'yyyy-MM-dd HH:mm')} - ${newNote}`
+          : `${format(new Date(), 'yyyy-MM-dd HH:mm')} - ${newNote}`
+      }));
+      
+      setNewNote('');
+      toast.success('Note added');
+    } catch (error) {
+      console.error('Error adding note:', error);
+      toast.error('Failed to add note');
     } finally {
-      setIsSchedulingAppointment(false);
+      setAddingNote(false);
     }
   };
 
-  const handleUserAction = async (action: 'reset_password' | 'disable_account' | 'enable_account') => {
-    if (!application?.user_id) return;
-
+  const handleSubmitFlag = async () => {
+    if (!flagData.description.trim() || !application) return;
+    
     try {
-      setIsPerformingUserAction(true);
-
-      // These would typically call Supabase Admin API
-      // For now, we'll just show success messages
-      switch (action) {
-        case 'reset_password':
-          // In a real implementation, you'd call the admin API to send a password reset email
-          toast.success('Password reset email sent to user');
-          break;
-        case 'disable_account':
-          // In a real implementation, you'd disable the user account
-          toast.success('User account disabled');
-          break;
-        case 'enable_account':
-          // In a real implementation, you'd enable the user account
-          toast.success('User account enabled');
-          break;
-      }
-
-      setShowUserActions(false);
-    } catch (error: any) {
-      console.error('Error performing user action:', error);
-      toast.error('Failed to perform action');
+      setSubmittingFlag(true);
+      
+      const { error } = await supabase
+        .from('application_flags')
+        .insert({
+          application_id: id,
+          flag_type: flagData.flag_type,
+          severity: flagData.severity,
+          description: flagData.description
+        });
+        
+      if (error) throw error;
+      
+      setShowFlagForm(false);
+      setFlagData({
+        flag_type: 'missing_information',
+        severity: 'medium',
+        description: ''
+      });
+      
+      toast.success('Flag added successfully');
+    } catch (error) {
+      console.error('Error adding flag:', error);
+      toast.error('Failed to add flag');
     } finally {
-      setIsPerformingUserAction(false);
+      setSubmittingFlag(false);
     }
   };
 
-  const handleDocumentUpload = async (file: File, category: string) => {
+  const handleDocumentUpload = async (file, category) => {
     try {
-      const document = await uploadDocument(file, category);
-      if (document) {
-        setDocuments(prev => [document, ...prev]);
-        toast.success('Document uploaded successfully');
-      }
+      setIsUploadingDocument(true);
+      setUploadError(null);
+      
+      await uploadDocument(file, category, true); // true indicates it's from admin
+      
+      // Reload documents after upload
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('application_id', id)
+        .order('uploaded_at', { ascending: false });
+        
+      if (error) throw error;
+      setDocuments(data || []);
+      
+      toast.success('Document uploaded successfully');
     } catch (error) {
       console.error('Error uploading document:', error);
+      setUploadError(error.message || 'Failed to upload document');
       toast.error('Failed to upload document');
+    } finally {
+      setIsUploadingDocument(false);
     }
   };
 
-  const handleDocumentDelete = async (documentId: string) => {
+  const handleDocumentDelete = async (documentId) => {
     try {
       await deleteDocument(documentId);
+      
+      // Update documents list
       setDocuments(prev => prev.filter(doc => doc.id !== documentId));
+      
       toast.success('Document deleted successfully');
     } catch (error) {
       console.error('Error deleting document:', error);
@@ -663,114 +315,36 @@ const ApplicationView = () => {
     }
   };
 
-  const handleEditDetails = () => {
-    if (!application) return;
-    setEditedApplication(application);
-    setIsEditingDetails(true);
-  };
-
-  const handleSaveDetails = async () => {
-    if (!application) return;
-    
+  const handleUpdateDocumentStatus = async (documentId, newStatus, reviewNotes) => {
     try {
-      const { error } = await supabase
-        .from('applications')
-        .update({ 
-          ...editedApplication,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', application.id);
-
-      if (error) throw error;
-
-      // Update local state
-      setApplication({
-        ...application,
-        ...editedApplication
-      } as Application);
+      const success = await updateDocumentStatus(documentId, newStatus, reviewNotes);
       
-      setIsEditingDetails(false);
-      toast.success('Application details updated successfully');
-    } catch (error: any) {
-      console.error('Error updating application details:', error);
-      toast.error('Failed to update application details');
-    }
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
-    
-    // Handle checkbox inputs
-    if (type === 'checkbox') {
-      const checked = (e.target as HTMLInputElement).checked;
-      setEditedApplication(prev => ({
-        ...prev,
-        [name]: checked
-      }));
-      return;
-    }
-    
-    // Handle number inputs
-    if (type === 'number') {
-      setEditedApplication(prev => ({
-        ...prev,
-        [name]: value === '' ? null : Number(value)
-      }));
-      return;
-    }
-    
-    // Handle all other inputs
-    setEditedApplication(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const handleAssignDealer = async () => {
-    if (!selectedDealerId) {
-      toast.error('Please select a dealer');
-      return;
-    }
-    
-    try {
-      setIsAssigningDealer(true);
-      
-      const { error } = await supabase
-        .from('applications')
-        .update({ dealer_id: selectedDealerId })
-        .eq('id', id);
+      if (success) {
+        // Update document in the list
+        setDocuments(prev => prev.map(doc => 
+          doc.id === documentId 
+            ? { 
+                ...doc, 
+                status: newStatus, 
+                review_notes: reviewNotes || null,
+                reviewed_at: new Date().toISOString()
+              } 
+            : doc
+        ));
         
-      if (error) throw error;
-      
-      toast.success('Application assigned to dealer successfully');
-      
-      // Update local state
-      setApplication({
-        ...application,
-        dealer_id: selectedDealerId
-      });
+        return true;
+      }
+      return false;
     } catch (error) {
-      console.error('Error assigning dealer:', error);
-      toast.error('Failed to assign dealer');
-    } finally {
-      setIsAssigningDealer(false);
+      console.error('Error updating document status:', error);
+      toast.error('Failed to update document status');
+      return false;
     }
-  };
-
-  const getStatusColor = (status: string) => {
-    const statusOption = statusOptions.find(opt => opt.value === status);
-    return statusOption?.color || 'bg-gray-100 text-gray-700';
-  };
-
-  const formatStatus = (status: string): string => {
-    return status
-      .replace(/_/g, ' ')
-      .replace(/\b\w/g, char => char.toUpperCase());
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent" />
       </div>
     );
@@ -778,1658 +352,500 @@ const ApplicationView = () => {
 
   if (error || !application) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">Application Not Found</h2>
-          <p className="text-gray-600 mb-6">{error || 'The application you are looking for does not exist.'}</p>
-          <button
-            onClick={() => navigate('/admin/applications')}
-            className="bg-[#3BAA75] text-white px-6 py-3 rounded-lg hover:bg-[#2D8259] transition-colors"
-          >
-            Back to Applications
-          </button>
-        </div>
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <AlertCircle className="h-16 w-16 text-red-500 mb-4" />
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Application</h2>
+        <p className="text-gray-600 mb-6 text-center">{error || 'Application not found'}</p>
+        <button
+          onClick={() => navigate('/admin/applications')}
+          className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors"
+        >
+          Back to Applications
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-14 lg:top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <button
-                onClick={() => navigate('/admin/applications')}
-                className="mr-4 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-              <div>
-                <h1 className="text-xl md:text-2xl font-semibold text-gray-900">
-                  {application.first_name} {application.last_name}
-                </h1>
-                <p className="text-sm text-gray-500">
-                  Application #{application.id.slice(0, 8)} • {format(new Date(application.created_at), 'MMM d, yyyy')}
-                </p>
-              </div>
-            </div>
+    <div className="p-6 max-w-7xl mx-auto">
+      {/* Back Button */}
+      <button
+        onClick={() => navigate('/admin/applications')}
+        className="flex items-center text-gray-600 hover:text-[#3BAA75] mb-6"
+      >
+        <ArrowLeft className="h-5 w-5 mr-2" />
+        Back to Applications
+      </button>
 
-            <div className="flex items-center gap-2">
-              <span className={`px-3 py-1 text-sm font-medium rounded-full ${getStatusColor(application.status)}`}>
+      {/* Application Header */}
+      <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {application.first_name} {application.last_name}
+            </h1>
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                application.status === 'pre_approved' ? 'bg-green-100 text-green-800' :
+                application.status === 'under_review' ? 'bg-yellow-100 text-yellow-800' :
+                application.status === 'pending_documents' ? 'bg-orange-100 text-orange-800' :
+                'bg-gray-100 text-gray-800'
+              }`}>
                 {application.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
               </span>
+              <span className="text-sm text-gray-500">
+                Application #{application.id.substring(0, 8)}
+              </span>
             </div>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowFlagForm(true)}
+              className="px-3 py-1.5 text-sm bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 transition-colors flex items-center gap-1"
+            >
+              <Flag className="h-4 w-4" />
+              <span>Flag</span>
+            </button>
+            
+            <button
+              onClick={() => setActiveTab('messages')}
+              className="px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors flex items-center gap-1"
+            >
+              <MessageSquare className="h-4 w-4" />
+              <span>Message</span>
+            </button>
+            
+            <button
+              onClick={() => navigate(`/admin/applications/${id}/edit`)}
+              className="px-3 py-1.5 text-sm bg-[#3BAA75]/10 text-[#3BAA75] rounded-lg hover:bg-[#3BAA75]/20 transition-colors flex items-center gap-1"
+            >
+              <Edit className="h-4 w-4" />
+              <span>Edit</span>
+            </button>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex space-x-8 overflow-x-auto">
+      <div className="bg-white rounded-lg shadow-sm mb-6">
+        <div className="border-b border-gray-200">
+          <nav className="flex -mb-px">
             {[
               { id: 'overview', label: 'Overview', icon: <User className="h-4 w-4" /> },
               { id: 'documents', label: 'Documents', icon: <FileText className="h-4 w-4" /> },
               { id: 'messages', label: 'Messages', icon: <MessageSquare className="h-4 w-4" /> },
-              { id: 'notes', label: 'Notes', icon: <Edit className="h-4 w-4" /> },
-              { id: 'actions', label: 'Actions', icon: <Settings className="h-4 w-4" /> }
+              { id: 'notes', label: 'Notes', icon: <Edit className="h-4 w-4" /> }
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center px-4 py-4 text-sm font-medium ${
                   activeTab === tab.id
-                    ? 'border-[#3BAA75] text-[#3BAA75]'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-b-2 border-[#3BAA75] text-[#3BAA75]'
+                    : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
                 {tab.icon}
-                {tab.label}
+                <span className="ml-2">{tab.label}</span>
               </button>
             ))}
-          </div>
+          </nav>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <AnimatePresence mode="wait">
+        <div className="p-6">
+          {/* Overview Tab */}
           {activeTab === 'overview' && (
-            <motion.div
-              key="overview"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="space-y-6"
-            >
-              {/* Status and Stage Management */}
-              <div className="grid lg:grid-cols-2 gap-6">
-                {/* Status Management */}
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold">Application Status</h3>
-                    <button
-                      onClick={() => setIsEditingStatus(!isEditingStatus)}
-                      className="text-[#3BAA75] hover:text-[#2D8259] transition-colors"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  {isEditingStatus ? (
-                    <div className="space-y-4">
-                      <select
-                        value={newStatus}
-                        onChange={(e) => setNewStatus(e.target.value)}
-                        className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                      >
-                        {statusOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleStatusUpdate}
-                          className="flex items-center gap-2 px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors"
-                        >
-                          <Save className="h-4 w-4" />
-                          Save
-                        </button>
-                        <button
-                          onClick={() => {
-                            setIsEditingStatus(false);
-                            setNewStatus(application.status);
-                          }}
-                          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(application.status)}`}>
-                      {application.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    </div>
-                  )}
-                </div>
-
-                {/* Stage Management */}
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold">Current Stage</h3>
-                    <button
-                      onClick={() => setIsEditingStage(!isEditingStage)}
-                      className="text-[#3BAA75] hover:text-[#2D8259] transition-colors"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  {isEditingStage ? (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Stage Number (1-7)
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          max="7"
-                          value={newStage}
-                          onChange={(e) => setNewStage(parseInt(e.target.value))}
-                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Stage Notes
-                        </label>
-                        <textarea
-                          value={stageNotes}
-                          onChange={(e) => setStageNotes(e.target.value)}
-                          className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                          rows={3}
-                          placeholder="Optional notes about this stage..."
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleStageUpdate}
-                          className="flex items-center gap-2 px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors"
-                        >
-                          <Save className="h-4 w-4" />
-                          Update Stage
-                        </button>
-                        <button
-                          onClick={() => {
-                            setIsEditingStage(false);
-                            setNewStage(application.current_stage);
-                            setStageNotes('');
-                          }}
-                          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-2xl font-bold text-[#3BAA75]">
-                      Stage {application.current_stage} of 7
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Dealer Assignment (Super Admin Only) */}
-              {role === 'super_admin' && (
-                <div className="bg-white rounded-lg shadow-sm p-6">
-                  <h3 className="text-lg font-semibold mb-4">Dealer Assignment</h3>
-                  <div className="flex items-center gap-4">
-                    <div className="flex-1">
-                      <select
-                        value={selectedDealerId || ''}
-                        onChange={(e) => setSelectedDealerId(e.target.value || null)}
-                        className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                      >
-                        <option value="">Select Dealer</option>
-                        {dealers.map((dealer) => (
-                          <option key={dealer.id} value={dealer.id}>
-                            {dealer.name} ({dealer.email})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <button
-                      onClick={handleAssignDealer}
-                      disabled={isAssigningDealer || selectedDealerId === application?.dealer_id}
-                      className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50"
-                    >
-                      {isAssigningDealer ? 'Assigning...' : 'Assign Dealer'}
-                    </button>
-                  </div>
-                  {application?.dealer_id && (
-                    <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-                      <p className="text-sm text-blue-700">
-                        This application is currently assigned to: {dealers.find(d => d.id === application.dealer_id)?.name || 'Unknown Dealer'}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Application Details */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-semibold">Application Details</h3>
-                  <button
-                    onClick={handleEditDetails}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors text-sm"
-                  >
-                    <Edit className="h-4 w-4" />
-                    Edit Details
-                  </button>
-                </div>
-
-                {isEditingDetails ? (
-                  <div className="space-y-6">
-                    {/* Personal Information */}
-                    <div>
-                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200">Personal Information</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-                          <input
-                            type="text"
-                            name="first_name"
-                            value={editedApplication.first_name || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-                          <input
-                            type="text"
-                            name="last_name"
-                            value={editedApplication.last_name || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                          <input
-                            type="email"
-                            name="email"
-                            value={editedApplication.email || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                          <input
-                            type="tel"
-                            name="phone"
-                            value={editedApplication.phone || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-                          <input
-                            type="date"
-                            name="date_of_birth"
-                            value={editedApplication.date_of_birth ? new Date(editedApplication.date_of_birth).toISOString().split('T')[0] : ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Marital Status</label>
-                          <select
-                            name="marital_status"
-                            value={editedApplication.marital_status || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                          >
-                            <option value="">Select Status</option>
-                            {maritalStatusOptions.map(option => (
-                              <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Dependents</label>
-                          <input
-                            type="number"
-                            name="dependents"
-                            value={editedApplication.dependents || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                            min="0"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Address Information */}
-                    <div>
-                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200">Address Information</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                          <input
-                            type="text"
-                            name="address"
-                            value={editedApplication.address || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-                          <input
-                            type="text"
-                            name="city"
-                            value={editedApplication.city || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Province</label>
-                          <input
-                            type="text"
-                            name="province"
-                            value={editedApplication.province || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Postal Code</label>
-                          <input
-                            type="text"
-                            name="postal_code"
-                            value={editedApplication.postal_code || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Housing Status</label>
-                          <select
-                            name="housing_status"
-                            value={editedApplication.housing_status || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                          >
-                            <option value="">Select Status</option>
-                            {housingStatusOptions.map(option => (
-                              <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Housing Payment</label>
-                          <input
-                            type="number"
-                            name="housing_payment"
-                            value={editedApplication.housing_payment || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                            min="0"
-                            step="0.01"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Residence Duration</label>
-                          <input
-                            type="text"
-                            name="residence_duration"
-                            value={editedApplication.residence_duration || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                            placeholder="e.g., 3 years"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Employment & Income */}
-                    <div>
-                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200">Employment & Income</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Employment Status</label>
-                          <select
-                            name="employment_status"
-                            value={editedApplication.employment_status || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                          >
-                            <option value="">Select Status</option>
-                            <option value="employed">Employed</option>
-                            <option value="self_employed">Self-Employed</option>
-                            <option value="unemployed">Unemployed</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Employer Name</label>
-                          <input
-                            type="text"
-                            name="employer_name"
-                            value={editedApplication.employer_name || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Occupation</label>
-                          <input
-                            type="text"
-                            name="occupation"
-                            value={editedApplication.occupation || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Employment Duration</label>
-                          <input
-                            type="text"
-                            name="employment_duration"
-                            value={editedApplication.employment_duration || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                            placeholder="e.g., 2 years"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Annual Income</label>
-                          <input
-                            type="number"
-                            name="annual_income"
-                            value={editedApplication.annual_income || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                            min="0"
-                            step="0.01"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Other Income</label>
-                          <input
-                            type="number"
-                            name="other_income"
-                            value={editedApplication.other_income || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                            min="0"
-                            step="0.01"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Loan & Vehicle Details */}
-                    <div>
-                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200">Loan & Vehicle Details</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle Type</label>
-                          <input
-                            type="text"
-                            name="vehicle_type"
-                            value={editedApplication.vehicle_type || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Credit Score</label>
-                          <input
-                            type="number"
-                            name="credit_score"
-                            value={editedApplication.credit_score || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                            min="300"
-                            max="900"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Desired Loan Amount</label>
-                          <input
-                            type="number"
-                            name="desired_loan_amount"
-                            value={editedApplication.desired_loan_amount || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                            min="0"
-                            step="0.01"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Down Payment Amount</label>
-                          <input
-                            type="number"
-                            name="down_payment_amount"
-                            value={editedApplication.down_payment_amount || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                            min="0"
-                            step="0.01"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Desired Monthly Payment</label>
-                          <input
-                            type="number"
-                            name="desired_monthly_payment"
-                            value={editedApplication.desired_monthly_payment || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                            min="0"
-                            step="0.01"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Interest Rate</label>
-                          <input
-                            type="number"
-                            name="interest_rate"
-                            value={editedApplication.interest_rate || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                            min="0"
-                            max="30"
-                            step="0.01"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Loan Term (months)</label>
-                          <select
-                            name="loan_term"
-                            value={editedApplication.loan_term || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                          >
-                            <option value="">Select Term</option>
-                            <option value="36">36 months</option>
-                            <option value="48">48 months</option>
-                            <option value="60">60 months</option>
-                            <option value="72">72 months</option>
-                            <option value="84">84 months</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Loan Amount Min</label>
-                          <input
-                            type="number"
-                            name="loan_amount_min"
-                            value={editedApplication.loan_amount_min || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                            min="0"
-                            step="0.01"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Loan Amount Max</label>
-                          <input
-                            type="number"
-                            name="loan_amount_max"
-                            value={editedApplication.loan_amount_max || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                            min="0"
-                            step="0.01"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Additional Information */}
-                    <div>
-                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200">Additional Information</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-center">
-                          <input
-                            type="checkbox"
-                            id="has_driver_license"
-                            name="has_driver_license"
-                            checked={editedApplication.has_driver_license || false}
-                            onChange={(e) => setEditedApplication(prev => ({
-                              ...prev,
-                              has_driver_license: e.target.checked
-                            }))}
-                            className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
-                          />
-                          <label htmlFor="has_driver_license" className="ml-2 block text-sm text-gray-700">
-                            Has Driver's License
-                          </label>
-                        </div>
-                        <div className="flex items-center">
-                          <input
-                            type="checkbox"
-                            id="collects_government_benefits"
-                            name="collects_government_benefits"
-                            checked={editedApplication.collects_government_benefits || false}
-                            onChange={(e) => setEditedApplication(prev => ({
-                              ...prev,
-                              collects_government_benefits: e.target.checked
-                            }))}
-                            className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
-                          />
-                          <label htmlFor="collects_government_benefits" className="ml-2 block text-sm text-gray-700">
-                            Collects Government Benefits
-                          </label>
-                        </div>
-                        <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Disability Programs (JSON)</label>
-                          <textarea
-                            name="disability_programs"
-                            value={editedApplication.disability_programs ? JSON.stringify(editedApplication.disability_programs) : ''}
-                            onChange={(e) => {
-                              try {
-                                const jsonValue = e.target.value ? JSON.parse(e.target.value) : null;
-                                setEditedApplication(prev => ({
-                                  ...prev,
-                                  disability_programs: jsonValue
-                                }));
-                              } catch (error) {
-                                // If not valid JSON, store as string
-                                setEditedApplication(prev => ({
-                                  ...prev,
-                                  disability_programs: e.target.value
-                                }));
-                              }
-                            }}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                            rows={2}
-                            placeholder='{"program": "example", "details": "example"}'
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Debt Discharge History */}
-                    <div>
-                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200">Debt Discharge History</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-center">
-                          <input
-                            type="checkbox"
-                            id="has_debt_discharge_history"
-                            name="has_debt_discharge_history"
-                            checked={editedApplication.has_debt_discharge_history || false}
-                            onChange={(e) => setEditedApplication(prev => ({
-                              ...prev,
-                              has_debt_discharge_history: e.target.checked
-                            }))}
-                            className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
-                          />
-                          <label htmlFor="has_debt_discharge_history" className="ml-2 block text-sm text-gray-700">
-                            Has Debt Discharge History
-                          </label>
-                        </div>
-
-                        {editedApplication.has_debt_discharge_history && (
-                          <>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Debt Discharge Type</label>
-                              <select
-                                name="debt_discharge_type"
-                                value={editedApplication.debt_discharge_type || ''}
-                                onChange={handleInputChange}
-                                className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                              >
-                                <option value="">Select Type</option>
-                                {debtDischargeTypeOptions.map(option => (
-                                  <option key={option.value} value={option.value}>{option.label}</option>
-                                ))}
-                              </select>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Debt Discharge Year</label>
-                              <input
-                                type="number"
-                                name="debt_discharge_year"
-                                value={editedApplication.debt_discharge_year || ''}
-                                onChange={handleInputChange}
-                                className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                                min="1900"
-                                max={new Date().getFullYear()}
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Debt Discharge Status</label>
-                              <select
-                                name="debt_discharge_status"
-                                value={editedApplication.debt_discharge_status || ''}
-                                onChange={handleInputChange}
-                                className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                              >
-                                <option value="">Select Status</option>
-                                {debtDischargeStatusOptions.map(option => (
-                                  <option key={option.value} value={option.value}>{option.label}</option>
-                                ))}
-                              </select>
-                            </div>
-                            <div className="md:col-span-2">
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Debt Discharge Comments</label>
-                              <textarea
-                                name="debt_discharge_comments"
-                                value={editedApplication.debt_discharge_comments || ''}
-                                onChange={handleInputChange}
-                                className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                                rows={2}
-                              />
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Contact Preferences */}
-                    <div>
-                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200">Contact Preferences</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Preferred Contact Method</label>
-                          <select
-                            name="preferred_contact_method"
-                            value={editedApplication.preferred_contact_method || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                          >
-                            <option value="">Select Method</option>
-                            {preferredContactMethodOptions.map(option => (
-                              <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="flex items-center">
-                          <input
-                            type="checkbox"
-                            id="consent_soft_check"
-                            name="consent_soft_check"
-                            checked={editedApplication.consent_soft_check || false}
-                            onChange={(e) => setEditedApplication(prev => ({
-                              ...prev,
-                              consent_soft_check: e.target.checked
-                            }))}
-                            className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
-                          />
-                          <label htmlFor="consent_soft_check" className="ml-2 block text-sm text-gray-700">
-                            Consent to Soft Credit Check
-                          </label>
-                        </div>
-                        <div className="flex items-center">
-                          <input
-                            type="checkbox"
-                            id="terms_accepted"
-                            name="terms_accepted"
-                            checked={editedApplication.terms_accepted || false}
-                            onChange={(e) => setEditedApplication(prev => ({
-                              ...prev,
-                              terms_accepted: e.target.checked
-                            }))}
-                            className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
-                          />
-                          <label htmlFor="terms_accepted" className="ml-2 block text-sm text-gray-700">
-                            Terms & Conditions Accepted
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Admin Assignment */}
-                    <div>
-                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200">Admin Assignment</h4>
-                      <div className="grid grid-cols-1 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Assigned Admin</label>
-                          <select
-                            name="assigned_to_admin_id"
-                            value={editedApplication.assigned_to_admin_id || ''}
-                            onChange={handleInputChange}
-                            className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                          >
-                            <option value="">Not Assigned</option>
-                            <option value={user?.id || ''}>Assign to Me</option>
-                            {/* In a real implementation, you would fetch and display all admin users here */}
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end gap-3 pt-4">
-                      <button
-                        onClick={() => setIsEditingDetails(false)}
-                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleSaveDetails}
-                        className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors"
-                      >
-                        Save Changes
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-8">
-                    {/* Personal Information */}
-                    <div>
-                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200 flex items-center">
-                        <User className="h-5 w-5 mr-2 text-gray-400" />
-                        Personal Information
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-start gap-3">
-                          <User className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Full Name</p>
-                            <p className="text-sm text-gray-900">{application.first_name} {application.last_name}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <Mail className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Email</p>
-                            <p className="text-sm text-gray-900">{application.email}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <Phone className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Phone</p>
-                            <p className="text-sm text-gray-900">{application.phone}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <Cake className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Date of Birth</p>
-                            <p className="text-sm text-gray-900">
-                              {application.date_of_birth 
-                                ? format(new Date(application.date_of_birth), 'MMMM d, yyyy')
-                                : 'Not provided'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <Heart className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Marital Status</p>
-                            <p className="text-sm text-gray-900">
-                              {application.marital_status 
-                                ? formatStatus(application.marital_status)
-                                : 'Not provided'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <Users className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Dependents</p>
-                            <p className="text-sm text-gray-900">
-                              {application.dependents !== null && application.dependents !== undefined
-                                ? application.dependents
-                                : 'Not provided'}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Address Information */}
-                    <div>
-                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200 flex items-center">
-                        <MapPin className="h-5 w-5 mr-2 text-gray-400" />
-                        Address Information
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-start gap-3 md:col-span-2">
-                          <MapPin className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Address</p>
-                            <p className="text-sm text-gray-900">{application.address || 'Not provided'}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <Building className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">City</p>
-                            <p className="text-sm text-gray-900">{application.city || 'Not provided'}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <MapPin className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Province</p>
-                            <p className="text-sm text-gray-900">{application.province || 'Not provided'}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <MapPin className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Postal Code</p>
-                            <p className="text-sm text-gray-900">{application.postal_code || 'Not provided'}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <Home className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Housing Status</p>
-                            <p className="text-sm text-gray-900">
-                              {application.housing_status 
-                                ? formatStatus(application.housing_status)
-                                : 'Not provided'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <DollarSign className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Housing Payment</p>
-                            <p className="text-sm text-gray-900">
-                              {application.housing_payment 
-                                ? `$${application.housing_payment.toLocaleString()}`
-                                : 'Not provided'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <Clock className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Residence Duration</p>
-                            <p className="text-sm text-gray-900">{application.residence_duration || 'Not provided'}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Employment & Income */}
-                    <div>
-                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200 flex items-center">
-                        <Briefcase className="h-5 w-5 mr-2 text-gray-400" />
-                        Employment & Income
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-start gap-3">
-                          <Briefcase className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Employment Status</p>
-                            <p className="text-sm text-gray-900">
-                              {application.employment_status 
-                                ? formatStatus(application.employment_status)
-                                : 'Not provided'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <Building className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Employer Name</p>
-                            <p className="text-sm text-gray-900">{application.employer_name || 'Not provided'}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <Briefcase className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Occupation</p>
-                            <p className="text-sm text-gray-900">{application.occupation || 'Not provided'}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <Clock className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Employment Duration</p>
-                            <p className="text-sm text-gray-900">{application.employment_duration || 'Not provided'}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <DollarSign className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Annual Income</p>
-                            <p className="text-sm text-gray-900">
-                              {application.annual_income 
-                                ? `$${application.annual_income.toLocaleString()}`
-                                : 'Not provided'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <DollarSign className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Other Income</p>
-                            <p className="text-sm text-gray-900">
-                              {application.other_income 
-                                ? `$${application.other_income.toLocaleString()}`
-                                : 'Not provided'}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Loan & Vehicle Details */}
-                    <div>
-                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200 flex items-center">
-                        <Car className="h-5 w-5 mr-2 text-gray-400" />
-                        Loan & Vehicle Details
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-start gap-3">
-                          <Car className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Vehicle Type</p>
-                            <p className="text-sm text-gray-900">{application.vehicle_type || 'Not provided'}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <CreditCard className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Credit Score</p>
-                            <p className="text-sm text-gray-900">{application.credit_score || 'Not provided'}</p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <DollarSign className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Desired Loan Amount</p>
-                            <p className="text-sm text-gray-900">
-                              {application.desired_loan_amount 
-                                ? `$${application.desired_loan_amount.toLocaleString()}`
-                                : 'Not provided'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <DollarSign className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Down Payment Amount</p>
-                            <p className="text-sm text-gray-900">
-                              {application.down_payment_amount 
-                                ? `$${application.down_payment_amount.toLocaleString()}`
-                                : 'Not provided'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <DollarSign className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Desired Monthly Payment</p>
-                            <p className="text-sm text-gray-900">
-                              {application.desired_monthly_payment 
-                                ? `$${application.desired_monthly_payment.toLocaleString()}`
-                                : 'Not provided'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <Wallet className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Interest Rate</p>
-                            <p className="text-sm text-gray-900">
-                              {application.interest_rate 
-                                ? `${application.interest_rate}%`
-                                : 'Not provided'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <Calendar className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Loan Term</p>
-                            <p className="text-sm text-gray-900">
-                              {application.loan_term 
-                                ? `${application.loan_term} months`
-                                : 'Not provided'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <DollarSign className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Loan Amount Range</p>
-                            <p className="text-sm text-gray-900">
-                              {application.loan_amount_min && application.loan_amount_max
-                                ? `$${application.loan_amount_min.toLocaleString()} - $${application.loan_amount_max.toLocaleString()}`
-                                : 'Not provided'}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Additional Information */}
-                    <div>
-                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200 flex items-center">
-                        <FileText className="h-5 w-5 mr-2 text-gray-400" />
-                        Additional Information
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-start gap-3">
-                          <BadgeCheck className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Has Driver's License</p>
-                            <p className="text-sm text-gray-900">
-                              {application.has_driver_license !== null && application.has_driver_license !== undefined
-                                ? (application.has_driver_license ? 'Yes' : 'No')
-                                : 'Not provided'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <DollarSign className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Collects Government Benefits</p>
-                            <p className="text-sm text-gray-900">
-                              {application.collects_government_benefits !== null && application.collects_government_benefits !== undefined
-                                ? (application.collects_government_benefits ? 'Yes' : 'No')
-                                : 'Not provided'}
-                            </p>
-                          </div>
-                        </div>
-                        {application.disability_programs && (
-                          <div className="flex items-start gap-3 md:col-span-2">
-                            <HelpCircle className="h-5 w-5 text-gray-400 mt-0.5" />
-                            <div>
-                              <p className="text-sm font-medium text-gray-700">Disability Programs</p>
-                              <p className="text-sm text-gray-900 font-mono">
-                                {typeof application.disability_programs === 'object'
-                                  ? JSON.stringify(application.disability_programs, null, 2)
-                                  : application.disability_programs}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Debt Discharge History */}
-                    {application.has_debt_discharge_history && (
-                      <div>
-                        <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200 flex items-center">
-                          <FileQuestion className="h-5 w-5 mr-2 text-gray-400" />
-                          Debt Discharge History
-                        </h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="flex items-start gap-3">
-                            <FileText className="h-5 w-5 text-gray-400 mt-0.5" />
-                            <div>
-                              <p className="text-sm font-medium text-gray-700">Debt Discharge Type</p>
-                              <p className="text-sm text-gray-900">
-                                {application.debt_discharge_type 
-                                  ? formatStatus(application.debt_discharge_type)
-                                  : 'Not provided'}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-start gap-3">
-                            <Calendar className="h-5 w-5 text-gray-400 mt-0.5" />
-                            <div>
-                              <p className="text-sm font-medium text-gray-700">Debt Discharge Year</p>
-                              <p className="text-sm text-gray-900">{application.debt_discharge_year || 'Not provided'}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-start gap-3">
-                            <Clock className="h-5 w-5 text-gray-400 mt-0.5" />
-                            <div>
-                              <p className="text-sm font-medium text-gray-700">Debt Discharge Status</p>
-                              <p className="text-sm text-gray-900">
-                                {application.debt_discharge_status 
-                                  ? formatStatus(application.debt_discharge_status)
-                                  : 'Not provided'}
-                              </p>
-                            </div>
-                          </div>
-                          {application.debt_discharge_comments && (
-                            <div className="flex items-start gap-3 md:col-span-2">
-                              <MessageCircle className="h-5 w-5 text-gray-400 mt-0.5" />
-                              <div>
-                                <p className="text-sm font-medium text-gray-700">Debt Discharge Comments</p>
-                                <p className="text-sm text-gray-900">{application.debt_discharge_comments}</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Contact Preferences */}
-                    <div>
-                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200 flex items-center">
-                        <MessageSquare className="h-5 w-5 mr-2 text-gray-400" />
-                        Contact Preferences
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-start gap-3">
-                          <Mail className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Preferred Contact Method</p>
-                            <p className="text-sm text-gray-900">
-                              {application.preferred_contact_method 
-                                ? formatStatus(application.preferred_contact_method)
-                                : 'Not provided'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <CheckCircle className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Consent to Soft Credit Check</p>
-                            <p className="text-sm text-gray-900">
-                              {application.consent_soft_check !== null && application.consent_soft_check !== undefined
-                                ? (application.consent_soft_check ? 'Yes' : 'No')
-                                : 'Not provided'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <CheckCircle className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Terms & Conditions Accepted</p>
-                            <p className="text-sm text-gray-900">
-                              {application.terms_accepted !== null && application.terms_accepted !== undefined
-                                ? (application.terms_accepted ? 'Yes' : 'No')
-                                : 'Not provided'}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Admin Assignment */}
-                    <div>
-                      <h4 className="text-md font-semibold mb-4 pb-2 border-b border-gray-200 flex items-center">
-                        <UserCheck className="h-5 w-5 mr-2 text-gray-400" />
-                        Admin Assignment
-                      </h4>
-                      <div className="grid grid-cols-1 gap-4">
-                        <div className="flex items-start gap-3">
-                          <User className="h-5 w-5 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">Assigned Admin</p>
-                            <p className="text-sm text-gray-900">
-                              {application.assigned_to_admin_id
-                                ? (application.assigned_to_admin_id === user?.id ? 'You' : application.assigned_to_admin_id)
-                                : 'Not assigned'}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
+            <div className="space-y-8">
               {/* Application Progress */}
-              <ApplicationTracker application={application} stages={stages} />
-            </motion.div>
-          )}
-
-          {activeTab === 'documents' && (
-            <motion.div
-              key="documents"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-            >
-              <DocumentManager
-                applicationId={application.id}
-                documents={documents}
-                onUpload={handleDocumentUpload}
-                onDelete={handleDocumentDelete}
-                isUploading={uploading}
-                uploadError={uploadError}
-              />
-            </motion.div>
-          )}
-
-          {activeTab === 'messages' && (
-            <motion.div
-              key="messages"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="space-y-6"
-            >
-              {/* Send Message */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h3 className="text-lg font-semibold mb-4">Send Message to User</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Subject
-                    </label>
-                    <input
-                      type="text"
-                      value={messageTitle}
-                      onChange={(e) => setMessageTitle(e.target.value)}
-                      className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                      placeholder="Message subject..."
-                    />
+              <div>
+                <h2 className="text-lg font-semibold mb-4">Application Progress</h2>
+                <ApplicationTracker application={application} stages={stages} />
+              </div>
+              
+              {/* Application Details */}
+              <div>
+                <h2 className="text-lg font-semibold mb-4">Application Details</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Personal Information */}
+                  <div className="space-y-4">
+                    <h3 className="text-md font-medium text-gray-700">Personal Information</h3>
+                    <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                      <div className="flex items-center">
+                        <Mail className="h-4 w-4 text-gray-400 mr-2" />
+                        <span className="text-gray-700">{application.email}</span>
+                      </div>
+                      <div className="flex items-center">
+                        <Phone className="h-4 w-4 text-gray-400 mr-2" />
+                        <span className="text-gray-700">{application.phone}</span>
+                      </div>
+                      <div className="flex items-start">
+                        <MapPin className="h-4 w-4 text-gray-400 mr-2 mt-0.5" />
+                        <span className="text-gray-700">
+                          {application.address}, {application.city}, {application.province} {application.postal_code}
+                        </span>
+                      </div>
+                      {application.date_of_birth && (
+                        <div className="flex items-center">
+                          <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                          <span className="text-gray-700">
+                            DOB: {new Date(application.date_of_birth).toLocaleDateString()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Message
-                    </label>
-                    <textarea
-                      value={messageText}
-                      onChange={(e) => setMessageText(e.target.value)}
-                      className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                      rows={4}
-                      placeholder="Type your message..."
-                    />
+                  
+                  {/* Financial Information */}
+                  <div className="space-y-4">
+                    <h3 className="text-md font-medium text-gray-700">Financial Information</h3>
+                    <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                      <div className="flex items-center">
+                        <Briefcase className="h-4 w-4 text-gray-400 mr-2" />
+                        <span className="text-gray-700">
+                          {application.employment_status?.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          {application.employer_name && ` at ${application.employer_name}`}
+                        </span>
+                      </div>
+                      <div className="flex items-center">
+                        <DollarSign className="h-4 w-4 text-gray-400 mr-2" />
+                        <span className="text-gray-700">
+                          Annual Income: ${application.annual_income?.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center">
+                        <CreditCard className="h-4 w-4 text-gray-400 mr-2" />
+                        <span className="text-gray-700">
+                          Credit Score: {application.credit_score}
+                        </span>
+                      </div>
+                      <div className="flex items-center">
+                        <Car className="h-4 w-4 text-gray-400 mr-2" />
+                        <span className="text-gray-700">
+                          Vehicle Type: {application.vehicle_type || 'Not specified'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <button
-                    onClick={handleSendMessage}
-                    disabled={isSendingMessage || !messageTitle.trim() || !messageText.trim()}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50"
-                  >
-                    {isSendingMessage ? (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                    Send Message
-                  </button>
+                  
+                  {/* Loan Details */}
+                  <div className="space-y-4">
+                    <h3 className="text-md font-medium text-gray-700">Loan Details</h3>
+                    <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                      <div className="flex items-center">
+                        <DollarSign className="h-4 w-4 text-gray-400 mr-2" />
+                        <span className="text-gray-700">
+                          Loan Range: ${application.loan_amount_min?.toLocaleString()} - ${application.loan_amount_max?.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center">
+                        <DollarSign className="h-4 w-4 text-gray-400 mr-2" />
+                        <span className="text-gray-700">
+                          Monthly Payment: ${application.desired_monthly_payment?.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex items-center">
+                        <Clock className="h-4 w-4 text-gray-400 mr-2" />
+                        <span className="text-gray-700">
+                          Loan Term: {application.loan_term || 60} months
+                        </span>
+                      </div>
+                      <div className="flex items-center">
+                        <DollarSign className="h-4 w-4 text-gray-400 mr-2" />
+                        <span className="text-gray-700">
+                          Interest Rate: {application.interest_rate}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Application Status */}
+                  <div className="space-y-4">
+                    <h3 className="text-md font-medium text-gray-700">Application Status</h3>
+                    <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                      <div className="flex items-center">
+                        <Clock className="h-4 w-4 text-gray-400 mr-2" />
+                        <span className="text-gray-700">
+                          Created: {format(new Date(application.created_at), 'PPP')}
+                        </span>
+                      </div>
+                      <div className="flex items-center">
+                        <Clock className="h-4 w-4 text-gray-400 mr-2" />
+                        <span className="text-gray-700">
+                          Updated: {format(new Date(application.updated_at), 'PPP')}
+                        </span>
+                      </div>
+                      <div className="flex items-center">
+                        {application.status === 'pre_approved' ? (
+                          <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                        ) : application.status === 'rejected' ? (
+                          <XCircle className="h-4 w-4 text-red-500 mr-2" />
+                        ) : (
+                          <Clock className="h-4 w-4 text-yellow-500 mr-2" />
+                        )}
+                        <span className={`text-${
+                          application.status === 'pre_approved' ? 'green' : 
+                          application.status === 'rejected' ? 'red' : 
+                          'yellow'
+                        }-700`}>
+                          Status: {application.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        </span>
+                      </div>
+                      <div className="flex items-center">
+                        <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                        <span className="text-gray-700">
+                          Current Stage: {application.current_stage}/7
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
+            </div>
+          )}
 
-              {/* Message History */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h3 className="text-lg font-semibold mb-4">Message History</h3>
-                {messages.length === 0 ? (
-                  <p className="text-gray-500">No messages yet</p>
+          {/* Documents Tab */}
+          {activeTab === 'documents' && (
+            <div className="space-y-8">
+              {/* Document Uploader */}
+              <div>
+                <h2 className="text-lg font-semibold mb-4">Upload Documents</h2>
+                <p className="text-gray-600 mb-4">
+                  Upload documents for this application. The client will be notified when new documents are uploaded.
+                </p>
+                <UnifiedDocumentUploader
+                  applicationId={id}
+                  onUpload={handleDocumentUpload}
+                  isUploading={isUploadingDocument}
+                  uploadError={uploadError}
+                  isFromAdmin={true}
+                />
+              </div>
+              
+              {/* Document Manager */}
+              <div>
+                <DocumentManager
+                  applicationId={id}
+                  documents={documents}
+                  onUpload={handleDocumentUpload}
+                  onDelete={handleDocumentDelete}
+                  onUpdateStatus={handleUpdateDocumentStatus}
+                  isUploading={isUploadingDocument}
+                  uploadError={uploadError}
+                  isAdmin={true}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Messages Tab */}
+          {activeTab === 'messages' && (
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold mb-4">Messages</h2>
+              
+              {/* Messages List */}
+              <div className="bg-gray-50 rounded-lg p-4 h-96 overflow-y-auto mb-4">
+                {loadingMessages ? (
+                  <div className="flex items-center justify-center h-full">
+                    <RefreshCw className="h-8 w-8 text-[#3BAA75] animate-spin" />
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-gray-500">
+                    <MessageSquare className="h-12 w-12 mb-3 opacity-20" />
+                    <p>No messages yet</p>
+                    <p className="text-sm mt-1">Start a conversation with the client</p>
+                  </div>
                 ) : (
                   <div className="space-y-4">
                     {messages.map((message) => (
-                      <div key={message.id} className="border-l-4 border-[#3BAA75] pl-4">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium">
-                            {message.is_admin ? 'Admin' : 'User'}
-                          </span>
-                          <span className="text-sm text-gray-500">
-                            {format(new Date(message.created_at), 'MMM d, yyyy h:mm a')}
-                          </span>
+                      <div
+                        key={message.id}
+                        className={`flex ${message.is_admin ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`rounded-lg p-3 max-w-[80%] ${
+                            message.is_admin
+                              ? 'bg-[#3BAA75] text-white'
+                              : 'bg-white border border-gray-200 text-gray-700'
+                          }`}
+                        >
+                          <p className="whitespace-pre-wrap">{message.message}</p>
+                          <div className="flex items-center justify-end mt-1 text-xs opacity-80">
+                            <span>{format(new Date(message.created_at), 'h:mm a')}</span>
+                            {message.is_admin && (
+                              <span className="ml-1">
+                                {message.read ? (
+                                  <CheckCircle className="h-3 w-3" />
+                                ) : (
+                                  <Clock className="h-3 w-3" />
+                                )}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <p className="mt-1 text-gray-700 whitespace-pre-wrap">{message.message}</p>
                       </div>
                     ))}
+                    <div ref={messagesEndRef} />
                   </div>
                 )}
               </div>
-            </motion.div>
-          )}
-
-          {activeTab === 'notes' && (
-            <motion.div
-              key="notes"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-            >
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">Internal Notes</h3>
-                  <button
-                    onClick={() => setIsEditingNotes(!isEditingNotes)}
-                    className="text-[#3BAA75] hover:text-[#2D8259] transition-colors"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </button>
-                </div>
-
-                {isEditingNotes ? (
-                  <div className="space-y-4">
-                    <textarea
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      className="w-full h-64 rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                      placeholder="Add internal notes about this application..."
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleNotesUpdate}
-                        disabled={isSavingNotes}
-                        className="flex items-center gap-2 px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50"
-                      >
-                        {isSavingNotes ? (
-                          <RefreshCw className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Save className="h-4 w-4" />
-                        )}
-                        Save Notes
-                      </button>
-                      <button
-                        onClick={() => {
-                          setIsEditingNotes(false);
-                          setNotes(application.internal_notes || '');
-                        }}
-                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="min-h-32">
-                    {notes ? (
-                      <p className="text-gray-700 whitespace-pre-wrap">{notes}</p>
-                    ) : (
-                      <p className="text-gray-500 italic">No notes added yet</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {activeTab === 'actions' && (
-            <motion.div
-              key="actions"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="space-y-6"
-            >
-              {/* Send Notification */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h3 className="text-lg font-semibold mb-4">Send Notification</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Title
-                    </label>
-                    <input
-                      type="text"
-                      value={notificationTitle}
-                      onChange={(e) => setNotificationTitle(e.target.value)}
-                      className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                      placeholder="Notification title..."
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Message
-                    </label>
-                    <textarea
-                      value={notificationMessage}
-                      onChange={(e) => setNotificationMessage(e.target.value)}
-                      className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                      rows={3}
-                      placeholder="Notification message..."
-                    />
-                  </div>
-                  <button
-                    onClick={handleSendNotification}
-                    disabled={isSendingNotification || !notificationTitle.trim() || !notificationMessage.trim()}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50"
-                  >
-                    {isSendingNotification ? (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Bell className="h-4 w-4" />
-                    )}
-                    Send Notification
-                  </button>
-                </div>
-              </div>
-
-              {/* Schedule Appointment */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h3 className="text-lg font-semibold mb-4">Schedule Appointment</h3>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Date
-                      </label>
-                      <input
-                        type="date"
-                        value={appointmentDate}
-                        onChange={(e)=> setAppointmentDate(e.target.value)}
-                        className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                        min={new Date().toISOString().split('T')[0]}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Time
-                      </label>
-                      <input
-                        type="time"
-                        value={appointmentTime}
-                        onChange={(e) => setAppointmentTime(e.target.value)}
-                        className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                      />
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleScheduleAppointment}
-                    disabled={isSchedulingAppointment || !appointmentDate || !appointmentTime}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50"
-                  >
-                    {isSchedulingAppointment ? (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Calendar className="h-4 w-4" />
-                    )}
-                    Schedule Appointment
-                  </button>
-                </div>
-              </div>
-
-              {/* User Account Actions */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">User Account Actions</h3>
-                  <button
-                    onClick={() => setShowUserActions(!showUserActions)}
-                    className="text-gray-500 hover:text-gray-700"
-                  >
-                    {showUserActions ? (
-                      <ChevronUp className="h-5 w-5" />
-                    ) : (
-                      <ChevronDown className="h-5 w-5" />
-                    )}
-                  </button>
-                </div>
-
-                <AnimatePresence>
-                  {showUserActions && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="space-y-3 pt-2">
-                        <button
-                          onClick={() => handleUserAction('reset_password')}
-                          disabled={isPerformingUserAction || !application.user_id}
-                          className="flex items-center gap-2 w-full px-4 py-3 text-left text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-                        >
-                          <Key className="h-5 w-5 text-amber-500" />
-                          <div>
-                            <div className="font-medium">Reset Password</div>
-                            <div className="text-sm text-gray-500">Send password reset email to user</div>
-                          </div>
-                        </button>
-
-                        <button
-                          onClick={() => handleUserAction('disable_account')}
-                          disabled={isPerformingUserAction || !application.user_id}
-                          className="flex items-center gap-2 w-full px-4 py-3 text-left text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-                        >
-                          <Ban className="h-5 w-5 text-red-500" />
-                          <div>
-                            <div className="font-medium">Disable Account</div>
-                            <div className="text-sm text-gray-500">Temporarily disable user account</div>
-                          </div>
-                        </button>
-
-                        <button
-                          onClick={() => handleUserAction('enable_account')}
-                          disabled={isPerformingUserAction || !application.user_id}
-                          className="flex items-center gap-2 w-full px-4 py-3 text-left text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-                        >
-                          <Unlock className="h-5 w-5 text-green-500" />
-                          <div>
-                            <div className="font-medium">Enable Account</div>
-                            <div className="text-sm text-gray-500">Re-enable disabled user account</div>
-                          </div>
-                        </button>
-                      </div>
-                    </motion.div>
+              
+              {/* Message Input */}
+              <div className="flex items-center gap-2">
+                <textarea
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Type your message..."
+                  className="flex-1 rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75] min-h-[80px]"
+                />
+                <button
+                  onClick={handleSendMessage}
+                  disabled={!newMessage.trim() || sendingMessage}
+                  className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 h-10 flex items-center"
+                >
+                  {sendingMessage ? (
+                    <RefreshCw className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Send className="h-5 w-5" />
                   )}
-                </AnimatePresence>
+                </button>
               </div>
+            </div>
+          )}
 
-              {/* Flag Application */}
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <h3 className="text-lg font-semibold mb-4">Flag Application</h3>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <button
-                      className="flex items-center gap-2 px-4 py-3 text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors"
-                    >
-                      <Flag className="h-5 w-5" />
-                      <div className="text-left">
-                        <div className="font-medium">Flag for Review</div>
-                        <div className="text-sm">Mark for additional review</div>
-                      </div>
-                    </button>
-
-                    <button
-                      className="flex items-center gap-2 px-4 py-3 text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
-                    >
-                      <AlertCircle className="h-5 w-5" />
-                      <div className="text-left">
-                        <div className="font-medium">Flag as Suspicious</div>
-                        <div className="text-sm">Mark as potentially fraudulent</div>
-                      </div>
-                    </button>
+          {/* Notes Tab */}
+          {activeTab === 'notes' && (
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold mb-4">Internal Notes</h2>
+              
+              {/* Notes Display */}
+              <div className="bg-gray-50 rounded-lg p-4 min-h-[200px] mb-4">
+                {application.internal_notes ? (
+                  <pre className="whitespace-pre-wrap font-sans text-gray-700">
+                    {application.internal_notes}
+                  </pre>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-40 text-gray-500">
+                    <Edit className="h-12 w-12 mb-3 opacity-20" />
+                    <p>No notes yet</p>
+                    <p className="text-sm mt-1">Add your first note below</p>
                   </div>
+                )}
+              </div>
+              
+              {/* Add Note */}
+              <div className="space-y-2">
+                <h3 className="text-md font-medium">Add Note</h3>
+                <textarea
+                  value={newNote}
+                  onChange={(e) => setNewNote(e.target.value)}
+                  placeholder="Add a new note..."
+                  className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75] min-h-[100px]"
+                />
+                <button
+                  onClick={handleAddNote}
+                  disabled={!newNote.trim() || addingNote}
+                  className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {addingNote ? (
+                    <RefreshCw className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Plus className="h-5 w-5" />
+                  )}
+                  Add Note
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Flag Form Modal */}
+      <AnimatePresence>
+        {showFlagForm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="bg-white rounded-lg p-6 max-w-md w-full"
+            >
+              <h3 className="text-lg font-semibold mb-4">Flag Application</h3>
+              
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Flag Type
+                  </label>
+                  <select
+                    value={flagData.flag_type}
+                    onChange={(e) => setFlagData({...flagData, flag_type: e.target.value})}
+                    className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                  >
+                    <option value="missing_information">Missing Information</option>
+                    <option value="suspicious_activity">Suspicious Activity</option>
+                    <option value="document_issue">Document Issue</option>
+                    <option value="credit_concern">Credit Concern</option>
+                    <option value="income_verification">Income Verification</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Severity
+                  </label>
+                  <select
+                    value={flagData.severity}
+                    onChange={(e) => setFlagData({...flagData, severity: e.target.value})}
+                    className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    value={flagData.description}
+                    onChange={(e) => setFlagData({...flagData, description: e.target.value})}
+                    className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                    rows={4}
+                    placeholder="Describe the issue..."
+                  />
                 </div>
               </div>
+              
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowFlagForm(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                
+                <button
+                  onClick={handleSubmitFlag}
+                  disabled={!flagData.description.trim() || submittingFlag}
+                  className="px-4 py-2 text-white bg-[#3BAA75] rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {submittingFlag ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Flag className="h-4 w-4" />
+                  )}
+                  Submit Flag
+                </button>
+              </div>
             </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -25,10 +25,10 @@ const documentTypes = [
   { value: 'proof_of_residence', label: 'Proof of Address' }
 ];
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf', 'image/heic'];
 
-export const UnifiedDocumentUploader = ({ applicationId, onUpload, isUploading = false, uploadError = null }) => {
+export const UnifiedDocumentUploader = ({ applicationId, onUpload, isUploading = false, uploadError = null, isFromAdmin = false }) => {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [validationError, setValidationError] = useState(null);
   const [currentlyUploading, setCurrentlyUploading] = useState(null);
@@ -95,7 +95,7 @@ export const UnifiedDocumentUploader = ({ applicationId, onUpload, isUploading =
     for (const docFile of selectedFiles) {
       try {
         setCurrentlyUploading(docFile.id);
-        await onUpload(docFile.file, docFile.type);
+        await onUpload(docFile.file, docFile.type, isFromAdmin);
       } catch (e) {
         console.error(e);
         break;
@@ -233,10 +233,12 @@ export const UnifiedDocumentUploader = ({ applicationId, onUpload, isUploading =
 interface DocumentManagerProps {
   applicationId: string;
   documents: Document[];
-  onUpload: (file: File, category: string) => Promise<void>;
+  onUpload: (file: File, category: string, isFromAdmin?: boolean) => Promise<void>;
   onDelete: (documentId: string) => Promise<void>;
+  onUpdateStatus?: (documentId: string, newStatus: 'approved' | 'rejected', reviewNotes?: string) => Promise<boolean>;
   isUploading: boolean;
   uploadError: string | null;
+  isAdmin?: boolean;
 }
 
 export const DocumentManager: React.FC<DocumentManagerProps> = ({
@@ -244,9 +246,17 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
   documents,
   onUpload,
   onDelete,
+  onUpdateStatus,
   isUploading,
-  uploadError
+  uploadError,
+  isAdmin = false
 }) => {
+  const [viewingDocument, setViewingDocument] = useState<string | null>(null);
+  const [documentToReview, setDocumentToReview] = useState<Document | null>(null);
+  const [reviewStatus, setReviewStatus] = useState<'approved' | 'rejected'>('approved');
+  const [reviewNotes, setReviewNotes] = useState('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'approved':
@@ -278,10 +288,82 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
     if (window.confirm('Are you sure you want to delete this document?')) {
       try {
         await onDelete(documentId);
+        toast.success('Document deleted successfully');
       } catch (error) {
         console.error('Error deleting document:', error);
         toast.error('Failed to delete document');
       }
+    }
+  };
+
+  const handleViewDocument = async (filename: string) => {
+    try {
+      // Get signed URL for the document
+      const { data, error } = await supabase.storage
+        .from('user-documents')
+        .createSignedUrl(filename, 3600); // 1 hour expiry
+
+      if (error) throw error;
+      if (!data?.signedUrl) throw new Error('Could not generate document URL');
+
+      // Open the document in a new tab
+      window.open(data.signedUrl, '_blank');
+    } catch (error) {
+      console.error('Error viewing document:', error);
+      toast.error('Failed to open document');
+    }
+  };
+
+  const handleDownloadDocument = async (filename: string) => {
+    try {
+      // Get signed URL for the document
+      const { data, error } = await supabase.storage
+        .from('user-documents')
+        .createSignedUrl(filename, 3600); // 1 hour expiry
+
+      if (error) throw error;
+      if (!data?.signedUrl) throw new Error('Could not generate document URL');
+
+      // Create a temporary link element to trigger the download
+      const link = document.createElement('a');
+      link.href = data.signedUrl;
+      link.download = filename.split('/').pop() || 'document';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      toast.error('Failed to download document');
+    }
+  };
+
+  const handleSubmitReview = async () => {
+    if (!documentToReview || !onUpdateStatus) return;
+    
+    try {
+      setIsSubmittingReview(true);
+      
+      // If rejecting, require review notes
+      if (reviewStatus === 'rejected' && !reviewNotes.trim()) {
+        toast.error('Please provide a reason for rejection');
+        return;
+      }
+      
+      const success = await onUpdateStatus(
+        documentToReview.id, 
+        reviewStatus, 
+        reviewStatus === 'rejected' ? reviewNotes : undefined
+      );
+      
+      if (success) {
+        setDocumentToReview(null);
+        setReviewNotes('');
+      }
+    } catch (error) {
+      console.error('Error submitting review:', error);
+      toast.error('Failed to update document status');
+    } finally {
+      setIsSubmittingReview(false);
     }
   };
 
@@ -337,6 +419,29 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
                 
                 <div className="flex items-center space-x-2 ml-4">
                   <button
+                    onClick={() => handleViewDocument(document.filename)}
+                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    title="View document"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => handleDownloadDocument(document.filename)}
+                    className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                    title="Download document"
+                  >
+                    <Download className="h-4 w-4" />
+                  </button>
+                  {isAdmin && document.status === 'pending' && (
+                    <button
+                      onClick={() => setDocumentToReview(document)}
+                      className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                      title="Review document"
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                    </button>
+                  )}
+                  <button
                     onClick={() => handleDelete(document.id)}
                     className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                     title="Delete document"
@@ -349,6 +454,105 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
           ))}
         </div>
       )}
+
+      {/* Document Review Modal */}
+      <AnimatePresence>
+        {documentToReview && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="bg-white rounded-lg p-6 max-w-md w-full"
+            >
+              <h3 className="text-lg font-semibold mb-4">Review Document</h3>
+              <div className="mb-4">
+                <p className="text-gray-700">
+                  <span className="font-medium">Document:</span> {formatCategory(documentToReview.category)}
+                </p>
+                <p className="text-gray-700 mt-1">
+                  <span className="font-medium">Filename:</span> {documentToReview.filename.split('/').pop()}
+                </p>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Status
+                </label>
+                <div className="flex gap-4">
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="status"
+                      value="approved"
+                      checked={reviewStatus === 'approved'}
+                      onChange={() => setReviewStatus('approved')}
+                      className="mr-2"
+                    />
+                    Approve
+                  </label>
+                  <label className="flex items-center">
+                    <input
+                      type="radio"
+                      name="status"
+                      value="rejected"
+                      checked={reviewStatus === 'rejected'}
+                      onChange={() => setReviewStatus('rejected')}
+                      className="mr-2"
+                    />
+                    Reject
+                  </label>
+                </div>
+              </div>
+
+              {reviewStatus === 'rejected' && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Rejection Reason
+                  </label>
+                  <textarea
+                    value={reviewNotes}
+                    onChange={(e) => setReviewNotes(e.target.value)}
+                    className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                    rows={3}
+                    placeholder="Please provide a reason for rejection"
+                    required={reviewStatus === 'rejected'}
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => {
+                    setDocumentToReview(null);
+                    setReviewNotes('');
+                  }}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitReview}
+                  disabled={isSubmittingReview || (reviewStatus === 'rejected' && !reviewNotes.trim())}
+                  className="px-4 py-2 text-white bg-[#3BAA75] rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isSubmittingReview ? (
+                    <>
+                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                      <span>Submitting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="h-4 w-4" />
+                      <span>{reviewStatus === 'approved' ? 'Approve' : 'Reject'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

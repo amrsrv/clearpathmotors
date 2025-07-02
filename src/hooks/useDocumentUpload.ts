@@ -32,7 +32,7 @@ export const useDocumentUpload = (applicationId: string) => {
     return null;
   };
 
-  const uploadDocument = async (file: File, category: string): Promise<Document | null> => {
+  const uploadDocument = async (file: File, category: string, isFromAdmin: boolean = false): Promise<Document | null> => {
     try {
       // Validate file before starting upload
       const validationError = validateFile(file);
@@ -98,6 +98,36 @@ export const useDocumentUpload = (applicationId: string) => {
         throw documentError;
       }
 
+      // Get application user_id for notification
+      const { data: application, error: appError } = await supabase
+        .from('applications')
+        .select('user_id')
+        .eq('id', applicationId)
+        .single();
+
+      if (appError) {
+        console.error('Error fetching application for notification:', appError);
+      } else if (application?.user_id) {
+        // Create notification for the user
+        const notificationTitle = isFromAdmin ? 'New Document Uploaded' : 'Document Uploaded Successfully';
+        const notificationMessage = isFromAdmin 
+          ? 'A new document has been uploaded to your application.' 
+          : `Your document "${category.replace(/_/g, ' ')}" has been uploaded and is pending review.`;
+
+        const { error: notificationError } = await supabase
+          .from('notifications')
+          .insert({
+            user_id: application.user_id,
+            title: notificationTitle,
+            message: notificationMessage,
+            read: false
+          });
+
+        if (notificationError) {
+          console.error('Error creating notification:', notificationError);
+        }
+      }
+
       return document;
     } catch (error: any) {
       console.error('Error uploading document:', error);
@@ -105,6 +135,87 @@ export const useDocumentUpload = (applicationId: string) => {
       return null;
     } finally {
       setUploading(false);
+    }
+  };
+
+  const updateDocumentStatus = async (documentId: string, newStatus: 'approved' | 'rejected', reviewNotes?: string): Promise<boolean> => {
+    try {
+      setError(null);
+
+      // Get the document details first to get the application_id and category
+      const { data: document, error: fetchError } = await supabase
+        .from('documents')
+        .select('application_id, category, filename')
+        .eq('id', documentId)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching document details:', fetchError);
+        throw new Error('Could not find document details. Please try again.');
+      }
+
+      if (!document) {
+        throw new Error('Document not found');
+      }
+
+      // Update the document status
+      const { error: updateError } = await supabase
+        .from('documents')
+        .update({
+          status: newStatus,
+          review_notes: reviewNotes || null,
+          reviewed_at: new Date().toISOString()
+        })
+        .eq('id', documentId);
+
+      if (updateError) {
+        console.error('Error updating document status:', updateError);
+        throw updateError;
+      }
+
+      // Get application user_id for notification
+      const { data: application, error: appError } = await supabase
+        .from('applications')
+        .select('user_id')
+        .eq('id', document.application_id)
+        .single();
+
+      if (appError) {
+        console.error('Error fetching application for notification:', appError);
+      } else if (application?.user_id) {
+        // Format the category name for display
+        const formattedCategory = document.category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+        // Create notification for the user
+        const notificationTitle = newStatus === 'approved' 
+          ? 'Document Approved' 
+          : 'Document Needs Attention';
+
+        const notificationMessage = newStatus === 'approved'
+          ? `Your document "${formattedCategory}" has been approved.`
+          : `Your document "${formattedCategory}" was rejected. ${reviewNotes ? `Reason: "${reviewNotes}"` : 'Please upload a new version.'}`;
+
+        const { error: notificationError } = await supabase
+          .from('notifications')
+          .insert({
+            user_id: application.user_id,
+            title: notificationTitle,
+            message: notificationMessage,
+            read: false
+          });
+
+        if (notificationError) {
+          console.error('Error creating notification:', notificationError);
+        }
+      }
+
+      toast.success(`Document ${newStatus === 'approved' ? 'approved' : 'rejected'} successfully`);
+      return true;
+    } catch (error: any) {
+      console.error('Error updating document status:', error);
+      setError(error.message);
+      toast.error(`Failed to ${newStatus} document`);
+      return false;
     }
   };
 
@@ -237,6 +348,7 @@ export const useDocumentUpload = (applicationId: string) => {
   return {
     uploadDocument,
     deleteDocument,
+    updateDocumentStatus,
     getFileUrl,
     listUserDocuments,
     uploading,
