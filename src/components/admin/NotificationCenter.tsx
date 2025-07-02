@@ -151,8 +151,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       
       setUsers(uniqueUsers.map(u => ({
         id: u.user_id,
-        email: u.email,
-        name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email
+        email: u.email || '', // Ensure email is never null
+        name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email || '' // Ensure name is never null
       })));
       
       // If no user is selected, select the first one
@@ -309,8 +309,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   };
 
   const filteredUsers = users.filter(u => 
-    u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.name.toLowerCase().includes(searchTerm.toLowerCase())
+    (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (u.name || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const unreadCount = notifications.filter(n => !n.read).length;
