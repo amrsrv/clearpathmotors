@@ -32,7 +32,7 @@ export const useDocumentUpload = (applicationId: string) => {
     return null;
   };
 
-  const uploadDocument = async (file: File, category: string, isFromAdmin: boolean = false): Promise<Document | null> => {
+  const uploadDocument = async (file: File, category: string): Promise<Document | null> => {
     try {
       // Validate file before starting upload
       const validationError = validateFile(file);
@@ -98,35 +98,6 @@ export const useDocumentUpload = (applicationId: string) => {
         throw documentError;
       }
 
-      // Create a notification for the user if the document was uploaded by an admin
-      if (isFromAdmin) {
-        try {
-          // Get the user ID associated with the application
-          const { data: application, error: appError } = await supabase
-            .from('applications')
-            .select('user_id')
-            .eq('id', applicationId)
-            .single();
-            
-          if (appError) {
-            console.error('Error getting application user ID:', appError);
-          } else if (application?.user_id) {
-            // Create notification
-            await supabase
-              .from('notifications')
-              .insert({
-                user_id: application.user_id,
-                title: 'New Document Uploaded',
-                message: `An administrator has uploaded a new ${category.replace(/_/g, ' ')} document to your application.`,
-                read: false
-              });
-          }
-        } catch (notificationError) {
-          console.error('Error creating notification:', notificationError);
-          // Continue despite notification error
-        }
-      }
-
       return document;
     } catch (error: any) {
       console.error('Error uploading document:', error);
@@ -134,84 +105,6 @@ export const useDocumentUpload = (applicationId: string) => {
       return null;
     } finally {
       setUploading(false);
-    }
-  };
-
-  const updateDocumentStatus = async (documentId: string, status: 'approved' | 'rejected', reviewNotes?: string): Promise<boolean> => {
-    try {
-      setError(null);
-
-      // Get the document details first
-      const { data: document, error: fetchError } = await supabase
-        .from('documents')
-        .select('filename, application_id')
-        .eq('id', documentId)
-        .single();
-
-      if (fetchError) {
-        console.error('Error fetching document details:', fetchError);
-        throw new Error('Could not find document details. Please try again.');
-      }
-
-      if (!document) {
-        throw new Error('Document not found');
-      }
-
-      // Update the document status
-      const { error: updateError } = await supabase
-        .from('documents')
-        .update({
-          status,
-          review_notes: reviewNotes || null,
-          reviewed_at: new Date().toISOString()
-        })
-        .eq('id', documentId);
-
-      if (updateError) {
-        console.error('Error updating document status:', updateError);
-        throw new Error('Failed to update document status. Please try again.');
-      }
-
-      // Create a notification for the user
-      try {
-        // Get the user ID associated with the application
-        const { data: application, error: appError } = await supabase
-          .from('applications')
-          .select('user_id')
-          .eq('id', document.application_id)
-          .single();
-          
-        if (appError) {
-          console.error('Error getting application user ID:', appError);
-        } else if (application?.user_id) {
-          // Create notification
-          const notificationTitle = status === 'approved' 
-            ? 'Document Approved' 
-            : 'Document Needs Attention';
-            
-          const notificationMessage = status === 'approved'
-            ? `Your document has been approved.`
-            : `Your document was rejected. Reason: ${reviewNotes || 'Please upload a clearer version.'}`;
-            
-          await supabase
-            .from('notifications')
-            .insert({
-              user_id: application.user_id,
-              title: notificationTitle,
-              message: notificationMessage,
-              read: false
-            });
-        }
-      } catch (notificationError) {
-        console.error('Error creating notification:', notificationError);
-        // Continue despite notification error
-      }
-
-      return true;
-    } catch (error: any) {
-      console.error('Error updating document status:', error);
-      setError(error.message);
-      throw error;
     }
   };
 
@@ -344,7 +237,6 @@ export const useDocumentUpload = (applicationId: string) => {
   return {
     uploadDocument,
     deleteDocument,
-    updateDocumentStatus,
     getFileUrl,
     listUserDocuments,
     uploading,
