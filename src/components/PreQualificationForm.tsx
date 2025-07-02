@@ -103,7 +103,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
     mode: 'onChange',
   });
   
-  const { handleSubmit, trigger, watch, setValue, control, formState: { errors, isValid } } = methods;
+  const { handleSubmit, trigger, watch, setValue, control, formState: { errors, isValid }, clearErrors } = methods;
   
   // Watch values for validation and UI updates
   const vehicleType = watch('vehicle_type');
@@ -462,7 +462,10 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                     <button
                       key={vehicle.type}
                       type="button"
-                      onClick={() => setValue('vehicle_type', vehicle.type)}
+                      onClick={() => {
+                        setValue('vehicle_type', vehicle.type);
+                        clearErrors('vehicle_type'); // Clear errors when a vehicle is selected
+                      }}
                       className={`relative overflow-hidden rounded-lg transition-all duration-200 ${
                         vehicleType === vehicle.type
                           ? 'ring-4 ring-[#3BAA75] ring-opacity-50 transform scale-[1.02]'
