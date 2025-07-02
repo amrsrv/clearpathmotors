@@ -15,7 +15,7 @@ const Navbar = () => {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate('/');
+    navigate('/login');
   };
 
   const handleAutoFinancingClick = async () => {
