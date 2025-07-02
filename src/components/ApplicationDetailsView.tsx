@@ -1,7 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, CheckCircle, Clock, AlertCircle, Calendar, DollarSign, CreditCard, Car, Briefcase, MapPin, Phone, Mail, Home } from 'lucide-react';
-import { ApplicationTracker } from './ApplicationTracker';
 import type { Application, ApplicationStage } from '../types/database';
 
 interface ApplicationDetailsViewProps {
@@ -43,114 +42,6 @@ const ApplicationDetailsView: React.FC<ApplicationDetailsViewProps> = ({
         Back to Applications
       </motion.button>
 
-      {/* New Top Section with Personalized Greeting and Loan Summary */}
-      <motion.div 
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100"
-      >
-        {/* Personalized Greeting */}
-        <div className="p-6 bg-gradient-to-r from-[#3BAA75]/10 to-[#3BAA75]/5">
-          <h2 className="text-xl font-semibold text-gray-900">
-            Application Details
-          </h2>
-          <p className="text-gray-600 mt-1">Application ID: {application.id.substring(0, 8)}</p>
-        </div>
-        
-        {/* Loan Snapshot Data */}
-        <div className="p-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-gray-50 p-4 rounded-xl shadow-sm">
-            <div className="text-xs text-gray-500 mb-1">Status</div>
-            <div className="font-semibold text-gray-900 flex items-center">
-              <span className={`inline-block w-2 h-2 rounded-full mr-2 ${
-                application.status === 'pre_approved' ? 'bg-green-500' :
-                application.status === 'under_review' ? 'bg-yellow-500' :
-                application.status === 'pending_documents' ? 'bg-orange-500' :
-                'bg-gray-500'
-              }`}></span>
-              {application.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-            </div>
-          </div>
-          
-          <div className="bg-gray-50 p-4 rounded-xl shadow-sm">
-            <div className="text-xs text-gray-500 mb-1">Rate</div>
-            <div className="font-semibold text-gray-900">
-              {application.interest_rate}%
-            </div>
-          </div>
-          
-          <div className="bg-gray-50 p-4 rounded-xl shadow-sm">
-            <div className="text-xs text-gray-500 mb-1">Loan Amount</div>
-            <div className="font-semibold text-gray-900">
-              ${application.loan_amount_min?.toLocaleString()}
-            </div>
-          </div>
-          
-          <div className="bg-gray-50 p-4 rounded-xl shadow-sm">
-            <div className="text-xs text-gray-500 mb-1">Term</div>
-            <div className="font-semibold text-gray-900">
-              {application.loan_term} months
-            </div>
-          </div>
-        </div>
-        
-        {/* Next Step Box */}
-        <div className="px-6 pb-6">
-          <div className="bg-[#3BAA75]/10 rounded-xl p-4 border border-[#3BAA75]/20">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 bg-[#3BAA75] rounded-full p-1.5">
-                {application.status === 'pre_approved' ? (
-                  <CheckCircle className="h-4 w-4 text-white" />
-                ) : application.status === 'pending_documents' ? (
-                  <FileText className="h-4 w-4 text-white" />
-                ) : (
-                  <Clock className="h-4 w-4 text-white" />
-                )}
-              </div>
-              <div>
-                <p className="font-medium text-gray-900">Next Step</p>
-                <p className="text-sm text-gray-700 mt-1">
-                  {getNextStepMessage(application.status)}
-                </p>
-                
-                {/* Action buttons based on status */}
-                {application.status === 'pending_documents' && (
-                  <button
-                    onClick={() => {/* Handle document upload */}}
-                    className="mt-3 px-4 py-2 bg-[#3BAA75] text-white rounded-lg text-sm font-medium hover:bg-[#2D8259] transition-colors flex items-center gap-1 shadow-sm"
-                  >
-                    Upload Documents
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                )}
-                
-                {application.status === 'pre_approved' && (
-                  <button
-                    onClick={() => {/* Handle appointment scheduling */}}
-                    className="mt-3 px-4 py-2 bg-[#3BAA75] text-white rounded-lg text-sm font-medium hover:bg-[#2D8259] transition-colors flex items-center gap-1 shadow-sm"
-                  >
-                    Schedule Consultation
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-      
-      {/* Application Progress Tracker */}
-      <motion.div 
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.1 }}
-        className="bg-white rounded-xl shadow-lg p-6 border border-gray-100"
-      >
-        <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259] mb-6">Application Progress</h2>
-        <ApplicationTracker application={application} stages={stages} />
-      </motion.div>
-      
       {/* Application Details Card */}
       <motion.div 
         initial={{ opacity: 0, y: 10 }}
@@ -227,6 +118,50 @@ const ApplicationDetailsView: React.FC<ApplicationDetailsViewProps> = ({
               <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                 <CreditCard className="h-4 w-4 text-[#3BAA75]" />
                 <span className="text-gray-700">Credit Score: {application.credit_score}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Next Step Box */}
+        <div className="mt-6">
+          <div className="bg-[#3BAA75]/10 rounded-xl p-4 border border-[#3BAA75]/20">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 bg-[#3BAA75] rounded-full p-1.5">
+                {application.status === 'pre_approved' ? (
+                  <CheckCircle className="h-4 w-4 text-white" />
+                ) : application.status === 'pending_documents' ? (
+                  <FileText className="h-4 w-4 text-white" />
+                ) : (
+                  <Clock className="h-4 w-4 text-white" />
+                )}
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Next Step</p>
+                <p className="text-sm text-gray-700 mt-1">
+                  {getNextStepMessage(application.status)}
+                </p>
+                
+                {/* Action buttons based on status */}
+                {application.status === 'pending_documents' && (
+                  <button
+                    onClick={() => {/* Handle document upload */}}
+                    className="mt-3 px-4 py-2 bg-[#3BAA75] text-white rounded-lg text-sm font-medium hover:bg-[#2D8259] transition-colors flex items-center gap-1 shadow-sm"
+                  >
+                    Upload Documents
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                )}
+                
+                {application.status === 'pre_approved' && (
+                  <button
+                    onClick={() => {/* Handle appointment scheduling */}}
+                    className="mt-3 px-4 py-2 bg-[#3BAA75] text-white rounded-lg text-sm font-medium hover:bg-[#2D8259] transition-colors flex items-center gap-1 shadow-sm"
+                  >
+                    Schedule Consultation
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             </div>
           </div>

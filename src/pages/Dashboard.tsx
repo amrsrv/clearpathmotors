@@ -16,8 +16,7 @@ import HelpCenter from '../pages/HelpCenter';
 import { MobileNavBar } from '../components/MobileNavBar';
 import UserApplicationsTable from '../components/UserApplicationsTable';
 import ApplicationDetailsView from '../components/ApplicationDetailsView';
-import { PreQualifiedBadge } from '../components/PreQualifiedBadge';
-import { LoanRangeBar } from '../components/LoanRangeBar';
+import { PrequalificationSummaryCard } from '../components/PrequalificationSummaryCard';
 
 interface DashboardProps {
   activeSection: string;
@@ -624,47 +623,21 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       case 'overview':
         return (
           <div className="space-y-6">
-            {/* Prequalification Results Section */}
+            {/* Prequalification Summary Card */}
             {currentApplication && (
-              <motion.div
+              <PrequalificationSummaryCard application={currentApplication} />
+            )}
+            
+            {/* Application Progress Tracker */}
+            {currentApplication && (
+              <motion.div 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                className="bg-gradient-to-r from-[#3BAA75]/10 to-[#3BAA75]/5 rounded-xl shadow-lg p-6 border border-[#3BAA75]/20"
+                transition={{ duration: 0.3, delay: 0.1 }}
+                className="bg-white rounded-xl shadow-lg p-6 border border-gray-100"
               >
-                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                  <div className="flex flex-col items-center md:items-start">
-                    <div className="mb-2">
-                      <PreQualifiedBadge />
-                    </div>
-                    <h2 className="text-xl font-semibold text-gray-900 mt-2">
-                      Congratulations! You're Pre-qualified
-                    </h2>
-                    <p className="text-gray-600 mt-1">
-                      Based on your information, here's what you qualify for:
-                    </p>
-                  </div>
-                  
-                  <div className="bg-white rounded-lg p-4 shadow-sm">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-[#3BAA75]">
-                        ${currentApplication.loan_amount_min?.toLocaleString() || '15,000'} - ${currentApplication.loan_amount_max?.toLocaleString() || '50,000'}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        at {currentApplication.interest_rate || 5.99}% APR
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Only show on larger screens */}
-                <div className="hidden md:block mt-4">
-                  <LoanRangeBar
-                    min={currentApplication.loan_amount_min || 15000}
-                    max={currentApplication.loan_amount_max || 50000}
-                    rate={currentApplication.interest_rate || 5.99}
-                  />
-                </div>
+                <h2 className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-[#3BAA75] to-[#2D8259] mb-6">Application Progress</h2>
+                <ApplicationTracker application={currentApplication} stages={stages} />
               </motion.div>
             )}
             
