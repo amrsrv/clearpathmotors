@@ -31,7 +31,8 @@ import AdminUsers from './pages/admin/Users';
 import AdminSettings from './pages/admin/Settings';
 import ApplicationView from './pages/admin/ApplicationView';
 import AdminLayout from './components/admin/AdminLayout';
-import { MobileNavBar } from './components/MobileNavBar'; // Import MobileNavBar
+import { MobileNavBar } from './components/MobileNavBar';
+import Footer from './components/Footer';
 
 declare global {
   interface Window {
@@ -93,8 +94,10 @@ const App = () => {
     }
   };
 
-  // Check if we should show the footer (hide on dashboard and admin pages)
-  const shouldShowFooter = false;
+  // Check if we should show the footer (hide on dashboard, admin pages, and get-prequalified)
+  const shouldShowFooter = !location.pathname.startsWith('/get-prequalified') && 
+                          !location.pathname.startsWith('/admin') && 
+                          !location.pathname.startsWith('/dashboard');
 
   return (
     <div className="min-h-screen bg-secondary-50 text-gray-900 font-sans">
@@ -187,7 +190,7 @@ const App = () => {
           </Routes>
         </AnimatePresence>
       </main>
-      {shouldShowFooter && <></>}
+      {shouldShowFooter && <Footer />}
       {!location.pathname.startsWith('/admin') && user && location.pathname === '/dashboard' && (
         <MobileNavBar onNavigate={handleMobileNav} activeSection={activeDashboardSection} />
       )}
