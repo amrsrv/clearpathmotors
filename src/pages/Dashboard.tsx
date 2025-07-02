@@ -477,6 +477,12 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
     loadDashboardData();
   };
 
+  const handleRefreshProfile = () => {
+    setRefreshing(true);
+    loadDashboardData();
+    toast.success('Profile refreshed successfully');
+  };
+
   const handleScheduleAppointment = async (date: Date, type: 'video' | 'phone') => {
     try {
       if (!currentApplication) {
@@ -864,7 +870,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                             />
                           </div>
                           <Link
-                            to="/reset-password"
+                            to="/update-password"
                             className="px-4 py-2 bg-[#3BAA75] text-white rounded-r-lg hover:bg-[#2D8259] transition-colors flex items-center"
                           >
                             Change
@@ -911,12 +917,12 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                 <div className="pt-4 border-t border-gray-200">
                   <h4 className="text-sm font-medium text-gray-500 mb-4">Account Actions</h4>
                   <div className="flex flex-wrap gap-4">
-                    <Link
-                      to="/reset-password"
+                    <button
+                      onClick={handleRefreshProfile}
                       className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                     >
-                      Reset Password
-                    </Link>
+                      Refresh Profile
+                    </button>
                     
                     <button
                       onClick={() => setActiveSection('help')}
