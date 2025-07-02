@@ -112,13 +112,13 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
 
   // Generate a temporary user ID on component mount
   useEffect(() => {
-    const initializeAnonymousSession = async () => {
+    const initializeTempUserId = () => {
       // Check if we already have a temp user ID stored
       const storedTempUserId = localStorage.getItem('tempUserId');
       
       if (user) {
-        // If user is authenticated, we don't need an anonymous session
-        console.log('PreQualificationForm: User is authenticated, no need for anonymous session');
+        // If user is authenticated, we don't need a temp user ID
+        console.log('PreQualificationForm: User is authenticated, no need for temp user ID');
         return;
       }
       
@@ -129,34 +129,17 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       }
       
       try {
-        // Create an anonymous session
-        console.log('PreQualificationForm: Creating anonymous session');
-        const { data, error } = await supabase.auth.signInAnonymously();
-        
-        if (error) {
-          console.error('PreQualificationForm: Error creating anonymous session:', error);
-          // Fallback to using a random UUID
-          const fallbackId = crypto.randomUUID();
-          localStorage.setItem('tempUserId', fallbackId);
-          setTempUserId(fallbackId);
-          return;
-        }
-        
-        if (data.user) {
-          console.log('PreQualificationForm: Anonymous session created, user ID:', data.user.id);
-          localStorage.setItem('tempUserId', data.user.id);
-          setTempUserId(data.user.id);
-        }
+        // Generate a new UUID for the temp user ID
+        const newTempUserId = crypto.randomUUID();
+        localStorage.setItem('tempUserId', newTempUserId);
+        setTempUserId(newTempUserId);
+        console.log('PreQualificationForm: Generated new temp user ID:', newTempUserId);
       } catch (error) {
-        console.error('PreQualificationForm: Error in anonymous auth:', error);
-        // Fallback to using a random UUID
-        const fallbackId = crypto.randomUUID();
-        localStorage.setItem('tempUserId', fallbackId);
-        setTempUserId(fallbackId);
+        console.error('PreQualificationForm: Error generating temp user ID:', error);
       }
     };
 
-    initializeAnonymousSession();
+    initializeTempUserId();
     
     // Check for saved form data in sessionStorage
     const savedFormData = sessionStorage.getItem(FORM_STORAGE_KEY);

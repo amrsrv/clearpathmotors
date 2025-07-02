@@ -9,7 +9,7 @@ import { ApplicationTracker } from '../components/ApplicationTracker';
 import { AppointmentScheduler } from '../components/AppointmentScheduler';
 import { UserMessageCenter } from '../components/UserMessageCenter';
 import { FileText, Bell, User, HelpCircle, CheckCircle, Clock, AlertCircle, Calendar, DollarSign, CreditCard, Car, Briefcase, MapPin, Phone, Mail, Home, RefreshCw, ChevronRight, Shield, BadgeCheck, Award } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import type { Application, ApplicationStage, Document, Notification } from '../types/database';
 import HelpCenter from '../pages/HelpCenter';
@@ -33,6 +33,7 @@ const FALLBACK_UUID = '00000000-0000-0000-0000-000000000000';
 
 const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }) => {
   const { user, initialized } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentApplication, setCurrentApplication] = useState<Application | null>(null);
@@ -46,17 +47,9 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
   const [userProfile, setUserProfile] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingAttempts, setLoadingAttempts] = useState(0);
-  const [tempUserId, setTempUserId] = useState<string | null>(null);
   const [creatingApplication, setCreatingApplication] = useState(false);
 
   useEffect(() => {
-    // Check for temporary user ID in localStorage
-    const storedTempUserId = localStorage.getItem('tempUserId');
-    if (storedTempUserId && isUuid(storedTempUserId)) {
-      console.log('Dashboard: Using stored tempUserId:', storedTempUserId);
-      setTempUserId(storedTempUserId);
-    }
-    
     // Wait for auth to be initialized before loading data
     if (initialized) {
       console.log('Dashboard: Auth initialized, loading dashboard data');
@@ -66,18 +59,27 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
     }
   }, [initialized]);
 
-  // Add user and tempUserId to the dependency array to ensure data is reloaded when these change
+  // Add user to the dependency array to ensure data is reloaded when user changes
   useEffect(() => {
-    if (initialized && (user || tempUserId)) {
-      console.log('Dashboard: User or tempUserId changed, reloading data');
+    if (initialized && user) {
+      console.log('Dashboard: User changed, reloading data');
       loadDashboardData();
     }
-  }, [user, tempUserId, initialized]);
+  }, [user, initialized]);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (initialized && !user) {
+      console.log('Dashboard: No authenticated user, redirecting to login');
+      navigate('/login');
+    }
+  }, [user, initialized, navigate]);
 
   const loadDashboardData = async () => {
-    // Early exit if neither user nor tempUserId is available
-    if (!initialized || (!user && !tempUserId)) {
-      console.log('Dashboard: No user or tempUserId available, skipping data load');
+    // Early exit if no authenticated user is available
+    if (!initialized || !user) {
+      console.log('Dashboard: No authenticated user available, skipping data load');
+      setLoading(false);
       return;
     }
     
@@ -89,12 +91,10 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         id: user.id,
         email: user.email,
         app_metadata: user.app_metadata
-      } : 'null', 'and tempUserId:', tempUserId);
+      } : 'null');
       
       // Load user profile if authenticated
-      if (user) {
-        await loadUserProfile();
-      }
+      await loadUserProfile();
       
       // Load application data
       let applicationQuery = supabase
@@ -103,10 +103,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         
       if (user && isUuid(user.id)) {
         applicationQuery = applicationQuery.eq('user_id', user.id);
-      } else if (tempUserId && isUuid(tempUserId)) {
-        applicationQuery = applicationQuery.eq('temp_user_id', tempUserId);
       } else {
-        // If neither user.id nor tempUserId is a valid UUID, use a fallback
+        // If user.id is not a valid UUID, use a fallback
         // This prevents the database error but ensures no results are returned
         applicationQuery = applicationQuery.eq('user_id', FALLBACK_UUID);
       }
@@ -184,10 +182,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         
       if (user && isUuid(user.id)) {
         notificationQuery = notificationQuery.eq('user_id', user.id);
-      } else if (tempUserId && isUuid(tempUserId)) {
-        notificationQuery = notificationQuery.eq('temp_user_id', tempUserId);
       } else {
-        // If neither user.id nor tempUserId is a valid UUID, use a fallback
+        // If user.id is not a valid UUID, use a fallback
         notificationQuery = notificationQuery.eq('user_id', FALLBACK_UUID);
       }
       
@@ -350,7 +346,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
   };
 
   const handleDocumentUpload = async (file: File, category: string) => {
-    if ((!user && !tempUserId) || !currentApplication) return;
+    if (!user || !currentApplication) return;
     
     try {
       setIsUploadingDocument(true);
@@ -358,7 +354,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       
       // Create a unique filename
       const fileExt = file.name.split('.').pop();
-      const userId = user?.id || tempUserId;
+      const userId = user.id;
       const fileName = `${userId}/${currentApplication.id}/${Date.now()}.${fileExt}`;
       
       // Upload to Supabase Storage
@@ -564,6 +560,18 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         <div className="flex flex-col items-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent mb-4" />
           <p className="text-gray-600">Initializing your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect to login if not authenticated
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent mb-4" />
+          <p className="text-gray-600">Redirecting to login...</p>
         </div>
       </div>
     );
@@ -923,7 +931,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
-            <HelpCenter userId={user?.id || tempUserId || ''} applicationId={currentApplication?.id || ''} />
+            <HelpCenter userId={user?.id || ''} applicationId={currentApplication?.id || ''} />
           </motion.div>
         );
         
@@ -936,7 +944,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
             className="space-y-6"
           >
             <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100">
-              <UserMessageCenter userId={user?.id || tempUserId || ''} applicationId={currentApplication?.id || ''} />
+              <UserMessageCenter userId={user?.id || ''} applicationId={currentApplication?.id || ''} />
             </div>
           </motion.div>
         );
