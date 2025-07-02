@@ -870,7 +870,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
                             />
                           </div>
                           <Link
-                            to="/update-password"
+                            to="/reset-password"
                             className="px-4 py-2 bg-[#3BAA75] text-white rounded-r-lg hover:bg-[#2D8259] transition-colors flex items-center"
                           >
                             Change
