@@ -49,20 +49,6 @@ const AdminApplications = () => {
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [employmentFilter, setEmploymentFilter] = useState('all');
   const [creditScoreRange, setCreditScoreRange] = useState({ min: '', max: '' });
-  const [dealers, setDealers] = useState<any[]>([]);
-
-  const fetchDealers = useCallback(async () => {
-    try {
-      const { data, error } = await supabase
-        .from('dealer_profiles')
-        .select('id, name, email');
-      
-      if (error) throw error;
-      setDealers(data || []);
-    } catch (error) {
-      console.error('Error fetching dealers:', error);
-    }
-  }, []);
 
   const fetchApplications = useCallback(async () => {
     setLoading(true);
@@ -72,8 +58,7 @@ const AdminApplications = () => {
         .select(`
           *,
           documents (count),
-          application_stages (count),
-          dealer_profiles!dealer_id(name)
+          application_stages (count)
         `)
         .range((page * ITEMS_PER_PAGE), ((page + 1) * ITEMS_PER_PAGE) - 1)
         .order('created_at', { ascending: false });
@@ -131,8 +116,7 @@ const AdminApplications = () => {
 
   useEffect(() => {
     fetchApplications();
-    fetchDealers();
-  }, [fetchApplications, fetchDealers]);
+  }, [fetchApplications]);
 
   const handleSelectApplication = (applicationId: string) => {
     setSelectedApplications(prev => 
@@ -174,13 +158,6 @@ const AdminApplications = () => {
             .update({ status: data.status })
             .in('id', selectedApplications);
           toast.success(`Updated status for ${selectedApplications.length} applications`);
-          break;
-        case 'assignDealer':
-          await supabase
-            .from('applications')
-            .update({ dealer_id: data.dealerId })
-            .in('id', selectedApplications);
-          toast.success(`Assigned dealer to ${selectedApplications.length} applications`);
           break;
       }
       setSelectedApplications([]);
@@ -344,7 +321,6 @@ const AdminApplications = () => {
           selectedApplications={selectedApplications}
           onClearSelection={handleClearSelection}
           onActionComplete={handleActionComplete}
-          dealers={dealers}
         />
       )}
 
