@@ -1,5 +1,4 @@
 import React, { useLayoutEffect, useEffect, useState, useCallback } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from '../hooks/useAuth';
@@ -10,7 +9,7 @@ import { ApplicationTracker } from '../components/ApplicationTracker';
 import { AppointmentScheduler } from '../components/AppointmentScheduler';
 import { UserMessageCenter } from '../components/UserMessageCenter';
 import { FileText, Bell, User, HelpCircle, CheckCircle, Clock, AlertCircle, Calendar, DollarSign, CreditCard, Car, Briefcase, MapPin, Phone, Mail, Home, RefreshCw, ChevronRight, Shield, BadgeCheck, Award } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import type { Application, ApplicationStage, Document, Notification } from '../types/database';
 import HelpCenter from '../pages/HelpCenter';
@@ -33,18 +32,6 @@ function isUuid(value: string | null | undefined): boolean {
 // Fallback UUID to use when an invalid UUID is detected
 const FALLBACK_UUID = '00000000-0000-0000-0000-000000000000';
 
-// Timeout for data loading operations (in milliseconds)
-const LOADING_TIMEOUT_MS = 15000; // 15 seconds
-
-// Helper function to create a timeout promise
-const createTimeoutPromise = (ms: number) => {
-  return new Promise((_, reject) => {
-    setTimeout(() => {
-      reject(new Error(`Operation timed out after ${ms}ms`));
-    }, ms);
-  });
-};
-
 const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }) => {
   const { user, initialized } = useAuth();
   const navigate = useNavigate();
@@ -62,7 +49,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
   const [refreshing, setRefreshing] = useState(false);
   const [loadingAttempts, setLoadingAttempts] = useState(0);
   const [creatingApplication, setCreatingApplication] = useState(false);
-  const [loadingTimedOut, setLoadingTimedOut] = useState(false);
 
   useEffect(() => {
     // Wait for auth to be initialized before loading data
@@ -101,7 +87,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
     try {
       setLoading(true);
       setError(null);
-      setLoadingTimedOut(false);
       
       console.log('Dashboard: Loading dashboard data with user:', user ? {
         id: user.id,
@@ -112,7 +97,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       // Load user profile if authenticated
       await loadUserProfile();
       
-      // Load application data with timeout
+      // Load application data
       let applicationQuery = supabase
         .from('applications')
         .select('*');
@@ -125,19 +110,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         applicationQuery = applicationQuery.eq('user_id', FALLBACK_UUID);
       }
       
-      const applicationsPromise = applicationQuery
+      const { data: applications, error: applicationError } = await applicationQuery
         .order('created_at', { ascending: false });
-      
-      const applicationsResult = await Promise.race([
-        applicationsPromise,
-        createTimeoutPromise(LOADING_TIMEOUT_MS)
-      ]).catch(error => {
-        console.error('Dashboard: Applications query timed out:', error);
-        setLoadingTimedOut(true);
-        return { data: [], error: new Error('Applications query timed out') };
-      });
-      
-      const { data: applications, error: applicationError } = applicationsResult;
       
       if (applicationError) {
         console.error('Dashboard: Error loading applications:', applicationError);
@@ -171,22 +145,12 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       if (latestApplication) {
         console.log('Dashboard: Application found:', latestApplication.id);
         
-        // Load documents with timeout
-        const documentsPromise = supabase
+        // Load documents
+        const { data: documentData, error: documentError } = await supabase
           .from('documents')
           .select('*')
           .eq('application_id', latestApplication.id)
           .order('uploaded_at', { ascending: false });
-        
-        const documentsResult = await Promise.race([
-          documentsPromise,
-          createTimeoutPromise(LOADING_TIMEOUT_MS)
-        ]).catch(error => {
-          console.error('Dashboard: Documents query timed out:', error);
-          return { data: [], error: new Error('Documents query timed out') };
-        });
-        
-        const { data: documentData, error: documentError } = documentsResult;
         
         if (documentError) {
           console.error('Dashboard: Error loading documents:', documentError);
@@ -195,22 +159,12 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
           setDocuments(documentData || []);
         }
         
-        // Load application stages with timeout
-        const stagesPromise = supabase
+        // Load application stages
+        const { data: stageData, error: stageError } = await supabase
           .from('application_stages')
           .select('*')
           .eq('application_id', latestApplication.id)
           .order('stage_number', { ascending: true });
-        
-        const stagesResult = await Promise.race([
-          stagesPromise,
-          createTimeoutPromise(LOADING_TIMEOUT_MS)
-        ]).catch(error => {
-          console.error('Dashboard: Stages query timed out:', error);
-          return { data: [], error: new Error('Stages query timed out') };
-        });
-        
-        const { data: stageData, error: stageError } = stagesResult;
         
         if (stageError) {
           console.error('Dashboard: Error loading application stages:', stageError);
@@ -222,7 +176,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         console.log('Dashboard: No application found');
       }
       
-      // Load notifications with timeout
+      // Load notifications
       let notificationQuery = supabase
         .from('notifications')
         .select('*');
@@ -234,18 +188,8 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         notificationQuery = notificationQuery.eq('user_id', FALLBACK_UUID);
       }
       
-      const notificationsPromise = notificationQuery
+      const { data: notificationData, error: notificationError } = await notificationQuery
         .order('created_at', { ascending: false });
-      
-      const notificationsResult = await Promise.race([
-        notificationsPromise,
-        createTimeoutPromise(LOADING_TIMEOUT_MS)
-      ]).catch(error => {
-        console.error('Dashboard: Notifications query timed out:', error);
-        return { data: [], error: new Error('Notifications query timed out') };
-      });
-      
-      const { data: notificationData, error: notificationError } = notificationsResult;
       
       if (notificationError) {
         console.error('Dashboard: Error loading notifications:', notificationError);
@@ -282,7 +226,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       const userEmail = user.email && user.email.trim() !== '' ? user.email : null;
       
       // Create a new application
-      const createPromise = supabase
+      const { data: newApp, error: createError } = await supabase
         .from('applications')
         .insert({
           user_id: user.id,
@@ -295,16 +239,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         .select()
         .single();
       
-      const result = await Promise.race([
-        createPromise,
-        createTimeoutPromise(LOADING_TIMEOUT_MS)
-      ]).catch(error => {
-        console.error('Dashboard: Application creation timed out:', error);
-        return { data: null, error: new Error('Application creation timed out') };
-      });
-      
-      const { data: newApp, error: createError } = result;
-      
       if (createError) {
         console.error('Dashboard: Error creating default application:', createError);
         throw createError;
@@ -313,7 +247,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       console.log('Dashboard: Default application created:', newApp.id);
       
       // Create initial application stage
-      const stagePromise = supabase
+      const { error: stageError } = await supabase
         .from('application_stages')
         .insert({
           application_id: newApp.id,
@@ -322,31 +256,25 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
           notes: 'Application submitted successfully'
         });
       
-      await Promise.race([
-        stagePromise,
-        createTimeoutPromise(LOADING_TIMEOUT_MS)
-      ]).catch(error => {
-        console.error('Dashboard: Stage creation timed out:', error);
-        // Continue despite timeout
-      });
+      if (stageError) {
+        console.error('Dashboard: Error creating initial stage:', stageError);
+        // Continue despite error
+      }
       
       // Create welcome notification
-      const notificationPromise = supabase
+      const { error: notificationError } = await supabase
         .from('notifications')
         .insert({
           user_id: user.id,
-          title: 'Welcome to Clearpath Motors!',
-          message: 'Thank you for starting your auto financing journey with us. Create an account to continue your application.',
+          title: 'Welcome to Clearpath!',
+          message: 'Your account has been created successfully. Start your application process now.',
           read: false
         });
       
-      await Promise.race([
-        notificationPromise,
-        createTimeoutPromise(LOADING_TIMEOUT_MS)
-      ]).catch(error => {
-        console.error('Dashboard: Notification creation timed out:', error);
-        // Continue despite timeout
-      });
+      if (notificationError) {
+        console.error('Dashboard: Error creating welcome notification:', notificationError);
+        // Continue despite error
+      }
       
       // Don't call loadDashboardData here - let the useEffect handle it
       
@@ -365,21 +293,11 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
     while (retries < maxRetries) {
       try {
         // Check if user profile exists
-        const profilePromise = supabase
+        const { data: profile, error: profileError } = await supabase
           .from('user_profiles')
           .select('*')
           .eq('user_id', user.id)
           .single();
-        
-        const result = await Promise.race([
-          profilePromise,
-          createTimeoutPromise(LOADING_TIMEOUT_MS)
-        ]).catch(error => {
-          console.error('Dashboard: User profile query timed out:', error);
-          return { data: null, error: new Error('User profile query timed out') };
-        });
-        
-        const { data: profile, error: profileError } = result;
         
         if (profileError) {
           // If the error is not that the profile doesn't exist, throw it
@@ -391,21 +309,11 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
           // If the profile doesn't exist, we'll try to create it
           console.log('Dashboard: User profile not found, creating one');
           
-          const createProfilePromise = supabase
+          const { data: newProfile, error: createError } = await supabase
             .from('user_profiles')
             .insert([{ user_id: user.id }])
             .select()
             .single();
-          
-          const createResult = await Promise.race([
-            createProfilePromise,
-            createTimeoutPromise(LOADING_TIMEOUT_MS)
-          ]).catch(error => {
-            console.error('Dashboard: Profile creation timed out:', error);
-            return { data: null, error: new Error('Profile creation timed out') };
-          });
-          
-          const { data: newProfile, error: createError } = createResult;
           
           if (createError) {
             console.error('Dashboard: Error creating user profile:', createError);
@@ -451,29 +359,19 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       const fileName = `${userId}/${currentApplication.id}/${Date.now()}.${fileExt}`;
       
       // Upload to Supabase Storage
-      const uploadPromise = supabase.storage
+      const { error: storageError } = await supabase.storage
         .from('user-documents')
         .upload(fileName, file, {
           cacheControl: '3600',
           upsert: false
         });
-      
-      const uploadResult = await Promise.race([
-        uploadPromise,
-        createTimeoutPromise(LOADING_TIMEOUT_MS)
-      ]).catch(error => {
-        console.error('Dashboard: Document upload timed out:', error);
-        return { data: null, error: new Error('Document upload timed out') };
-      });
-      
-      const { error: storageError } = uploadResult;
         
       if (storageError) {
         throw storageError;
       }
       
       // Create document record in database
-      const documentPromise = supabase
+      const { data: document, error: documentError } = await supabase
         .from('documents')
         .insert([
           {
@@ -485,16 +383,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         ])
         .select()
         .single();
-      
-      const documentResult = await Promise.race([
-        documentPromise,
-        createTimeoutPromise(LOADING_TIMEOUT_MS)
-      ]).catch(error => {
-        console.error('Dashboard: Document record creation timed out:', error);
-        return { data: null, error: new Error('Document record creation timed out') };
-      });
-      
-      const { data: document, error: documentError } = documentResult;
         
       if (documentError) {
         throw documentError;
@@ -525,20 +413,9 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       }
       
       // Delete from Supabase Storage
-      const storagePromise = supabase.storage
+      const { error: storageError } = await supabase.storage
         .from('user-documents')
         .remove([documentToDelete.filename]);
-      
-      const storageResult = await Promise.race([
-        storagePromise,
-        createTimeoutPromise(LOADING_TIMEOUT_MS)
-      ]).catch(error => {
-        console.error('Dashboard: Storage deletion timed out:', error);
-        // Continue with database deletion even if storage deletion times out
-        return { error: new Error('Storage deletion timed out') };
-      });
-      
-      const { error: storageError } = storageResult;
         
       if (storageError) {
         console.error('Dashboard: Error deleting from storage:', storageError);
@@ -546,20 +423,10 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       }
       
       // Delete from database
-      const dbPromise = supabase
+      const { error: dbError } = await supabase
         .from('documents')
         .delete()
         .eq('id', documentId);
-      
-      const dbResult = await Promise.race([
-        dbPromise,
-        createTimeoutPromise(LOADING_TIMEOUT_MS)
-      ]).catch(error => {
-        console.error('Dashboard: Database deletion timed out:', error);
-        return { error: new Error('Database deletion timed out') };
-      });
-      
-      const { error: dbError } = dbResult;
         
       if (dbError) {
         throw dbError;
@@ -579,20 +446,10 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
 
   const handleMarkNotificationAsRead = async (notificationId: string) => {
     try {
-      const updatePromise = supabase
+      const { error } = await supabase
         .from('notifications')
         .update({ read: true })
         .eq('id', notificationId);
-      
-      const result = await Promise.race([
-        updatePromise,
-        createTimeoutPromise(LOADING_TIMEOUT_MS)
-      ]).catch(error => {
-        console.error('Dashboard: Notification update timed out:', error);
-        return { error: new Error('Notification update timed out') };
-      });
-      
-      const { error } = result;
         
       if (error) {
         throw error;
@@ -633,22 +490,12 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       }
       
       // Update application with consultation time
-      const updatePromise = supabase
+      const { error } = await supabase
         .from('applications')
         .update({
           consultation_time: date.toISOString()
         })
         .eq('id', currentApplication.id);
-      
-      const result = await Promise.race([
-        updatePromise,
-        createTimeoutPromise(LOADING_TIMEOUT_MS)
-      ]).catch(error => {
-        console.error('Dashboard: Appointment scheduling timed out:', error);
-        return { error: new Error('Appointment scheduling timed out') };
-      });
-      
-      const { error } = result;
         
       if (error) {
         throw error;
@@ -680,22 +527,12 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
 
   const loadApplicationDetails = async (applicationId: string) => {
     try {
-      // Load documents with timeout
-      const documentsPromise = supabase
+      // Load documents
+      const { data: documentData, error: documentError } = await supabase
         .from('documents')
         .select('*')
         .eq('application_id', applicationId)
         .order('uploaded_at', { ascending: false });
-      
-      const documentsResult = await Promise.race([
-        documentsPromise,
-        createTimeoutPromise(LOADING_TIMEOUT_MS)
-      ]).catch(error => {
-        console.error('Dashboard: Documents query timed out:', error);
-        return { data: [], error: new Error('Documents query timed out') };
-      });
-      
-      const { data: documentData, error: documentError } = documentsResult;
       
       if (documentError) {
         console.error('Dashboard: Error loading documents:', documentError);
@@ -704,22 +541,12 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         setDocuments(documentData || []);
       }
       
-      // Load application stages with timeout
-      const stagesPromise = supabase
+      // Load application stages
+      const { data: stageData, error: stageError } = await supabase
         .from('application_stages')
         .select('*')
         .eq('application_id', applicationId)
         .order('stage_number', { ascending: true });
-      
-      const stagesResult = await Promise.race([
-        stagesPromise,
-        createTimeoutPromise(LOADING_TIMEOUT_MS)
-      ]).catch(error => {
-        console.error('Dashboard: Stages query timed out:', error);
-        return { data: [], error: new Error('Stages query timed out') };
-      });
-      
-      const { data: stageData, error: stageError } = stagesResult;
       
       if (stageError) {
         console.error('Dashboard: Error loading application stages:', stageError);
@@ -752,9 +579,6 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
         <div className="flex flex-col items-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent mb-4" />
           <p className="text-gray-600">Loading your dashboard...</p>
-          {loadingTimedOut && (
-            <p className="text-red-500 mt-2">Loading is taking longer than expected. Please be patient.</p>
-          )}
         </div>
       </div>
     );
