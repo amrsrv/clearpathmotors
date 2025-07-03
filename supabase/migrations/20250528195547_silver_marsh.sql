@@ -2,32 +2,42 @@
 DROP POLICY IF EXISTS "Admins can view all applications" ON applications;
 DROP POLICY IF EXISTS "Admins can update all applications" ON applications;
 
--- Create new admin policies for applications
+-- Create new admin policy for viewing all applications
 CREATE POLICY "Admins can view all applications"
 ON applications
-FOR ALL
+FOR SELECT
 TO authenticated
 USING (
-  (SELECT raw_app_meta_data->>'is_admin' = 'true'
-   FROM auth.users
-   WHERE auth.users.id = auth.uid())
+  EXISTS (
+    SELECT 1
+    FROM auth.users
+    WHERE auth.users.id = auth.uid()
+    AND (auth.users.raw_app_meta_data->>'is_admin')::boolean = true
+  )
   OR user_id = auth.uid()
 );
 
+-- Create new admin policy for updating all applications
 CREATE POLICY "Admins can update all applications"
 ON applications
 FOR UPDATE
 TO authenticated
 USING (
-  (SELECT raw_app_meta_data->>'is_admin' = 'true'
-   FROM auth.users
-   WHERE auth.users.id = auth.uid())
+  EXISTS (
+    SELECT 1
+    FROM auth.users
+    WHERE auth.users.id = auth.uid()
+    AND (auth.users.raw_app_meta_data->>'is_admin')::boolean = true
+  )
   OR user_id = auth.uid()
 )
 WITH CHECK (
-  (SELECT raw_app_meta_data->>'is_admin' = 'true'
-   FROM auth.users
-   WHERE auth.users.id = auth.uid())
+  EXISTS (
+    SELECT 1
+    FROM auth.users
+    WHERE auth.users.id = auth.uid()
+    AND (auth.users.raw_app_meta_data->>'is_admin')::boolean = true
+  )
   OR user_id = auth.uid()
 );
 
