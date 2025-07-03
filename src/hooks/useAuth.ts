@@ -3,6 +3,18 @@ import { supabase } from '../lib/supabaseClient';
 import type { User, Session } from '@supabase/supabase-js';
 import toast from 'react-hot-toast';
 
+// Timeout duration for auth operations (in milliseconds)
+const AUTH_TIMEOUT_MS = 10000; // 10 seconds
+
+// Helper function to create a timeout promise
+const createTimeoutPromise = (ms: number) => {
+  return new Promise((_, reject) => {
+    setTimeout(() => {
+      reject(new Error(`Operation timed out after ${ms}ms`));
+    }, ms);
+  });
+};
+
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -13,7 +25,14 @@ export const useAuth = () => {
   const refreshUser = useCallback(async () => {
     try {
       console.log('useAuth: manually refreshing user data');
-      const { data: { user: currentUser }, error } = await supabase.auth.getUser();
+      
+      const userPromise = supabase.auth.getUser();
+      const result = await Promise.race([
+        userPromise,
+        createTimeoutPromise(AUTH_TIMEOUT_MS)
+      ]);
+      
+      const { data: { user: currentUser }, error } = result;
       
       if (error) {
         console.error('useAuth: Error refreshing user:', error);
@@ -44,6 +63,9 @@ export const useAuth = () => {
       return currentUser;
     } catch (error) {
       console.error('useAuth: Error in refreshUser:', error);
+      if (error.message?.includes('timed out')) {
+        toast.error('Authentication check timed out. Please try again.');
+      }
       setUser(null);
       return null;
     }
@@ -57,8 +79,14 @@ export const useAuth = () => {
     // First, get the current session
     const initializeAuth = async () => {
       try {
-        // Get current session
-        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+        // Get current session with timeout
+        const sessionPromise = supabase.auth.getSession();
+        const result = await Promise.race([
+          sessionPromise,
+          createTimeoutPromise(AUTH_TIMEOUT_MS)
+        ]);
+        
+        const { data: { session: currentSession }, error: sessionError } = result;
         
         if (sessionError) {
           console.error('useAuth: Error getting initial session:', sessionError);
@@ -104,6 +132,9 @@ export const useAuth = () => {
         setInitialized(true);
       } catch (error) {
         console.error('useAuth: Error in initializeAuth:', error);
+        if (error.message?.includes('timed out')) {
+          toast.error('Authentication check timed out. Please refresh the page.');
+        }
         setLoading(false);
         setInitialized(true);
       }
@@ -166,10 +197,17 @@ export const useAuth = () => {
       const normalizedEmail = email.trim().toLowerCase();
       console.log('useAuth: attempting to sign in with:', normalizedEmail);
       
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+      const signInPromise = supabase.auth.signInWithPassword({
         email: normalizedEmail,
         password
       });
+      
+      const result = await Promise.race([
+        signInPromise,
+        createTimeoutPromise(AUTH_TIMEOUT_MS)
+      ]);
+      
+      const { data, error: signInError } = result;
       
       if (signInError) {
         console.error('useAuth: Supabase sign in error:', signInError);
@@ -201,6 +239,9 @@ export const useAuth = () => {
       return { data, error: null };
     } catch (error: any) {
       console.error('useAuth: Sign in error:', error);
+      if (error.message?.includes('timed out')) {
+        toast.error('Login request timed out. Please try again.');
+      }
       return { 
         data: null, 
         error
@@ -211,7 +252,8 @@ export const useAuth = () => {
   const signUp = async (email: string, password: string) => {
     try {
       console.log('useAuth: attempting to sign up:', email);
-      const { data, error } = await supabase.auth.signUp({
+      
+      const signUpPromise = supabase.auth.signUp({
         email: email.trim().toLowerCase(),
         password,
         options: {
@@ -221,6 +263,13 @@ export const useAuth = () => {
           emailRedirectTo: `${window.location.origin}/auth/callback`
         }
       });
+      
+      const result = await Promise.race([
+        signUpPromise,
+        createTimeoutPromise(AUTH_TIMEOUT_MS)
+      ]);
+      
+      const { data, error } = result;
       
       if (error) {
         console.error('useAuth: sign up error:', error);
@@ -244,6 +293,9 @@ export const useAuth = () => {
       return { data, error: null };
     } catch (error: any) {
       console.error('useAuth: Sign up error:', error);
+      if (error.message?.includes('timed out')) {
+        toast.error('Sign up request timed out. Please try again.');
+      }
       return { data: null, error };
     }
   };
@@ -266,8 +318,18 @@ export const useAuth = () => {
         }
       });
       
-      // Then attempt to sign out from Supabase
-      const { error } = await supabase.auth.signOut();
+      // Then attempt to sign out from Supabase with timeout
+      const signOutPromise = supabase.auth.signOut();
+      const result = await Promise.race([
+        signOutPromise,
+        createTimeoutPromise(AUTH_TIMEOUT_MS)
+      ]).catch(error => {
+        console.error('useAuth: Sign out timeout or error:', error);
+        // Even if timeout occurs, we've already cleared local state
+        return { error: new Error('Sign out timed out, but local session was cleared') };
+      });
+      
+      const { error } = result;
       
       if (error) {
         console.error('useAuth: sign out error from Supabase:', error);
@@ -329,9 +391,16 @@ export const useAuth = () => {
         hasResetPasswordMethod: !!supabase?.auth?.resetPasswordForEmail
       });
       
-      const { data, error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+      const resetPromise = supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
         redirectTo
       });
+      
+      const result = await Promise.race([
+        resetPromise,
+        createTimeoutPromise(AUTH_TIMEOUT_MS)
+      ]);
+
+      const { data, error: resetError } = result;
 
       console.log('useAuth: resetPasswordForEmail response:', { data, error: resetError });
 
@@ -348,6 +417,9 @@ export const useAuth = () => {
     } catch (error: any) {
       console.error('useAuth: Reset password error:', error);
       console.error('useAuth: Error stack:', error.stack);
+      if (error.message?.includes('timed out')) {
+        toast.error('Password reset request timed out. Please try again.');
+      }
       return { 
         error: {
           message: error.message || 'An error occurred while resetting the password. Please try again later.'
@@ -359,9 +431,17 @@ export const useAuth = () => {
   const updatePassword = async (newPassword: string) => {
     try {
       console.log('useAuth: updating password');
-      const { error } = await supabase.auth.updateUser({
+      
+      const updatePromise = supabase.auth.updateUser({
         password: newPassword
       });
+      
+      const result = await Promise.race([
+        updatePromise,
+        createTimeoutPromise(AUTH_TIMEOUT_MS)
+      ]);
+      
+      const { error } = result;
 
       if (error) {
         console.error('useAuth: Update password error:', error);
@@ -374,7 +454,11 @@ export const useAuth = () => {
       return { error: null };
     } catch (error: any) {
       console.error('useAuth: Update password error:', error);
-      toast.error(error.message || 'Failed to update password. Please try again.');
+      if (error.message?.includes('timed out')) {
+        toast.error('Password update request timed out. Please try again.');
+      } else {
+        toast.error(error.message || 'Failed to update password. Please try again.');
+      }
       return { error };
     }
   };
@@ -382,7 +466,14 @@ export const useAuth = () => {
   const getUser = async () => {
     try {
       console.log('useAuth: getting current user');
-      const { data: { user: currentUser }, error } = await supabase.auth.getUser();
+      
+      const userPromise = supabase.auth.getUser();
+      const result = await Promise.race([
+        userPromise,
+        createTimeoutPromise(AUTH_TIMEOUT_MS)
+      ]);
+      
+      const { data: { user: currentUser }, error } = result;
       
       if (error) {
         console.error('useAuth: Error getting user:', error);
@@ -398,6 +489,9 @@ export const useAuth = () => {
       return currentUser;
     } catch (error) {
       console.error('useAuth: Error in getUser:', error);
+      if (error.message?.includes('timed out')) {
+        toast.error('User authentication check timed out. Please refresh the page.');
+      }
       return null;
     }
   };

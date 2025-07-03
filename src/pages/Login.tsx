@@ -8,6 +8,16 @@ import toast from 'react-hot-toast';
 import { GoogleSignInButton } from '../components/GoogleSignInButton';
 
 const FORM_STORAGE_KEY = 'clearpath_prequalification_form_data';
+const AUTH_TIMEOUT_MS = 10000; // 10 seconds
+
+// Helper function to create a timeout promise
+const createTimeoutPromise = (ms: number) => {
+  return new Promise((_, reject) => {
+    setTimeout(() => {
+      reject(new Error(`Operation timed out after ${ms}ms`));
+    }, ms);
+  });
+};
 
 const Login = () => {
   const navigate = useNavigate();
@@ -40,7 +50,16 @@ const Login = () => {
     const checkAuth = async () => {
       console.log('Login: Checking authentication status');
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const sessionPromise = supabase.auth.getSession();
+        const result = await Promise.race([
+          sessionPromise,
+          createTimeoutPromise(AUTH_TIMEOUT_MS)
+        ]).catch(error => {
+          console.error('Login: Auth check timed out:', error);
+          return { data: { session: null }, error: new Error('Auth check timed out') };
+        });
+        
+        const { data: { session }, error } = result;
         
         if (error) {
           console.error('Login: Error verifying auth:', error);

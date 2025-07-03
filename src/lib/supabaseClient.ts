@@ -3,6 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Timeout for Supabase operations (in milliseconds)
+const SUPABASE_TIMEOUT_MS = 15000; // 15 seconds
+
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables:', { 
     hasUrl: !!supabaseUrl, 
@@ -48,10 +51,28 @@ supabase.auth.onAuthStateChange((event, session) => {
   }
 });
 
+// Helper function to create a timeout promise
+const createTimeoutPromise = (ms: number) => {
+  return new Promise((_, reject) => {
+    setTimeout(() => {
+      reject(new Error(`Operation timed out after ${ms}ms`));
+    }, ms);
+  });
+};
+
 // Add a custom method to verify and refresh the auth state
 export const verifyAuth = async () => {
   try {
-    const { data, error } = await supabase.auth.getSession();
+    const sessionPromise = supabase.auth.getSession();
+    const result = await Promise.race([
+      sessionPromise,
+      createTimeoutPromise(SUPABASE_TIMEOUT_MS)
+    ]).catch(error => {
+      console.error('verifyAuth: Auth check timed out:', error);
+      return { data: { session: null }, error: new Error('Auth check timed out') };
+    });
+    
+    const { data, error } = result;
     
     if (error) {
       console.error('verifyAuth: Error getting session:', error);
@@ -69,7 +90,17 @@ export const verifyAuth = async () => {
     
     if (expiresAt && now > expiresAt - 300) { // 300 seconds = 5 minutes
       console.log('verifyAuth: Session about to expire, refreshing');
-      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      
+      const refreshPromise = supabase.auth.refreshSession();
+      const refreshResult = await Promise.race([
+        refreshPromise,
+        createTimeoutPromise(SUPABASE_TIMEOUT_MS)
+      ]).catch(error => {
+        console.error('verifyAuth: Session refresh timed out:', error);
+        return { data: { user: null, session: null }, error: new Error('Session refresh timed out') };
+      });
+      
+      const { data: refreshData, error: refreshError } = refreshResult;
       
       if (refreshError) {
         console.error('verifyAuth: Error refreshing session:', refreshError);
