@@ -1,10 +1,10 @@
 /*
-  # Fix Dashboard Access Permissions
+  # Fix Dashboard Access Permissions (Clean)
 
   1. Security
     - Enable RLS on all required tables
-    - Add proper policies for users and admins
-    - Fix permission issues with auth.users table
+    - Add proper policies for users and admins using auth.users
+    - Fix permission issues with admin access check
 
   2. Changes
     - Update application policies
@@ -22,18 +22,20 @@ ALTER TABLE application_stages ENABLE ROW LEVEL SECURITY;
 -- Drop existing policies
 DROP POLICY IF EXISTS "Users can view own applications" ON applications;
 DROP POLICY IF EXISTS "Users can insert own applications" ON applications;
-DROP POLICY IF EXISTS "Admins can view all applications" ON applications;
+DROP POLICY IF EXISTS "Users can update own applications" ON applications;
+DROP POLICY IF EXISTS "Admins can manage all applications" ON applications;
 
 DROP POLICY IF EXISTS "Users can view own documents" ON documents;
 DROP POLICY IF EXISTS "Users can upload documents" ON documents;
-DROP POLICY IF EXISTS "Admins can view all documents" ON documents;
+DROP POLICY IF EXISTS "Admins can manage all documents" ON documents;
 
 DROP POLICY IF EXISTS "Users can view own notifications" ON notifications;
 DROP POLICY IF EXISTS "Users can update own notifications" ON notifications;
+DROP POLICY IF EXISTS "Admins can manage all notifications" ON notifications;
 
 DROP POLICY IF EXISTS "Users can view own stages" ON application_stages;
 DROP POLICY IF EXISTS "Users can insert own stages" ON application_stages;
-DROP POLICY IF EXISTS "Admins can view all stages" ON application_stages;
+DROP POLICY IF EXISTS "Admins can manage all stages" ON application_stages;
 
 -- Application Policies
 CREATE POLICY "Users can view own applications"
@@ -61,9 +63,11 @@ CREATE POLICY "Admins can manage all applications"
   USING (
     EXISTS (
       SELECT 1
-      FROM admin_users
-      WHERE auth_id = auth.uid()
+      FROM auth.users
+      WHERE id = auth.uid()
+      AND (raw_app_meta_data->>'is_admin')::boolean = true
     )
+    OR user_id = auth.uid()
   );
 
 -- Document Policies
@@ -100,8 +104,9 @@ CREATE POLICY "Admins can manage all documents"
   USING (
     EXISTS (
       SELECT 1
-      FROM admin_users
-      WHERE auth_id = auth.uid()
+      FROM auth.users
+      WHERE id = auth.uid()
+      AND (raw_app_meta_data->>'is_admin')::boolean = true
     )
   );
 
@@ -125,8 +130,9 @@ CREATE POLICY "Admins can manage all notifications"
   USING (
     EXISTS (
       SELECT 1
-      FROM admin_users
-      WHERE auth_id = auth.uid()
+      FROM auth.users
+      WHERE id = auth.uid()
+      AND (raw_app_meta_data->>'is_admin')::boolean = true
     )
   );
 
@@ -164,7 +170,8 @@ CREATE POLICY "Admins can manage all stages"
   USING (
     EXISTS (
       SELECT 1
-      FROM admin_users
-      WHERE auth_id = auth.uid()
+      FROM auth.users
+      WHERE id = auth.uid()
+      AND (raw_app_meta_data->>'is_admin')::boolean = true
     )
   );
