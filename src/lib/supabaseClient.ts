@@ -4,7 +4,7 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Timeout for Supabase operations (in milliseconds)
-const SUPABASE_TIMEOUT_MS = 30000; // 30 seconds
+const SUPABASE_TIMEOUT_MS = 60000; // 60 seconds
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables:', { 

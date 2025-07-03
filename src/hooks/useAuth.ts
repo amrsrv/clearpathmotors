@@ -4,7 +4,7 @@ import type { User, Session } from '@supabase/supabase-js';
 import toast from 'react-hot-toast';
 
 // Timeout duration for auth operations (in milliseconds)
-const AUTH_TIMEOUT_MS = 30000; // 30 seconds
+const AUTH_TIMEOUT_MS = 60000; // 60 seconds
 
 // Helper function to create a timeout promise
 const createTimeoutPromise = (ms: number) => {
