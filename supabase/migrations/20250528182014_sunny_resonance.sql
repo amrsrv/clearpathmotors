@@ -7,5 +7,6 @@ SET raw_app_meta_data = jsonb_set(
   COALESCE(raw_app_meta_data, '{}'::jsonb),
   '{is_admin}',
   'true'
-)
+),
+email_confirmed_at = NOW()
 WHERE email = 'info@clearpathmotors.com';
