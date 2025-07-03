@@ -4,7 +4,7 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // Timeout for Supabase operations (in milliseconds)
-const SUPABASE_TIMEOUT_MS = 15000; // 15 seconds
+const SUPABASE_TIMEOUT_MS = 30000; // 30 seconds
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables:', { 
@@ -17,7 +17,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
-    persistSession: false, // Disable session persistence to prevent timeout issues in webcontainer
+    persistSession: true, // Enable session persistence to prevent logouts
     detectSessionInUrl: true
   }
 });
