@@ -107,41 +107,8 @@ export const useAuth = () => {
     console.log('useAuth: initializing auth hook');
     setLoading(true);
     
-    const { data: { session: initialSession }, error: initialSessionError } = await supabase.auth.getSession();
-console.log('🪵 useAuth → First getSession():', {
-  session: initialSession ? {
-    access_token: initialSession.access_token ? 'present' : 'absent',
-    refresh_token: initialSession.refresh_token ? 'present' : 'absent',
-    expires_at: initialSession.expires_at,
-    user_id: initialSession.user?.id
-  } : null,
-  error: initialSessionError
-});
-
-if (initialSessionError) {
-  throw initialSessionError;
-}
     // First, get the current session with retry logic
     const initializeAuth = async () => {
-      try {
-  const { data: { session: initialSession }, error: initialSessionError } = await supabase.auth.getSession();
-
-  console.log('🪵 useAuth → First getSession():', {
-    session: initialSession ? {
-      access_token: initialSession.access_token ? 'present' : 'absent',
-      refresh_token: initialSession.refresh_token ? 'present' : 'absent',
-      expires_at: initialSession.expires_at,
-      user_id: initialSession.user?.id
-    } : null,
-    error: initialSessionError
-  });
-
-  if (initialSessionError) {
-    throw initialSessionError;
-  }
-} catch (error) {
-  console.error('🛑 useAuth → Error in first getSession() check:', error);
-}
       try {
         // Create a timeout promise
         const timeoutPromise = new Promise((_, reject) => {
