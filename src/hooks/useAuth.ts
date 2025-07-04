@@ -3,17 +3,70 @@ import { supabase } from '../lib/supabaseClient';
 import type { User, Session } from '@supabase/supabase-js';
 import toast from 'react-hot-toast';
 
+// Configuration for retry logic
+const AUTH_RETRY_CONFIG = {
+  maxRetries: 3,
+  initialDelay: 1000, // 1 second
+  maxDelay: 5000, // 5 seconds
+  timeoutDuration: 15000, // 15 seconds
+};
+
+/**
+ * Custom hook for authentication state and operations
+ */
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [initialized, setInitialized] = useState(false);
 
-  // Function to refresh user data manually
+  /**
+   * Sleep utility function for retry delays
+   */
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  /**
+   * Retry function with exponential backoff
+   */
+  const retryWithBackoff = async <T>(
+    fn: () => Promise<T>,
+    maxRetries: number = AUTH_RETRY_CONFIG.maxRetries,
+    initialDelay: number = AUTH_RETRY_CONFIG.initialDelay,
+    maxDelay: number = AUTH_RETRY_CONFIG.maxDelay
+  ): Promise<T> => {
+    let retries = 0;
+    let delay = initialDelay;
+
+    while (true) {
+      try {
+        return await fn();
+      } catch (error) {
+        if (retries >= maxRetries) {
+          console.error(`Failed after ${maxRetries} retries:`, error);
+          throw error;
+        }
+
+        console.warn(`Attempt ${retries + 1} failed, retrying in ${delay}ms...`, error);
+        await sleep(delay);
+        
+        // Exponential backoff with jitter
+        delay = Math.min(delay * 1.5 + Math.random() * 300, maxDelay);
+        retries++;
+      }
+    }
+  };
+
+  /**
+   * Function to refresh user data manually with retry logic
+   */
   const refreshUser = useCallback(async () => {
     try {
       console.log('useAuth: manually refreshing user data');
-      const { data: { user: currentUser }, error } = await supabase.auth.getUser();
+      
+      const { data: { user: currentUser }, error } = await retryWithBackoff(
+        () => supabase.auth.getUser(),
+        AUTH_RETRY_CONFIG.maxRetries
+      );
       
       if (error) {
         console.error('useAuth: Error refreshing user:', error);
@@ -49,23 +102,39 @@ export const useAuth = () => {
     }
   }, []);
 
-  // Initialize auth state
+  // Initialize auth state with retry logic
   useEffect(() => {
     console.log('useAuth: initializing auth hook');
     setLoading(true);
     
-    // First, get the current session
+    // First, get the current session with retry logic
     const initializeAuth = async () => {
       try {
-        // Get current session
-        const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error('useAuth: Error getting initial session:', sessionError);
-          setLoading(false);
-          setInitialized(true);
-          return;
-        }
+        // Create a timeout promise
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Auth initialization timed out')), AUTH_RETRY_CONFIG.timeoutDuration);
+        });
+
+        // Get current session with retry logic
+        const sessionPromise = retryWithBackoff(async () => {
+          const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+          
+          if (sessionError) {
+            console.error('useAuth: Error getting initial session:', sessionError);
+            throw sessionError;
+          }
+          
+          return { currentSession };
+        });
+
+        // Race the session promise against the timeout
+        const { currentSession } = await Promise.race([
+          sessionPromise,
+          timeoutPromise.then(() => {
+            console.error('useAuth: Session retrieval timed out after', AUTH_RETRY_CONFIG.timeoutDuration, 'ms');
+            throw new Error('Session retrieval timed out');
+          })
+        ]) as { currentSession: Session | null };
         
         if (currentSession) {
           console.log('useAuth: Initial session found:', {
@@ -166,10 +235,13 @@ export const useAuth = () => {
       const normalizedEmail = email.trim().toLowerCase();
       console.log('useAuth: attempting to sign in with:', normalizedEmail);
       
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: normalizedEmail,
-        password
-      });
+      // Use retry logic for sign in
+      const { data, error: signInError } = await retryWithBackoff(
+        () => supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password
+        })
+      );
       
       if (signInError) {
         console.error('useAuth: Supabase sign in error:', signInError);
@@ -211,16 +283,20 @@ export const useAuth = () => {
   const signUp = async (email: string, password: string) => {
     try {
       console.log('useAuth: attempting to sign up:', email);
-      const { data, error } = await supabase.auth.signUp({
-        email: email.trim().toLowerCase(),
-        password,
-        options: {
-          data: {
-            role: 'customer'
-          },
-          emailRedirectTo: `${window.location.origin}/auth/callback`
-        }
-      });
+      
+      // Use retry logic for sign up
+      const { data, error } = await retryWithBackoff(
+        () => supabase.auth.signUp({
+          email: email.trim().toLowerCase(),
+          password,
+          options: {
+            data: {
+              role: 'customer'
+            },
+            emailRedirectTo: `${window.location.origin}/auth/callback`
+          }
+        })
+      );
       
       if (error) {
         console.error('useAuth: sign up error:', error);
@@ -266,8 +342,10 @@ export const useAuth = () => {
         }
       });
       
-      // Then attempt to sign out from Supabase
-      const { error } = await supabase.auth.signOut();
+      // Then attempt to sign out from Supabase with retry logic
+      const { error } = await retryWithBackoff(
+        () => supabase.auth.signOut()
+      );
       
       if (error) {
         console.error('useAuth: sign out error from Supabase:', error);
@@ -329,9 +407,12 @@ export const useAuth = () => {
         hasResetPasswordMethod: !!supabase?.auth?.resetPasswordForEmail
       });
       
-      const { data, error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-        redirectTo
-      });
+      // Use retry logic for password reset
+      const { data, error: resetError } = await retryWithBackoff(
+        () => supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+          redirectTo
+        })
+      );
 
       console.log('useAuth: resetPasswordForEmail response:', { data, error: resetError });
 
@@ -359,9 +440,13 @@ export const useAuth = () => {
   const updatePassword = async (newPassword: string) => {
     try {
       console.log('useAuth: updating password');
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword
-      });
+      
+      // Use retry logic for password update
+      const { error } = await retryWithBackoff(
+        () => supabase.auth.updateUser({
+          password: newPassword
+        })
+      );
 
       if (error) {
         console.error('useAuth: Update password error:', error);
@@ -382,7 +467,11 @@ export const useAuth = () => {
   const getUser = async () => {
     try {
       console.log('useAuth: getting current user');
-      const { data: { user: currentUser }, error } = await supabase.auth.getUser();
+      
+      // Use retry logic for getting user
+      const { data: { user: currentUser }, error } = await retryWithBackoff(
+        () => supabase.auth.getUser()
+      );
       
       if (error) {
         console.error('useAuth: Error getting user:', error);

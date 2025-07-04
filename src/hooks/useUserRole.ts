@@ -5,10 +5,53 @@ import toast from 'react-hot-toast';
 
 export type UserRole = 'super_admin' | 'dealer' | 'customer' | null;
 
+// Configuration for retry logic
+const ROLE_RETRY_CONFIG = {
+  maxRetries: 3,
+  initialDelay: 1000, // 1 second
+  maxDelay: 5000, // 5 seconds
+};
+
 export const useUserRole = () => {
   const { user, loading } = useAuth();
   const [role, setRole] = useState<UserRole>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  /**
+   * Sleep utility function for retry delays
+   */
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  /**
+   * Retry function with exponential backoff
+   */
+  const retryWithBackoff = async <T>(
+    fn: () => Promise<T>,
+    maxRetries: number = ROLE_RETRY_CONFIG.maxRetries,
+    initialDelay: number = ROLE_RETRY_CONFIG.initialDelay,
+    maxDelay: number = ROLE_RETRY_CONFIG.maxDelay
+  ): Promise<T> => {
+    let retries = 0;
+    let delay = initialDelay;
+
+    while (true) {
+      try {
+        return await fn();
+      } catch (error) {
+        if (retries >= maxRetries) {
+          console.error(`Failed after ${maxRetries} retries:`, error);
+          throw error;
+        }
+
+        console.warn(`Attempt ${retries + 1} failed, retrying in ${delay}ms...`, error);
+        await sleep(delay);
+        
+        // Exponential backoff with jitter
+        delay = Math.min(delay * 1.5 + Math.random() * 300, maxDelay);
+        retries++;
+      }
+    }
+  };
 
   // Function to update user role via Edge Function
   const updateUserRole = async (userId: string, newRole: UserRole) => {
@@ -20,19 +63,21 @@ export const useUserRole = () => {
         throw new Error('No active session');
       }
       
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-user-role`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({
-            targetUserId: userId,
-            newRole,
-          }),
-        }
+      const response = await retryWithBackoff(
+        () => fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-user-role`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              targetUserId: userId,
+              newRole,
+            }),
+          }
+        )
       );
       
       if (!response.ok) {
@@ -62,9 +107,11 @@ export const useUserRole = () => {
         
         // First try to update role using client-side method
         try {
-          const { error } = await supabase.auth.updateUser({
-            data: { role: 'customer' }
-          });
+          const { error } = await retryWithBackoff(
+            () => supabase.auth.updateUser({
+              data: { role: 'customer' }
+            })
+          );
           
           if (error) throw error;
           
@@ -77,7 +124,9 @@ export const useUserRole = () => {
           await updateUserRole(currentUser.id, 'customer');
           
           // Refresh session to get updated metadata
-          await supabase.auth.refreshSession();
+          await retryWithBackoff(
+            () => supabase.auth.refreshSession()
+          );
           // Don't call refreshUser here - the session refresh will trigger auth state change
           setRole('customer'); // Set role immediately for UI responsiveness
         }

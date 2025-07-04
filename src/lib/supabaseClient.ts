@@ -15,7 +15,20 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    flowType: 'pkce' // Use PKCE flow for better security
+  },
+  global: {
+    fetch: (...args) => {
+      // Add a timeout to all fetch requests
+      const [url, options] = args;
+      return Promise.race([
+        fetch(url, options),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Supabase request timeout')), 15000)
+        )
+      ]) as Promise<Response>;
+    }
   }
 });
 
