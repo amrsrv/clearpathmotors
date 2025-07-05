@@ -3,6 +3,7 @@ import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
 import { useAuth } from './hooks/useAuth';
+import { manageAnalytics, trackPageView } from './utils/analytics';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import Home from './pages/Home';
@@ -80,10 +81,14 @@ const App = () => {
   }, [location.pathname]);
 
   useEffect(() => {
-    if (window.fbq) {
-      window.fbq('track', 'PageView');
+    // Manage analytics based on authentication status
+    manageAnalytics(!!user);
+    
+    // Only track page views for unauthenticated users
+    if (!user) {
+      trackPageView();
     }
-  }, [location.pathname]);
+  }, [location.pathname, user]);
 
   const handleMobileNav = (section: string) => {
     setActiveDashboardSection(section);
