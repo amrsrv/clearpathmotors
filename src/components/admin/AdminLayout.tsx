@@ -20,8 +20,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleSignOut = async () => {
-    await signOut();
-    navigate('/login');
+    signOut();
   };
 
   const navigation = [

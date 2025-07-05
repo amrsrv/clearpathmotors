@@ -72,7 +72,7 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, requiresAdmin }) 
 
 const App = () => {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, initialized } = useAuth();
   const [activeDashboardSection, setActiveDashboardSection] = useState('overview'); // New state for dashboard sections
 
   useLayoutEffect(() => {
@@ -96,13 +96,24 @@ const App = () => {
   };
 
   // Check if we should show the footer (hide on dashboard, admin pages, and get-prequalified)
-  const shouldShowFooter = !location.pathname.startsWith('/get-prequalified') && 
-                          !location.pathname.startsWith('/admin') && 
-                          !location.pathname.startsWith('/dashboard');
+  const shouldShowFooter = 
+    !location.pathname.startsWith('/get-prequalified') && 
+    !location.pathname.startsWith('/admin') && 
+    !location.pathname.startsWith('/dashboard') &&
+    !location.pathname.startsWith('/login') &&
+    !location.pathname.startsWith('/signup') &&
+    !location.pathname.startsWith('/reset-password') &&
+    !location.pathname.startsWith('/update-password');
 
   return (
     <div className="min-h-screen bg-secondary-50 text-gray-900 font-sans">
-      {!location.pathname.startsWith('/admin') && <Navbar />}
+      {!location.pathname.startsWith('/admin') && 
+       !location.pathname.startsWith('/login') && 
+       !location.pathname.startsWith('/signup') && 
+       !location.pathname.startsWith('/reset-password') && 
+       !location.pathname.startsWith('/update-password') && 
+       initialized && 
+       <Navbar />}
       <main className={location.pathname.startsWith('/admin') ? '' : 'pt-16 md:pt-24'}> 
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
@@ -201,7 +212,7 @@ const App = () => {
           </Routes>
         </AnimatePresence>
       </main>
-      {shouldShowFooter && <Footer />}
+      {shouldShowFooter && initialized && <Footer />}
       {!location.pathname.startsWith('/admin') && user && location.pathname === '/dashboard' && (
         <MobileNavBar onNavigate={handleMobileNav} activeSection={activeDashboardSection} />
       )}
