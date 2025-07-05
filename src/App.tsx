@@ -76,6 +76,8 @@ const App = () => {
   const location = useLocation();
   const { user } = useAuth();
   const [activeDashboardSection, setActiveDashboardSection] = useState('overview'); // New state for dashboard sections
+
+  useEffect(() => {
     // Manage analytics based on authentication status
     const isAuthenticated = !!user;
     manageAnalytics(isAuthenticated);
