@@ -4,7 +4,6 @@ import { AnimatePresence } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
 import { useAuth } from './hooks/useAuth';
 import { manageAnalytics, trackPageView } from './utils/analytics';
-import { manageAnalytics, trackPageView } from './utils/analytics';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import Home from './pages/Home';
