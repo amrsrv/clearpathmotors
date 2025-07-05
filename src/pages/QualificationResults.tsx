@@ -243,14 +243,7 @@ const QualificationResults = () => {
         console.log('QualificationResults: Application updated successfully');
         
         // Navigate to the loan results page
-        navigate('/loan-results', {
-          state: {
-            loanRange: prequalificationData.loanRange,
-            vehicleType: prequalificationData.vehicleType,
-            monthlyBudget: prequalificationData.monthlyBudget,
-            applicationId
-          }
-        });
+        navigate('/dashboard');
       }
     } catch (error) {
       console.error('QualificationResults: Error in handleSignUp:', error);
