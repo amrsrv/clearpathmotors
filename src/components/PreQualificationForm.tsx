@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
-import { toast } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { Input } from './ui/input';
 import { Slider } from './ui/slider';
 import { Button } from './ui/button';
@@ -14,6 +14,7 @@ import { vehicles } from '../pages/Vehicles';
 import { useAuth } from '../hooks/useAuth';
 import { useLocation } from 'react-router-dom';
 import ExistingUserModal from './ExistingUserModal';
+import type { CreditScoreBand } from '../types/database';
 
 interface PreQualificationFormProps {
   onComplete: (applicationId: string, tempUserId: string, formData: any) => void;
@@ -224,22 +225,31 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       }, 100);
     }
   };
+
+  // Function to determine credit score band based on credit score
+  const getCreditScoreBand = (score: number): CreditScoreBand => {
+    if (score >= 750) return 'excellent';
+    if (score >= 660) return 'good';
+    if (score >= 560) return 'fair';
+    return 'poor';
+  };
   
   // Function to handle form submission
   const onSubmit = async (data: FormValues) => {
     console.log('FORM SUBMISSION STARTED - Setting isSubmitting to true');
     setIsSubmitting(true);
+    console.log('Form data being submitted:', JSON.stringify(data, null, 2));
     
     try {
       console.log('PreQualificationForm: Submitting application with data:', {
         ...data, 
-        // Mask sensitive data in logs
         password: data.password ? '********' : undefined,
         confirmPassword: data.confirmPassword ? '********' : undefined
       });
       
       // Use the temp user ID we generated
       let currentTempUserId = tempUserId;
+      console.log('Current tempUserId:', currentTempUserId);
       
       // If we don't have a temp user ID, generate one now
       if (!currentTempUserId) {
@@ -251,16 +261,22 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       // Calculate loan amount range based on monthly payment
       // This is a simplified calculation and should be replaced with your actual business logic
       const interestRate = 5.99;
+      const interestRateMax = 7.99;
       const loanTerm = 60; // 5 years in months
       const monthlyRate = interestRate / 1200;
       const paymentFactor = (monthlyRate * Math.pow(1 + monthlyRate, loanTerm)) / (Math.pow(1 + monthlyRate, loanTerm) - 1);
       
       // Calculate loan amount based on desired monthly payment
       const loanAmount = data.desired_monthly_payment / paymentFactor;
+      console.log('Calculated loan amount:', loanAmount);
       
       // Set loan range (min and max)
       const loanAmountMin = Math.round(loanAmount * 0.8);
       const loanAmountMax = Math.round(loanAmount * 1.2);
+
+      // Determine credit score band
+      const creditScoreBand = getCreditScoreBand(data.credit_score);
+      console.log('PreQualificationForm: Credit score band:', creditScoreBand);
       
       // Prepare application data
       const applicationData = {
@@ -284,13 +300,21 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         phone: data.phone,
         loan_amount_min: loanAmountMin,
         loan_amount_max: loanAmountMax,
+        interest_rate_min: interestRate,
+        interest_rate_max: interestRateMax,
         interest_rate: interestRate,
+        loan_term_min: loanTerm,
+        loan_term_max: 84, // Maximum term length
         loan_term: loanTerm,
+        credit_score_band: creditScoreBand,
+        monthly_rent_or_mortgage: data.housing_payment,
+        has_driver_license: true,
         status: 'pending_documents',
         current_stage: 1,
         consent_soft_check: data.consent_soft_check,
         terms_accepted: data.terms_accepted,
       };
+      console.log('Application data prepared:', JSON.stringify(applicationData, null, 2));
       
       console.log('PreQualificationForm: Prepared application data:', {
         ...applicationData,
@@ -315,6 +339,10 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         if (error) {
           console.error('PreQualificationForm: Error submitting application:', error);
           console.log('PreQualificationForm: Error details:', JSON.stringify(error, null, 2));
+          console.log('PreQualificationForm: Error code:', insertError.code);
+          console.log('PreQualificationForm: Error message:', insertError.message);
+          console.log('PreQualificationForm: Error details:', insertError.details);
+          console.log('PreQualificationForm: Error hint:', insertError.hint);
           
           if (error.code === '23505') {
             toast.error('An application with this email already exists.');
@@ -322,6 +350,8 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
             toast.error('Permission denied. Please check your credentials.');
           } else if (error.code === '22P02') {
             toast.error('Invalid data format. Please check your inputs.');
+          } else if (insertError.code === 'PGRST204') {
+            toast.error('Database schema error. Please contact support.');
           } else {
             toast.error('Failed to submit application. Please try again.');
           }
@@ -331,6 +361,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         }
         
         console.log('PreQualificationForm: Application submitted successfully:', application.id);
+        console.log('PreQualificationForm: Full application response:', JSON.stringify(application, null, 2));
         
         // Create initial application stage
         try {
@@ -347,6 +378,8 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
           if (stageError) {
             console.error('PreQualificationForm: Error creating application stage:', stageError);
             console.log('PreQualificationForm: Stage error details:', JSON.stringify(stageError, null, 2));
+            console.log('PreQualificationForm: Stage error code:', stageError.code);
+            console.log('PreQualificationForm: Stage error message:', stageError.message);
             // Continue despite stage error
           } else {
             console.log('PreQualificationForm: Application stage created successfully');
@@ -372,12 +405,15 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
             
           if (notificationError) {
             console.error('PreQualificationForm: Error creating welcome notification:', notificationError);
+            console.log('PreQualificationForm: Notification error code:', notificationError.code);
+            console.log('PreQualificationForm: Notification error message:', notificationError.message);
             // Continue despite notification error
           } else {
             console.log('PreQualificationForm: Welcome notification created successfully');
           }
         } catch (notificationError) {
           console.error('PreQualificationForm: Exception creating notification:', notificationError);
+          console.log('PreQualificationForm: Notification error details:', notificationError instanceof Error ? notificationError.message : JSON.stringify(notificationError));
           // Continue despite notification error
         }
         
@@ -387,25 +423,37 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
           tempUserId: currentTempUserId
         });
         
+        console.log('PreQualificationForm: Right before calling onComplete');
+        
         toast.success('Application submitted successfully!');
         onComplete(application.id, currentTempUserId, {
           ...data,
           password: data.password || '', // Password will be set in the claim page
           loan_amount_min: loanAmountMin,
-          loan_amount_max: loanAmountMax,
+          loan_amount_max: loanAmountMax, 
+          interest_rate_min: interestRate,
+          interest_rate_max: interestRateMax,
+          loan_term_min: loanTerm,
+          loan_term_max: 84,
+          credit_score_band: creditScoreBand,
+          monthly_rent_or_mortgage: data.housing_payment,
           interest_rate: interestRate
         });
+        
+        console.log('PreQualificationForm: After calling onComplete');
         
         console.log('PreQualificationForm: onComplete called successfully');
       } catch (insertError) {
         console.error('PreQualificationForm: Exception during Supabase insert:', insertError);
         console.log('PreQualificationForm: Insert error details:', insertError instanceof Error ? insertError.message : JSON.stringify(insertError));
+        console.log('PreQualificationForm: Insert error stack:', insertError instanceof Error ? insertError.stack : 'No stack trace available');
         toast.error('Failed to submit application. Please try again.');
       }
       
     } catch (error) {
       console.error('PreQualificationForm: Error in form submission (caught in try-catch):', error);
       console.log('PreQualificationForm: Error details:', error instanceof Error ? error.message : JSON.stringify(error));
+      console.log('PreQualificationForm: Error stack:', error instanceof Error ? error.stack : 'No stack trace available');
       toast.error('An error occurred. Please try again.');
     } finally {
       console.log('PreQualificationForm: Finally block reached, setting isSubmitting to false');
@@ -676,11 +724,25 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Province
                         </label>
-                        <Input
+                        <select
                           {...field}
-                          placeholder="Ontario"
-                          className={`${error ? 'border-red-500' : ''} text-base`}
-                        />
+                          className={`w-full h-11 rounded-lg border ${error ? 'border-red-500' : 'border-gray-300'} focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent px-4 py-2 text-base`}
+                        >
+                          <option value="">Select Province</option>
+                          <option value="AB">Alberta</option>
+                          <option value="BC">British Columbia</option>
+                          <option value="MB">Manitoba</option>
+                          <option value="NB">New Brunswick</option>
+                          <option value="NL">Newfoundland and Labrador</option>
+                          <option value="NS">Nova Scotia</option>
+                          <option value="NT">Northwest Territories</option>
+                          <option value="NU">Nunavut</option>
+                          <option value="ON">Ontario</option>
+                          <option value="PE">Prince Edward Island</option>
+                          <option value="QC">Quebec</option>
+                          <option value="SK">Saskatchewan</option>
+                          <option value="YT">Yukon</option>
+                        </select>
                         {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
                       </div>
                     )}
@@ -715,6 +777,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                         <select
                           {...field}
                           className={`w-full h-11 rounded-lg border ${error ? 'border-red-500' : 'border-gray-300'} focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent px-4 py-2 text-base`}
+                          required
                         >
                           <option value="">Select Housing Status</option>
                           <option value="own">Own</option>
@@ -763,6 +826,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                         <select
                           {...field}
                           className={`w-full h-11 rounded-lg border ${error ? 'border-red-500' : 'border-gray-300'} focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent px-4 py-2 text-base`}
+                          required
                         >
                           <option value="">Select Employment Status</option>
                           <option value="employed">Employed</option>
@@ -937,7 +1001,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                               htmlFor="terms_accepted"
                               className="ml-2 text-sm text-gray-600"
                             >
-                              I accept the <a href="/terms" className="text-[#3BAA75] hover:underline">terms and conditions</a> and <a href="/privacy" className="text-[#3BAA75] hover:underline">privacy policy</a>
+                              I accept the <a href="/terms" className="text-[#3BAA75] hover:underline">terms and conditions</a> and <a href="/privacy" className=\"text-[#3BAA75] hover:underline">privacy policy</a>
                             </label>
                           </div>
                         )}
@@ -957,22 +1021,23 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       {/* Sticky Footer Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-white p-4 shadow-lg border-t border-gray-100 z-50">
         <div className="max-w-3xl mx-auto flex justify-between">
-          {currentStep > 1 ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handlePrevStep}
-              disabled={isSubmitting}
-              className="w-24"
-            >
-              Back
-            </Button>
-          ) : (
-            <div className="w-24">{/* Empty div to maintain flex spacing */}</div>
+          {currentStep > 1 && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handlePrevStep}
+                disabled={isSubmitting}
+                className="w-24"
+              >
+                Back
+              </Button>
+              <div className="w-24">{/* Empty div to maintain flex spacing */}</div>
+            </>
           )}
           
           <div className="flex items-center justify-center">
-            {Array.from({ length: totalSteps }).map((_, index) => (
+            {Array.from({ length: totalSteps }, (_, index) => (
               <div 
                 key={index}
                 className={`w-2 h-2 rounded-full mx-1 ${
