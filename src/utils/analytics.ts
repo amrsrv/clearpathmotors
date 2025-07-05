@@ -26,6 +26,7 @@ export const injectGoogleAnalytics = () => {
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
+    gtag('config', 'G-RD8VCZ49QT');
   `;
   document.head.appendChild(gtagScript);
 };
@@ -48,10 +49,10 @@ export const removeGoogleAnalytics = () => {
 
   // Clean up any global variables
   if (window.dataLayer) {
-    window.dataLayer = undefined;
+    delete window.dataLayer;
   }
   if (window.gtag) {
-    window.gtag = undefined;
+    delete window.gtag;
   }
 };
 
@@ -77,6 +78,7 @@ export const injectMetaPixel = () => {
     s.parentNode.insertBefore(t,s)}(window, document,'script',
     'https://connect.facebook.net/en_US/fbevents.js');
     fbq('init', '1739938766881223');
+    fbq('track', 'PageView');
   `;
   document.head.appendChild(fbScript);
 
@@ -110,15 +112,15 @@ export const removeMetaPixel = () => {
 
   // Clean up any global variables
   if (window.fbq) {
-    window.fbq = undefined;
+    delete window.fbq;
   }
   if (window._fbq) {
-    window._fbq = undefined;
+    delete window._fbq;
   }
 };
 
 /**
- * Tracks a page view with Meta Pixel if it's loaded
+ * Tracks a page view with analytics if they're enabled
  */
 export const trackPageView = () => {
   // Only track page views if analytics are enabled

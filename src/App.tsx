@@ -4,6 +4,7 @@ import { AnimatePresence } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
 import { useAuth } from './hooks/useAuth';
 import { manageAnalytics, trackPageView } from './utils/analytics';
+import { manageAnalytics, trackPageView } from './utils/analytics';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import Home from './pages/Home';
@@ -75,10 +76,13 @@ const App = () => {
   const location = useLocation();
   const { user } = useAuth();
   const [activeDashboardSection, setActiveDashboardSection] = useState('overview'); // New state for dashboard sections
-
-  useLayoutEffect(() => {
-    window.scrollTo(0, 0);
-  }, [location.pathname]);
+    // Manage analytics based on authentication status
+    const isAuthenticated = !!user;
+    manageAnalytics(isAuthenticated);
+    
+    // Only track page views for unauthenticated users
+    trackPageView(); // This will only execute tracking if analyticsEnabled is true
+  }, [location.pathname, user]);
 
   useEffect(() => {
     // Manage analytics based on authentication status
