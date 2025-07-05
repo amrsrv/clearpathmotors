@@ -1001,16 +1001,18 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       <div className="fixed bottom-0 left-0 right-0 bg-white p-4 shadow-lg border-t border-gray-100 z-50">
         <div className="max-w-3xl mx-auto flex justify-between">
           {currentStep > 1 ? (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handlePrevStep}
-              disabled={isSubmitting}
-              className="w-24"
-            >
-              Back
-            </Button>
-            <div className="w-24">{/* Empty div to maintain flex spacing */}</div>
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handlePrevStep}
+                disabled={isSubmitting}
+                className="w-24"
+              >
+                Back
+              </Button>
+              <div className="w-24">{/* Empty div to maintain flex spacing */}</div>
+            </>
           )}
           
           <div className="flex items-center justify-center">
