@@ -107,9 +107,7 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-secondary-50 text-gray-900 font-sans">
-      {!location.pathname.startsWith('/admin') && 
-       initialized && 
-       <Navbar />}
+      {!location.pathname.startsWith('/admin') && <Navbar />}
       <main className={location.pathname.startsWith('/admin') ? '' : 'pt-16 md:pt-24'}> 
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
@@ -208,7 +206,7 @@ const App = () => {
           </Routes>
         </AnimatePresence>
       </main>
-      {shouldShowFooter && initialized && <Footer />}
+      {shouldShowFooter && <Footer />}
       {!location.pathname.startsWith('/admin') && user && location.pathname === '/dashboard' && (
         <MobileNavBar onNavigate={handleMobileNav} activeSection={activeDashboardSection} />
       )}
