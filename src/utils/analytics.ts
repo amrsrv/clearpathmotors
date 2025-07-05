@@ -1,5 +1,8 @@
 // Analytics utility functions for conditionally loading tracking scripts
 
+// Flag to track whether analytics are enabled
+let analyticsEnabled = false;
+
 /**
  * Injects Google Analytics scripts into the document
  */
@@ -23,7 +26,6 @@ export const injectGoogleAnalytics = () => {
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
     gtag('js', new Date());
-    gtag('config', 'G-RD8VCZ49QT');
   `;
   document.head.appendChild(gtagScript);
 };
@@ -75,7 +77,6 @@ export const injectMetaPixel = () => {
     s.parentNode.insertBefore(t,s)}(window, document,'script',
     'https://connect.facebook.net/en_US/fbevents.js');
     fbq('init', '1739938766881223');
-    fbq('track', 'PageView');
   `;
   document.head.appendChild(fbScript);
 
@@ -120,6 +121,17 @@ export const removeMetaPixel = () => {
  * Tracks a page view with Meta Pixel if it's loaded
  */
 export const trackPageView = () => {
+  // Only track page views if analytics are enabled
+  if (!analyticsEnabled) {
+    return;
+  }
+
+  // Track Google Analytics page view
+  if (window.gtag) {
+    window.gtag('config', 'G-RD8VCZ49QT');
+  }
+
+  // Track Meta Pixel page view
   if (window.fbq) {
     window.fbq('track', 'PageView');
   }
@@ -130,6 +142,9 @@ export const trackPageView = () => {
  * @param isAuthenticated Whether the user is authenticated
  */
 export const manageAnalytics = (isAuthenticated: boolean) => {
+  // Update the analytics enabled flag
+  analyticsEnabled = !isAuthenticated;
+
   if (isAuthenticated) {
     // User is logged in, remove tracking scripts
     removeGoogleAnalytics();

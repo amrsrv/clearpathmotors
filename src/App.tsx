@@ -82,12 +82,11 @@ const App = () => {
 
   useEffect(() => {
     // Manage analytics based on authentication status
-    manageAnalytics(!!user);
+    const isAuthenticated = !!user;
+    manageAnalytics(isAuthenticated);
     
     // Only track page views for unauthenticated users
-    if (!user) {
-      trackPageView();
-    }
+    trackPageView(); // This will only execute tracking if analyticsEnabled is true
   }, [location.pathname, user]);
 
   const handleMobileNav = (section: string) => {
