@@ -35,7 +35,7 @@ const formSchema = z.object({
   city: z.string().min(1, 'City is required'),
   province: z.string().min(1, 'Province is required'),
   postal_code: z.string().min(1, 'Postal code is required')
-    .regex(/^[A-Za-z]d[A-Za-z][ -]?\d[A-Za-z]\d$/, 'Please enter a valid postal code'),
+    .regex(/^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/, 'Please enter a valid postal code'),
   housing_status: z.string().min(1, 'Housing status is required'),
   housing_payment: z.number().min(0, 'Housing payment must be a positive number'),
   
@@ -676,11 +676,25 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Province
                         </label>
-                        <Input
+                        <select
                           {...field}
-                          placeholder="Ontario"
-                          className={`${error ? 'border-red-500' : ''} text-base`}
-                        />
+                          className={`w-full h-11 rounded-lg border ${error ? 'border-red-500' : 'border-gray-300'} focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent px-4 py-2 text-base`}
+                        >
+                          <option value="">Select Province</option>
+                          <option value="AB">Alberta</option>
+                          <option value="BC">British Columbia</option>
+                          <option value="MB">Manitoba</option>
+                          <option value="NB">New Brunswick</option>
+                          <option value="NL">Newfoundland and Labrador</option>
+                          <option value="NS">Nova Scotia</option>
+                          <option value="NT">Northwest Territories</option>
+                          <option value="NU">Nunavut</option>
+                          <option value="ON">Ontario</option>
+                          <option value="PE">Prince Edward Island</option>
+                          <option value="QC">Quebec</option>
+                          <option value="SK">Saskatchewan</option>
+                          <option value="YT">Yukon</option>
+                        </select>
                         {error && <p className="mt-1 text-sm text-red-600">{error.message}</p>}
                       </div>
                     )}
