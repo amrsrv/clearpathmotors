@@ -38,6 +38,38 @@ export type DebtDischargeStatusEnum =
   | 'active'
   | 'discharged';
 
+export type CreditScoreBand = 
+  | 'poor'
+  | 'fair'
+  | 'good'
+  | 'excellent'
+  | 'not_sure';
+
+export type CurrentVehicleStatus = 
+  | 'own'
+  | 'lease'
+  | 'none'
+  | 'trade_in';
+
+export type LicenseType = 
+  | 'g'
+  | 'g2'
+  | 'g1'
+  | 'none';
+
+export type AddressDurationText = 
+  | 'less_than_6_months'
+  | '6_to_12_months'
+  | '1_to_3_years'
+  | '3_plus_years';
+
+export type CosignerCreditScore = 
+  | 'poor'
+  | 'fair'
+  | 'good'
+  | 'excellent'
+  | 'not_sure';
+
 export type PreferredContactMethodEnum = 
   | 'email'
   | 'phone'
@@ -78,13 +110,29 @@ export interface Application {
   annual_income: number | null;
   monthly_income: number | null;
   credit_score: number | null;
+  credit_score_band: CreditScoreBand | null;
   vehicle_type: string | null;
   desired_monthly_payment: number | null;
   loan_amount_min: number | null;
   loan_amount_max: number | null;
   interest_rate: number | null;
+  interest_rate_min: number | null;
+  interest_rate_max: number | null;
   loan_term: number | null;
+  loan_term_min: number | null;
+  loan_term_max: number | null;
   down_payment: number | null;
+  down_payment_amount: number | null;
+  monthly_rent_or_mortgage: number | null;
+  current_vehicle_status: CurrentVehicleStatus | null;
+  license_type: LicenseType | null;
+  address_duration_text: AddressDurationText | null;
+  has_cosigner: boolean | null;
+  cosigner_credit_score: CosignerCreditScore | null;
+  declared_bankruptcy: boolean | null;
+  vehicle_repossession: boolean | null;
+  consumer_proposal: boolean | null;
+  consent_credit_check: boolean | null;
   full_name: string | null;
   income: number | null;
   date_of_birth: string | null;
