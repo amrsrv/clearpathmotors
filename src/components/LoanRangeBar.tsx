@@ -7,6 +7,7 @@ interface LoanRangeBarProps {
   max: number;
   rate_min: number;
   rate_max: number;
+  rate_max: number;
 }
 
 export const LoanRangeBar: React.FC<LoanRangeBarProps> = ({ min, max, rate_min, rate_max }) => {
@@ -40,13 +41,11 @@ export const LoanRangeBar: React.FC<LoanRangeBarProps> = ({ min, max, rate_min, 
         </motion.div>
         
         <motion.div
-          transition={{ delay: 0.5 }} 
           transition={{ delay: 0.4 }}
+          className="flex items-center justify-center gap-2 mt-4"
         >
-          <div className="text-xs sm:text-sm text-white/60 mb-1">Maximum</div>
-          <div className="text-base sm:text-xl font-semibold">{formatCurrency(max)}</div>
-        </motion.div>
-      </div>
+          <div className="text-xs sm:text-sm text-white/60">Interest Rate</div>
+          <div className="text-base sm:text-lg font-semibold">{rate_min}% - {rate_max}% APR</div>
 
       <div className="relative">
         <div className="h-2 bg-white/10 rounded-full overflow-hidden">
