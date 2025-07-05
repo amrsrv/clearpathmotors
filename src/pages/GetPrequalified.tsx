@@ -85,16 +85,13 @@ const GetPrequalified = () => {
     navigate('/qualification-results', {
       state: {
         fromApproval: true,
-        applicationId, 
-        tempUserId, 
+        applicationId,
+        tempUserId,
         originalFormData: formData,
         loanRange: {
           min: formData.loan_amount_min || 15000,
           max: formData.loan_amount_max || 50000,
-          rate_min: formData.interest_rate_min || formData.interest_rate || 5.99,
-          rate_max: formData.interest_rate_max || (formData.interest_rate ? formData.interest_rate + 2 : 7.99),
-          term_min: formData.loan_term_min || formData.loan_term || 60,
-          term_max: formData.loan_term_max || 84
+          rate: formData.interest_rate || 5.99
         },
         vehicleType: formData.vehicle_type,
         monthlyBudget: formData.desired_monthly_payment
