@@ -305,7 +305,6 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         loan_term: loanTerm,
         credit_score_band: creditScoreBand,
         monthly_rent_or_mortgage: data.housing_payment,
-        consent_credit_check: data.consent_soft_check,
         has_driver_license: true,
         status: 'pending_documents',
         current_stage: 1,
