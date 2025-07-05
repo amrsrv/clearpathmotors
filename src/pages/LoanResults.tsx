@@ -13,8 +13,8 @@ const LoanResults: React.FC<LoanResultsProps> = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useAuth();
-  
-  const { loanRange, vehicleType, monthlyBudget, applicationId } = location.state || {};
+
+  const { loanRange, vehicleType, monthlyBudget, applicationId } = location.state || {}; 
 
   useEffect(() => {
     // Redirect if no loan data is available or user is not authenticated
@@ -25,7 +25,7 @@ const LoanResults: React.FC<LoanResultsProps> = () => {
   }, [loanRange, user, navigate]);
 
   // Calculate monthly payments based on loan amount and rate
-  const calculateMonthlyPayment = (amount: number, rate: number, term: number = 60) => {
+  const calculateMonthlyPayment = (amount: number, rate: number, term: number = 60) => { 
     const monthlyRate = rate / 1200;
     return Math.round(
       (amount * monthlyRate * Math.pow(1 + monthlyRate, term)) / 
@@ -33,9 +33,9 @@ const LoanResults: React.FC<LoanResultsProps> = () => {
     );
   };
 
-  const standardMonthlyPayment = calculateMonthlyPayment(loanRange?.min, loanRange?.rate + 3);
-  const competitiveMonthlyPayment = calculateMonthlyPayment(loanRange?.min, loanRange?.rate);
-  const monthlySavings = standardMonthlyPayment - competitiveMonthlyPayment;
+  const standardMonthlyPayment = calculateMonthlyPayment(loanRange?.min, loanRange?.rate_max + 3);
+  const competitiveMonthlyPayment = calculateMonthlyPayment(loanRange?.min, loanRange?.rate_min);
+  const monthlySavings = standardMonthlyPayment - competitiveMonthlyPayment; 
   const totalSavings = monthlySavings * 60; // Based on 60-month term
 
   // If no loan data is available, show loading state
@@ -64,9 +64,12 @@ const LoanResults: React.FC<LoanResultsProps> = () => {
         <div className="py-2">
           <div className="text-2xl font-bold text-[#3BAA75]">
             ${loanRange.min.toLocaleString()} - ${loanRange.max.toLocaleString()}
+          </div> 
+          <div className="text-sm text-gray-600 mt-1">
+            at {loanRange.rate_min}% - {loanRange.rate_max}% APR
           </div>
-          <div className="text-sm text-gray-600">
-            at {loanRange.rate}% APR
+          <div className="text-sm text-gray-600 mt-1">
+            {loanRange.term_min} - {loanRange.term_max} month terms
           </div>
         </div>
       </div>
@@ -104,7 +107,8 @@ const LoanResults: React.FC<LoanResultsProps> = () => {
                 <LoanRangeBar
                   min={loanRange.min}
                   max={loanRange.max}
-                  rate={loanRange.rate}
+                  rate_min={loanRange.rate_min}
+                  rate_max={loanRange.rate_max}
                 />
               </div>
             </div>
@@ -123,10 +127,10 @@ const LoanResults: React.FC<LoanResultsProps> = () => {
                   <div className="text-center">
                     <h3 className="text-lg font-medium text-gray-700 mb-4">Other Lenders</h3>
                     <div className="text-3xl font-bold text-gray-900 mb-2">
-                      ${standardMonthlyPayment}
+                      ${standardMonthlyPayment} 
                     </div>
                     <div className="text-sm text-gray-600">
-                      at {(loanRange.rate + 3).toFixed(2)}% APR
+                      at {(loanRange.rate_max + 3).toFixed(2)}% APR
                     </div>
                   </div>
                 </div>
@@ -137,8 +141,8 @@ const LoanResults: React.FC<LoanResultsProps> = () => {
                     <div className="text-3xl font-bold text-[#2A7A5B] mb-2">
                       ${competitiveMonthlyPayment}
                     </div>
-                    <div className="text-sm text-[#2A7A5B]/80">
-                      at {loanRange.rate}% APR
+                    <div className="text-sm text-[#2A7A5B]/80"> 
+                      at {loanRange.rate_min}% APR
                     </div>
                   </div>
                 </div>
@@ -151,9 +155,9 @@ const LoanResults: React.FC<LoanResultsProps> = () => {
                   <div>
                     <p className="text-emerald-800 font-medium">
                       Save ${monthlySavings.toLocaleString()} monthly
-                    </p>
+                    </p> 
                     <p className="text-sm text-emerald-600">
-                      That's ${totalSavings.toLocaleString()} over your 60-month term
+                      That's ${totalSavings.toLocaleString()} over your {loanRange.term_max}-month term
                     </p>
                   </div>
                 </div>

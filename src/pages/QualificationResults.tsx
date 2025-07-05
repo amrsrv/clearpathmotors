@@ -11,8 +11,11 @@ import { supabase } from '../lib/supabaseClient';
 interface PrequalificationData {
   loanRange: {
     min: number;
-    max: number;
-    rate: number;
+    max: number; 
+    rate_min: number;
+    rate_max: number;
+    term_min: number;
+    term_max: number;
   };
   vehicleType: string;
   monthlyBudget: number;
@@ -272,9 +275,12 @@ const QualificationResults = () => {
             <div className="py-2">
               <div className="text-2xl font-bold text-[#3BAA75]">
                 ${prequalificationData.loanRange.min.toLocaleString()} - ${prequalificationData.loanRange.max.toLocaleString()}
+              </div> 
+              <div className="text-sm text-gray-600 mt-1">
+                at {prequalificationData.loanRange.rate_min}% - {prequalificationData.loanRange.rate_max}% APR
               </div>
-              <div className="text-sm text-gray-600">
-                at {prequalificationData.loanRange.rate}% APR
+              <div className="text-sm text-gray-600 mt-1">
+                {prequalificationData.loanRange.term_min} - {prequalificationData.loanRange.term_max} month terms
               </div>
             </div>
           </>

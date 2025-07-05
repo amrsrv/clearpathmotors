@@ -5,10 +5,11 @@ import { DollarSign } from 'lucide-react';
 interface LoanRangeBarProps {
   min: number;
   max: number;
-  rate: number;
+  rate_min: number;
+  rate_max: number;
 }
 
-export const LoanRangeBar: React.FC<LoanRangeBarProps> = ({ min, max, rate }) => {
+export const LoanRangeBar: React.FC<LoanRangeBarProps> = ({ min, max, rate_min, rate_max }) => {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-CA', {
       style: 'currency',
@@ -40,11 +41,11 @@ export const LoanRangeBar: React.FC<LoanRangeBarProps> = ({ min, max, rate }) =>
         
         <motion.div
           initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }} 
           transition={{ delay: 0.4 }}
         >
           <div className="text-xs sm:text-sm text-white/60 mb-1">Maximum</div>
-          <div className="text-base sm:text-xl font-semibold">{formatCurrency(max)}</div>
+          <div className="text-base sm:text-lg font-semibold">{rate_min}% - {rate_max}% APR</div>
         </motion.div>
       </div>
 

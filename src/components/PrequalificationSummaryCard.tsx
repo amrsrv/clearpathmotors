@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { PreQualifiedBadge } from './PreQualifiedBadge';
-import { LoanRangeBar } from './LoanRangeBar';
+import { LoanRangeBar } from './LoanRangeBar'; 
 import type { Application } from '../types/database';
 
 interface PrequalificationSummaryCardProps {
@@ -41,8 +41,8 @@ export const PrequalificationSummaryCard: React.FC<PrequalificationSummaryCardPr
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex flex-col items-center md:items-start">
           <div className="mb-2">
-            <PreQualifiedBadge 
-              message={getBadgeMessage(application.status)} 
+            <PreQualifiedBadge
+              message={getBadgeMessage(application.status)}
               status={application.status || undefined}
             />
           </div>
@@ -65,10 +65,21 @@ export const PrequalificationSummaryCard: React.FC<PrequalificationSummaryCardPr
         <div className="bg-white rounded-lg p-4 shadow-sm">
           <div className="text-center">
             <div className="text-2xl font-bold text-[#3BAA75]">
-              ${application.loan_amount_min?.toLocaleString() || '15,000'} - ${application.loan_amount_max?.toLocaleString() || '50,000'}
+              ${application.loan_amount_min?.toLocaleString() || '15,000'} - ${application.loan_amount_max?.toLocaleString() || '50,000'} 
             </div>
-            <div className="text-sm text-gray-600">
-              at {application.interest_rate || 5.99}% APR
+            <div className="text-sm text-gray-600 mt-1">
+              {application.interest_rate_min && application.interest_rate_max ? (
+                <>at {application.interest_rate_min}% - {application.interest_rate_max}% APR</>
+              ) : (
+                <>at {application.interest_rate || 5.99}% APR</>
+              )}
+            </div>
+            <div className="text-sm text-gray-600 mt-1">
+              {application.loan_term_min && application.loan_term_max ? (
+                <>{application.loan_term_min} - {application.loan_term_max} month terms</>
+              ) : (
+                <>{application.loan_term || 60} month term</>
+              )}
             </div>
           </div>
         </div>
@@ -78,8 +89,9 @@ export const PrequalificationSummaryCard: React.FC<PrequalificationSummaryCardPr
       <div className="hidden md:block mt-4">
         <LoanRangeBar
           min={application.loan_amount_min || 15000}
-          max={application.loan_amount_max || 50000}
-          rate={application.interest_rate || 5.99}
+          max={application.loan_amount_max || 50000} 
+          rate_min={application.interest_rate_min || application.interest_rate || 5.99}
+          rate_max={application.interest_rate_max || (application.interest_rate ? application.interest_rate + 2 : 7.99)}
         />
       </div>
     </motion.div>

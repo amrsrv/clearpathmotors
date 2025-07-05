@@ -345,7 +345,7 @@ const EditApplication = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Vehicle Type
-              </label>
+              </label> 
               <input
                 type="text"
                 name="vehicle_type"
@@ -353,6 +353,24 @@ const EditApplication = () => {
                 onChange={handleChange}
                 className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Current Vehicle Status
+              </label>
+              <select
+                name="current_vehicle_status"
+                value={application.current_vehicle_status || ''}
+                onChange={handleChange}
+                className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+              >
+                <option value="">Select Status</option>
+                <option value="own">Own</option>
+                <option value="lease">Lease</option>
+                <option value="none">None</option>
+                <option value="trade_in">Trade-In</option>
+              </select>
             </div>
             
             <div>
@@ -370,7 +388,7 @@ const EditApplication = () => {
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Down Payment
+                Down Payment Amount
               </label>
               <input
                 type="number"
@@ -380,7 +398,20 @@ const EditApplication = () => {
                 className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
               />
             </div>
-            
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Monthly Rent/Mortgage
+              </label>
+              <input
+                type="number"
+                name="monthly_rent_or_mortgage"
+                value={application.monthly_rent_or_mortgage || ''}
+                onChange={handleChange}
+                className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+              />
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Loan Amount Min
@@ -409,6 +440,60 @@ const EditApplication = () => {
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
+                Interest Rate Min
+              </label>
+              <input
+                type="number"
+                name="interest_rate_min"
+                value={application.interest_rate_min || ''}
+                onChange={handleChange}
+                step="0.01"
+                className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Interest Rate Max
+              </label>
+              <input
+                type="number"
+                name="interest_rate_max"
+                value={application.interest_rate_max || ''}
+                onChange={handleChange}
+                step="0.01"
+                className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Loan Term Min (months)
+              </label>
+              <input
+                type="number"
+                name="loan_term_min"
+                value={application.loan_term_min || ''}
+                onChange={handleChange}
+                className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Loan Term Max (months)
+              </label>
+              <input
+                type="number"
+                name="loan_term_max"
+                value={application.loan_term_max || ''}
+                onChange={handleChange}
+                className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
                 Interest Rate
               </label>
               <input
@@ -419,6 +504,199 @@ const EditApplication = () => {
                 step="0.01"
                 className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Credit Score Band
+              </label>
+              <select
+                name="credit_score_band"
+                value={application.credit_score_band || ''}
+                onChange={handleChange}
+                className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+              >
+                <option value="">Select Credit Score Band</option>
+                <option value="excellent">Excellent (750+)</option>
+                <option value="good">Good (660-749)</option>
+                <option value="fair">Fair (560-659)</option>
+                <option value="poor">Poor (300-559)</option>
+                <option value="not_sure">Not Sure / New to Canada</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                License Type
+              </label>
+              <select
+                name="license_type"
+                value={application.license_type || ''}
+                onChange={handleChange}
+                className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+              >
+                <option value="">Select License Type</option>
+                <option value="g">G (Full License)</option>
+                <option value="g2">G2 (Intermediate License)</option>
+                <option value="g1">G1 (Beginner License)</option>
+                <option value="none">No License</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Employment Duration
+              </label>
+              <select
+                name="employment_duration"
+                value={application.employment_duration || ''}
+                onChange={handleChange}
+                className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+              >
+                <option value="">Select Duration</option>
+                <option value="less_than_6_months">Less than 6 months</option>
+                <option value="6_to_12_months">6-12 months</option>
+                <option value="1_plus_years">1+ years</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Address Duration
+              </label>
+              <select
+                name="address_duration_text"
+                value={application.address_duration_text || ''}
+                onChange={handleChange}
+                className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+              >
+                <option value="">Select Duration</option>
+                <option value="less_than_6_months">Less than 6 months</option>
+                <option value="6_to_12_months">6-12 months</option>
+                <option value="1_to_3_years">1-3 years</option>
+                <option value="3_plus_years">3+ years</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Credit History */}
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Credit History</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="declared_bankruptcy"
+                name="declared_bankruptcy"
+                checked={application.declared_bankruptcy || false}
+                onChange={(e) => handleChange({
+                  target: {
+                    name: e.target.name,
+                    value: e.target.checked
+                  }
+                } as React.ChangeEvent<HTMLInputElement>)}
+                className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+              />
+              <label htmlFor="declared_bankruptcy" className="ml-2 text-sm text-gray-700">
+                Declared Bankruptcy
+              </label>
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="consumer_proposal"
+                name="consumer_proposal"
+                checked={application.consumer_proposal || false}
+                onChange={(e) => handleChange({
+                  target: {
+                    name: e.target.name,
+                    value: e.target.checked
+                  }
+                } as React.ChangeEvent<HTMLInputElement>)}
+                className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+              />
+              <label htmlFor="consumer_proposal" className="ml-2 text-sm text-gray-700">
+                Consumer Proposal
+              </label>
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="vehicle_repossession"
+                name="vehicle_repossession"
+                checked={application.vehicle_repossession || false}
+                onChange={(e) => handleChange({
+                  target: {
+                    name: e.target.name,
+                    value: e.target.checked
+                  }
+                } as React.ChangeEvent<HTMLInputElement>)}
+                className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+              />
+              <label htmlFor="vehicle_repossession" className="ml-2 text-sm text-gray-700">
+                Vehicle Repossession
+              </label>
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="has_cosigner"
+                name="has_cosigner"
+                checked={application.has_cosigner || false}
+                onChange={(e) => handleChange({
+                  target: {
+                    name: e.target.name,
+                    value: e.target.checked
+                  }
+                } as React.ChangeEvent<HTMLInputElement>)}
+                className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+              />
+              <label htmlFor="has_cosigner" className="ml-2 text-sm text-gray-700">
+                Has Cosigner
+              </label>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Cosigner Credit Score
+              </label>
+              <select
+                name="cosigner_credit_score"
+                value={application.cosigner_credit_score || ''}
+                onChange={handleChange}
+                className="w-full rounded-lg border-gray-300 shadow-sm focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+              >
+                <option value="">Select Credit Score</option>
+                <option value="excellent">Excellent</option>
+                <option value="good">Good</option>
+                <option value="fair">Fair</option>
+                <option value="poor">Poor</option>
+                <option value="not_sure">Not Sure</option>
+              </select>
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="consent_credit_check"
+                name="consent_credit_check"
+                checked={application.consent_credit_check || false}
+                onChange={(e) => handleChange({
+                  target: {
+                    name: e.target.name,
+                    value: e.target.checked
+                  }
+                } as React.ChangeEvent<HTMLInputElement>)}
+                className="h-4 w-4 text-[#3BAA75] focus:ring-[#3BAA75] border-gray-300 rounded"
+              />
+              <label htmlFor="consent_credit_check" className="ml-2 text-sm text-gray-700">
+                Consent to Credit Check
+              </label>
             </div>
           </div>
         </div>
@@ -488,7 +766,7 @@ const EditApplication = () => {
         <div className="flex justify-end">
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving} 
             className="px-6 py-3 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors disabled:opacity-50 flex items-center gap-2"
           >
             {saving ? (

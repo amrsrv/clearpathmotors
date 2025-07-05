@@ -404,7 +404,7 @@ const AdminApplications = () => {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         {getStatusIcon(application.status)}
-                        <span className="text-sm font-medium">
+                        <span className="text-sm font-medium"> 
                           {formatStatus(application.status)}
                         </span>
                       </div>
@@ -415,17 +415,25 @@ const AdminApplications = () => {
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-900">
                         <div className="flex items-center gap-1">
-                          <DollarSign className="h-3 w-3" />
-                          ${application.loan_amount_min?.toLocaleString()} - ${application.loan_amount_max?.toLocaleString()}
+                          <DollarSign className="h-3 w-3" /> 
+                          ${application.loan_amount_min?.toLocaleString()} - ${application.loan_amount_max?.toLocaleString()} 
                         </div>
                         <div className="flex items-center gap-1 text-gray-500">
-                          <Car className="h-3 w-3" />
+                          <Car className="h-3 w-3" /> 
                           {application.vehicle_type}
+                        </div>
+                        <div className="flex items-center gap-1 text-gray-500">
+                          <DollarSign className="h-3 w-3" />
+                          {application.interest_rate_min && application.interest_rate_max ? 
+                            `${application.interest_rate_min}% - ${application.interest_rate_max}%` : 
+                            application.interest_rate ? `${application.interest_rate}%` : 'N/A'}
                         </div>
                         {application.credit_score && (
                           <div className="flex items-center gap-1 text-gray-500">
                             <CreditCard className="h-3 w-3" />
-                            Credit: {application.credit_score}
+                            Credit: {application.credit_score_band ? 
+                              application.credit_score_band.charAt(0).toUpperCase() + application.credit_score_band.slice(1) : 
+                              application.credit_score}
                           </div>
                         )}
                       </div>

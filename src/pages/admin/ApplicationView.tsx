@@ -535,25 +535,29 @@ const ApplicationView = () => {
                       <div className="flex items-center">
                         <DollarSign className="h-4 w-4 text-gray-400 mr-2" />
                         <span className="text-gray-700">
-                          Loan Range: ${application.loan_amount_min?.toLocaleString()} - ${application.loan_amount_max?.toLocaleString()}
+                          Loan Range: ${application.loan_amount_min?.toLocaleString()} - ${application.loan_amount_max?.toLocaleString()} 
                         </span>
                       </div>
                       <div className="flex items-center">
                         <DollarSign className="h-4 w-4 text-gray-400 mr-2" />
                         <span className="text-gray-700">
                           Monthly Payment: ${application.desired_monthly_payment?.toLocaleString()}
-                        </span>
+                        </span> 
                       </div>
                       <div className="flex items-center">
                         <Clock className="h-4 w-4 text-gray-400 mr-2" />
                         <span className="text-gray-700">
-                          Loan Term: {application.loan_term || 60} months
+                          Loan Term: {application.loan_term_min && application.loan_term_max ? 
+                            `${application.loan_term_min} - ${application.loan_term_max} months` : 
+                            `${application.loan_term || 60} months`}
                         </span>
                       </div>
                       <div className="flex items-center">
                         <DollarSign className="h-4 w-4 text-gray-400 mr-2" />
                         <span className="text-gray-700">
-                          Interest Rate: {application.interest_rate}%
+                          Interest Rate: {application.interest_rate_min && application.interest_rate_max ? 
+                            `${application.interest_rate_min}% - ${application.interest_rate_max}%` : 
+                            `${application.interest_rate}%`}
                         </span>
                       </div>
                     </div>
