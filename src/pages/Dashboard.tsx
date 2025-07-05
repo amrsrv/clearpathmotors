@@ -33,9 +33,9 @@ function isUuid(value: string | null | undefined): boolean {
 const FALLBACK_UUID = '00000000-0000-0000-0000-000000000000';
 
 const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }) => {
-  const { user, initialized } = useAuth();
+  const { user, initialized, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
+  const [dashboardDataLoading, setDashboardDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentApplication, setCurrentApplication] = useState<Application | null>(null);
   const [userApplications, setUserApplications] = useState<Application[]>([]);
@@ -52,40 +52,22 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
 
   useEffect(() => {
     // Wait for auth to be initialized before loading data
-    if (initialized) {
+    if (initialized && !authLoading && user) {
       console.log('Dashboard: Auth initialized, loading dashboard data');
       loadDashboardData();
-    } else {
+    } else if (initialized && !authLoading) {
+      console.log('Dashboard: Auth initialized but no user, redirecting to login');
+      navigate('/login');
+    } else if (!initialized || authLoading) {
       console.log('Dashboard: Auth not yet initialized, waiting...');
     }
-  }, [initialized]);
+  }, [initialized, authLoading, user, navigate]);
 
   // Add user to the dependency array to ensure data is reloaded when user changes
-  useEffect(() => {
-    if (initialized && user) {
-      console.log('Dashboard: User changed, reloading data');
-      loadDashboardData();
-    }
-  }, [user, initialized]);
-
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (initialized && !user) {
-      console.log('Dashboard: No authenticated user, redirecting to login');
-      navigate('/login');
-    }
-  }, [user, initialized, navigate]);
 
   const loadDashboardData = async () => {
-    // Early exit if no authenticated user is available
-    if (!initialized || !user) {
-      console.log('Dashboard: No authenticated user available, skipping data load');
-      setLoading(false);
-      return;
-    }
-    
     try {
-      setLoading(true);
+      setDashboardDataLoading(true);
       setError(null);
       
       console.log('Dashboard: Loading dashboard data with user:', user ? {
@@ -204,7 +186,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
       console.error('Dashboard: Error loading dashboard data:', error);
       setError('Failed to load dashboard data. Please try again.');
     } finally {
-      setLoading(false);
+      setDashboardDataLoading(false);
       setRefreshing(false);
     }
   };
@@ -474,12 +456,16 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
 
   const handleRefresh = () => {
     setRefreshing(true);
-    loadDashboardData();
+    if (user) {
+      loadDashboardData();
+    }
   };
 
   const handleRefreshProfile = () => {
     setRefreshing(true);
-    loadDashboardData();
+    if (user) {
+      loadDashboardData();
+    }
     toast.success('Profile refreshed successfully');
   };
 
@@ -572,13 +558,13 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
     );
   }
 
-  // Show loading state while data is being fetched
-  if (loading && !currentApplication) {
+  // Show loading state while dashboard data is being fetched
+  if (dashboardDataLoading && !currentApplication) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="flex flex-col items-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent mb-4" />
-          <p className="text-gray-600">Loading your dashboard...</p>
+          <p className="text-gray-600">Loading your dashboard data...</p>
         </div>
       </div>
     );
