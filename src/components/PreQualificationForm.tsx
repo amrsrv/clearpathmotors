@@ -1010,12 +1010,11 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
             >
               Back
             </Button>
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#3BAA75] hover:bg-[#2D8259] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3BAA75] disabled:opacity-75 disabled:cursor-not-allowed"
             <div className="w-24">{/* Empty div to maintain flex spacing */}</div>
           )}
           
           <div className="flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
+            {Array.from({ length: totalSteps }, (_, index) => (
               <div 
                 key={index}
                 className={`w-2 h-2 rounded-full mx-1 ${
