@@ -70,3 +70,5 @@ export const LoanRangeBar: React.FC<LoanRangeBarProps> = ({ min, max, rate_min, 
     </div>
   );
 };
+  )
+}
