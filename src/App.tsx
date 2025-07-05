@@ -108,10 +108,6 @@ const App = () => {
   return (
     <div className="min-h-screen bg-secondary-50 text-gray-900 font-sans">
       {!location.pathname.startsWith('/admin') && 
-       !location.pathname.startsWith('/login') && 
-       !location.pathname.startsWith('/signup') && 
-       !location.pathname.startsWith('/reset-password') && 
-       !location.pathname.startsWith('/update-password') && 
        initialized && 
        <Navbar />}
       <main className={location.pathname.startsWith('/admin') ? '' : 'pt-16 md:pt-24'}> 
