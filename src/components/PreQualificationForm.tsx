@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
-import { toast } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { Input } from './ui/input';
 import { Slider } from './ui/slider';
 import { Button } from './ui/button';
@@ -14,6 +14,7 @@ import { vehicles } from '../pages/Vehicles';
 import { useAuth } from '../hooks/useAuth';
 import { useLocation } from 'react-router-dom';
 import ExistingUserModal from './ExistingUserModal';
+import type { CreditScoreBand } from '../types/database';
 
 interface PreQualificationFormProps {
   onComplete: (applicationId: string, tempUserId: string, formData: any) => void;
@@ -224,6 +225,14 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       }, 100);
     }
   };
+
+  // Function to determine credit score band based on credit score
+  const getCreditScoreBand = (score: number): CreditScoreBand => {
+    if (score >= 750) return 'excellent';
+    if (score >= 660) return 'good';
+    if (score >= 560) return 'fair';
+    return 'poor';
+  };
   
   // Function to handle form submission
   const onSubmit = async (data: FormValues) => {
@@ -251,6 +260,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       // Calculate loan amount range based on monthly payment
       // This is a simplified calculation and should be replaced with your actual business logic
       const interestRate = 5.99;
+      const interestRateMax = 7.99;
       const loanTerm = 60; // 5 years in months
       const monthlyRate = interestRate / 1200;
       const paymentFactor = (monthlyRate * Math.pow(1 + monthlyRate, loanTerm)) / (Math.pow(1 + monthlyRate, loanTerm) - 1);
@@ -261,6 +271,10 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       // Set loan range (min and max)
       const loanAmountMin = Math.round(loanAmount * 0.8);
       const loanAmountMax = Math.round(loanAmount * 1.2);
+
+      // Determine credit score band
+      const creditScoreBand = getCreditScoreBand(data.credit_score);
+      console.log('PreQualificationForm: Credit score band:', creditScoreBand);
       
       // Prepare application data
       const applicationData = {
@@ -284,8 +298,16 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         phone: data.phone,
         loan_amount_min: loanAmountMin,
         loan_amount_max: loanAmountMax,
+        interest_rate_min: interestRate,
+        interest_rate_max: interestRateMax,
         interest_rate: interestRate,
+        loan_term_min: loanTerm,
+        loan_term_max: 84, // Maximum term length
         loan_term: loanTerm,
+        credit_score_band: creditScoreBand,
+        monthly_rent_or_mortgage: data.housing_payment,
+        consent_credit_check: data.consent_soft_check,
+        has_driver_license: true,
         status: 'pending_documents',
         current_stage: 1,
         consent_soft_check: data.consent_soft_check,
@@ -392,7 +414,13 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
           ...data,
           password: data.password || '', // Password will be set in the claim page
           loan_amount_min: loanAmountMin,
-          loan_amount_max: loanAmountMax,
+          loan_amount_max: loanAmountMax, 
+          interest_rate_min: interestRate,
+          interest_rate_max: interestRateMax,
+          loan_term_min: loanTerm,
+          loan_term_max: 84,
+          credit_score_band: creditScoreBand,
+          monthly_rent_or_mortgage: data.housing_payment,
           interest_rate: interestRate
         });
         
@@ -729,6 +757,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                         <select
                           {...field}
                           className={`w-full h-11 rounded-lg border ${error ? 'border-red-500' : 'border-gray-300'} focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent px-4 py-2 text-base`}
+                          required
                         >
                           <option value="">Select Housing Status</option>
                           <option value="own">Own</option>
@@ -777,6 +806,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                         <select
                           {...field}
                           className={`w-full h-11 rounded-lg border ${error ? 'border-red-500' : 'border-gray-300'} focus:ring-2 focus:ring-[#3BAA75] focus:border-transparent px-4 py-2 text-base`}
+                          required
                         >
                           <option value="">Select Employment Status</option>
                           <option value="employed">Employed</option>
@@ -951,7 +981,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
                               htmlFor="terms_accepted"
                               className="ml-2 text-sm text-gray-600"
                             >
-                              I accept the <a href="/terms" className="text-[#3BAA75] hover:underline">terms and conditions</a> and <a href="/privacy" className=\"text-[#3BAA75] hover:underline">privacy policy</a>
+                              I accept the <a href="/terms" className="text-[#3BAA75] hover:underline">terms and conditions</a> and <a href="/privacy" className="text-[#3BAA75] hover:underline">privacy policy</a>
                             </label>
                           </div>
                         )}
