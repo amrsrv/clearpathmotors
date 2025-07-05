@@ -3,7 +3,6 @@ import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
 import { useAuth } from './hooks/useAuth';
-import { manageAnalytics, trackPageView } from './utils/analytics';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import Home from './pages/Home';
@@ -77,21 +76,16 @@ const App = () => {
   const [activeDashboardSection, setActiveDashboardSection] = useState('overview'); // New state for dashboard sections
 
   useEffect(() => {
-    // Manage analytics based on authentication status
-    const isAuthenticated = !!user;
-    manageAnalytics(isAuthenticated);
-    
-    // Only track page views for unauthenticated users
-    trackPageView(); // This will only execute tracking if analyticsEnabled is true
-  }, [location.pathname, user]);
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
 
   useEffect(() => {
     // Manage analytics based on authentication status
     const isAuthenticated = !!user;
     manageAnalytics(isAuthenticated);
     
-    // Only track page views for unauthenticated users
-    trackPageView(); // This will only execute tracking if analyticsEnabled is true
+    // Track page view (will only execute if analytics are enabled)
+    trackPageView();
   }, [location.pathname, user]);
 
   const handleMobileNav = (section: string) => {
