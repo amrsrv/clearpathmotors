@@ -63,11 +63,10 @@ export const LoanRangeBar: React.FC<LoanRangeBarProps> = ({ min, max, rate_min, 
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
         className="flex items-center justify-center gap-2 mt-4"
       >
         <div className="text-xs sm:text-sm text-white/60">Interest Rate</div>
-        <div className="text-base sm:text-lg font-semibold">{rate}% APR</div>
+        <div className="text-base sm:text-lg font-semibold">{rate_min}% APR</div>
       </motion.div>
     </div>
   );
