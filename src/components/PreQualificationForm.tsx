@@ -306,7 +306,6 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         loan_term_min: loanTerm,
         loan_term_max: 84, // Maximum term length
         loan_term: loanTerm,
-        monthly_rent_or_mortgage: data.housing_payment,
         has_driver_license: true,
         status: 'pending_documents',
         current_stage: 1,
@@ -328,28 +327,28 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       try {
         // Insert application into Supabase
         const { data: application, error } = await supabase
-          .from('applications')
+        const { data: insertedApplication, error: supabaseError } = await supabase
           .insert(applicationData)
           .select()
           .single();
         
-        console.log('PreQualificationForm: Supabase insert call completed.');
-        
-        if (error) {
-          console.error('PreQualificationForm: Error submitting application:', error);
-          console.log('PreQualificationForm: Error details:', JSON.stringify(error, null, 2));
-          console.log('PreQualificationForm: Error code:', insertError.code);
-          console.log('PreQualificationForm: Error message:', insertError.message);
-          console.log('PreQualificationForm: Error details:', insertError.details);
-          console.log('PreQualificationForm: Error hint:', insertError.hint);
+        application = insertedApplication; // Assign to outer scope variable for use outside try block
+
+        if (supabaseError) {
+          console.error('PreQualificationForm: Error submitting application:', supabaseError);
+          console.log('PreQualificationForm: Error details:', JSON.stringify(supabaseError, null, 2));
+          console.log('PreQualificationForm: Error code:', supabaseError.code);
+          console.log('PreQualificationForm: Error message:', supabaseError.message);
+          console.log('PreQualificationForm: Error details:', supabaseError.details);
+          console.log('PreQualificationForm: Error hint:', supabaseError.hint);
           
-          if (error.code === '23505') {
+          if (supabaseError.code === '23505') {
             toast.error('An application with this email already exists.');
-          } else if (error.code === '42501') {
+          } else if (supabaseError.code === '42501') {
             toast.error('Permission denied. Please check your credentials.');
-          } else if (error.code === '22P02') {
+          } else if (supabaseError.code === '22P02') {
             toast.error('Invalid data format. Please check your inputs.');
-          } else if (insertError.code === 'PGRST204') {
+          } else if (supabaseError.code === 'PGRST204') { // Example for a specific Supabase error code
             toast.error('Database schema error. Please contact support.');
           } else {
             toast.error('Failed to submit application. Please try again.');
@@ -434,7 +433,6 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
           interest_rate_max: interestRateMax,
           loan_term_min: loanTerm,
           loan_term_max: 84,
-          credit_score_band: creditScoreBand,
           monthly_rent_or_mortgage: data.housing_payment,
           interest_rate: interestRate
         });
