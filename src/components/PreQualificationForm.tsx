@@ -306,7 +306,6 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         loan_term_min: loanTerm,
         loan_term_max: 84, // Maximum term length
         loan_term: loanTerm,
-        credit_score_band: creditScoreBand,
         monthly_rent_or_mortgage: data.housing_payment,
         has_driver_license: true,
         status: 'pending_documents',
