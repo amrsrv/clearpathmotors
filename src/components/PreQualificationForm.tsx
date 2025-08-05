@@ -326,13 +326,13 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
       console.log('PreQualificationForm: About to insert application into Supabase');
       try {
         // Insert application into Supabase
-        const { data: application, error } = await supabase
         const { data: insertedApplication, error: supabaseError } = await supabase
+          .from('applications')
           .insert(applicationData)
           .select()
           .single();
         
-        application = insertedApplication; // Assign to outer scope variable for use outside try block
+        console.log('PreQualificationForm: Supabase insert call completed.');
 
         if (supabaseError) {
           console.error('PreQualificationForm: Error submitting application:', supabaseError);
@@ -358,8 +358,8 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
           return;
         }
         
-        console.log('PreQualificationForm: Application submitted successfully:', application.id);
-        console.log('PreQualificationForm: Full application response:', JSON.stringify(application, null, 2));
+        console.log('PreQualificationForm: Application submitted successfully:', insertedApplication.id);
+        console.log('PreQualificationForm: Full application response:', JSON.stringify(insertedApplication, null, 2));
         
         // Create initial application stage
         try {
@@ -367,7 +367,7 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
           const { error: stageError } = await supabase
             .from('application_stages')
             .insert({
-              application_id: application.id,
+              application_id: insertedApplication.id,
               stage_number: 1,
               status: 'completed',
               notes: 'Application submitted successfully'
@@ -417,14 +417,14 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         
         // Call onComplete with the application ID, temp user ID, and form data
         console.log('PreQualificationForm: About to call onComplete with:', {
-          applicationId: application.id,
+          applicationId: insertedApplication.id,
           tempUserId: currentTempUserId
         });
         
         console.log('PreQualificationForm: Right before calling onComplete');
         
         toast.success('Application submitted successfully!');
-        onComplete(application.id, currentTempUserId, {
+        onComplete(insertedApplication.id, currentTempUserId, {
           ...data,
           password: data.password || '', // Password will be set in the claim page
           loan_amount_min: loanAmountMin,
@@ -440,10 +440,10 @@ const PreQualificationForm: React.FC<PreQualificationFormProps> = ({ onComplete 
         console.log('PreQualificationForm: After calling onComplete');
         
         console.log('PreQualificationForm: onComplete called successfully');
-      } catch (insertError) {
-        console.error('PreQualificationForm: Exception during Supabase insert:', insertError);
-        console.log('PreQualificationForm: Insert error details:', insertError instanceof Error ? insertError.message : JSON.stringify(insertError));
-        console.log('PreQualificationForm: Insert error stack:', insertError instanceof Error ? insertError.stack : 'No stack trace available');
+      } catch (supabaseInsertError) {
+        console.error('PreQualificationForm: Exception during Supabase insert:', supabaseInsertError);
+        console.log('PreQualificationForm: Insert error details:', supabaseInsertError instanceof Error ? supabaseInsertError.message : JSON.stringify(supabaseInsertError));
+        console.log('PreQualificationForm: Insert error stack:', supabaseInsertError instanceof Error ? supabaseInsertError.stack : 'No stack trace available');
         toast.error('Failed to submit application. Please try again.');
       }
       
