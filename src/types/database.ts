@@ -165,12 +165,6 @@ export interface Application {
   assigned_to_admin_id: string | null;
   amount_owed: number | null;
   trustee_name: string | null;
-  dealer_id: string | null;
-  dealer_profiles?: {
-    name: string | null;
-    email: string | null;
-    public_slug: string | null;
-  } | null;
 }
 
 export interface ApplicationStage {

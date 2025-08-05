@@ -69,25 +69,14 @@ const DealerDashboard = () => {
       
       setDealerProfile(profileData);
       
-      // Load applications assigned to this dealer
-      const { data: applicationsData, error: applicationsError } = await supabase
-        .from('applications')
-        .select('*')
-        .eq('dealer_id', user.id)
-        .order('created_at', { ascending: false });
-        
-      if (applicationsError) {
-        console.error('Error loading applications:', applicationsError);
-        throw new Error('Failed to load applications. Please try again.');
-      }
-      
-      setApplications(applicationsData || []);
+      // Note: dealer_id column doesn't exist, so we'll show empty for now
+      setApplications([]);
       
       // Calculate stats
-      const totalCount = applicationsData?.length || 0;
-      const pendingCount = applicationsData?.filter(app => app.status === 'pending_documents').length || 0;
-      const approvedCount = applicationsData?.filter(app => app.status === 'pre_approved').length || 0;
-      const finalizedCount = applicationsData?.filter(app => app.status === 'finalized').length || 0;
+      const totalCount = 0;
+      const pendingCount = 0;
+      const approvedCount = 0;
+      const finalizedCount = 0;
       
       setStats({
         totalApplications: totalCount,
@@ -263,35 +252,6 @@ const DealerDashboard = () => {
             </motion.div>
           ))}
         </div>
-
-        {/* Public Application Link */}
-        {dealerProfile?.public_slug && (
-          <div className="mt-6 bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold mb-4">Your Public Application Link</h2>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={`${window.location.origin}/apply/${dealerProfile.public_slug}`}
-                readOnly
-                className="flex-1 bg-gray-50 border border-gray-300 rounded-lg px-4 py-2 text-gray-700"
-              />
-              <button
-                onClick={() => {
-                  try {
-                    navigator.clipboard.writeText(`${window.location.origin}/apply/${dealerProfile.public_slug}`);
-                    toast.success('Link copied to clipboard');
-                  } catch (error) {
-                    console.error('Failed to copy to clipboard:', error);
-                    toast.error('Failed to copy to clipboard');
-                  }
-                }}
-                className="px-4 py-2 bg-[#3BAA75] text-white rounded-lg hover:bg-[#2D8259] transition-colors"
-              >
-                Copy
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Applications */}
         <div className="mt-6 bg-white rounded-lg shadow-sm">
