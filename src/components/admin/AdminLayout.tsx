@@ -13,14 +13,43 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
+import { supabase } from '../../lib/supabaseClient';
+
+const FORM_STORAGE_KEY = 'clearpath_prequalification_form_data';
+
 const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleSignOut = async () => {
-    signOut();
+    try {
+      // Clear all Supabase and application-related items from localStorage
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sb-') || 
+            key === 'tempUserId' || 
+            key === 'chatAnonymousId' || 
+            key === FORM_STORAGE_KEY) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      // Replace the current history entry with login page
+      // This prevents going back to protected pages with browser back button
+      window.history.replaceState(null, '', '/login');
+      
+      // Sign out from Supabase
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      // Navigate to login page
+      navigate('/login');
+    } catch (error) {
+      console.error('Admin sign out error:', error);
+      // Force navigation even if signOut fails
+      navigate('/login');
+    }
   };
 
   const navigation = [

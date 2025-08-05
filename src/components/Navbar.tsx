@@ -5,6 +5,8 @@ import { useAuth } from '../context/AuthContext';
 import { Menu, MenuItem, ProductMenu, HoveredLink } from './Menu';
 import { supabase } from '../lib/supabaseClient';
 
+const FORM_STORAGE_KEY = 'clearpath_prequalification_form_data';
+
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -14,7 +16,32 @@ const Navbar = () => {
   const location = useLocation();
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      // Clear all Supabase and application-related items from localStorage
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sb-') || 
+            key === 'tempUserId' || 
+            key === 'chatAnonymousId' || 
+            key === FORM_STORAGE_KEY) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      // Replace the current history entry with login page
+      // This prevents going back to protected pages with browser back button
+      window.history.replaceState(null, '', '/login');
+      
+      // Sign out from Supabase
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      // Navigate to login page
+      navigate('/login');
+    } catch (error) {
+      console.error('Sign out error:', error);
+      // Force navigation even if signOut fails
+      navigate('/login');
+    }
   };
 
   const handleAutoFinancingClick = async () => {
