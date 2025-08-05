@@ -5,44 +5,13 @@ import { useAuth } from '../context/AuthContext';
 import { Menu, MenuItem, ProductMenu, HoveredLink } from './Menu';
 import { supabase } from '../lib/supabaseClient';
 
-const FORM_STORAGE_KEY = 'clearpath_prequalification_form_data';
-
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [activeItem, setActiveItem] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-
-  const handleSignOut = async () => {
-    try {
-      // Clear all Supabase and application-related items from localStorage
-      Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('sb-') || 
-            key === 'tempUserId' || 
-            key === 'chatAnonymousId' || 
-            key === FORM_STORAGE_KEY) {
-          localStorage.removeItem(key);
-        }
-      });
-      
-      // Replace the current history entry with login page
-      // This prevents going back to protected pages with browser back button
-      window.history.replaceState(null, '', '/login');
-      
-      // Sign out from Supabase
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      
-      // Navigate to login page
-      navigate('/login');
-    } catch (error) {
-      console.error('Sign out error:', error);
-      // Force navigation even if signOut fails
-      navigate('/login');
-    }
-  };
 
   const handleAutoFinancingClick = async () => {
     if (!user) {
@@ -112,7 +81,7 @@ const Navbar = () => {
               <div className="relative">
                 <button
                   onClick={() => setShowUserMenu(!showUserMenu)}
-                  className="ml-2 flex items-center space-x-2 bg-gray-100 text-gray-700 px-4 py-3 rounded-lg hover:bg-gray-200 transition-colors text-base font-medium"
+                    signOut();
                 >
                   <User className="h-5 w-5" />
                   <span>Account</span>

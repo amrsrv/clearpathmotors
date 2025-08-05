@@ -11,46 +11,13 @@ import {
   X,
   ChevronRight
 } from 'lucide-react';
-import { useAuth } from '../../hooks/useAuth';
-
-import { supabase } from '../../lib/supabaseClient';
-
-const FORM_STORAGE_KEY = 'clearpath_prequalification_form_data';
+import { useAuth } from '../../context/AuthContext';
 
 const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  const handleSignOut = async () => {
-    try {
-      // Clear all Supabase and application-related items from localStorage
-      Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('sb-') || 
-            key === 'tempUserId' || 
-            key === 'chatAnonymousId' || 
-            key === FORM_STORAGE_KEY) {
-          localStorage.removeItem(key);
-        }
-      });
-      
-      // Replace the current history entry with login page
-      // This prevents going back to protected pages with browser back button
-      window.history.replaceState(null, '', '/login');
-      
-      // Sign out from Supabase
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-      
-      // Navigate to login page
-      navigate('/login');
-    } catch (error) {
-      console.error('Admin sign out error:', error);
-      // Force navigation even if signOut fails
-      navigate('/login');
-    }
-  };
 
   const navigation = [
     {
@@ -158,7 +125,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
           <div className="border-t border-gray-200 p-4">
             <button
-              onClick={handleSignOut}
+              onClick={signOut}
               className="flex items-center w-full px-4 py-3 text-base font-medium text-gray-600 rounded-lg hover:bg-gray-50 hover:text-[#3BAA75]"
             >
               <LogOut className="mr-3 h-6 w-6" />
@@ -205,7 +172,7 @@ const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           {/* User Menu */}
           <div className="flex-shrink-0 border-t border-gray-200 p-4">
             <button
-              onClick={handleSignOut}
+              onClick={signOut}
               className="flex items-center w-full px-4 py-2 text-sm font-medium text-gray-600 rounded-lg hover:bg-gray-50 hover:text-[#3BAA75]"
             >
               <LogOut className="mr-3 h-5 w-5" />

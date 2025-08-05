@@ -164,40 +164,6 @@ export const useAuth = () => {
     }
   };
 
-  const signOut = async () => {
-    try {
-      // First set user to null to trigger UI updates immediately
-      setUser(null);
-      setSession(null);
-      
-      // Clear all Supabase and application-related items from localStorage
-      Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('sb-') || 
-            key === 'tempUserId' || 
-            key === 'chatAnonymousId' || 
-            key === FORM_STORAGE_KEY) {
-          localStorage.removeItem(key);
-        }
-      });
-      
-      // Replace the current history entry with login page
-      // This prevents going back to protected pages with browser back button
-      window.history.replaceState(null, '', '/login');
-      
-      // Sign out from Supabase
-      const { error } = await retryWithBackoff(() => supabase.auth.signOut());
-      if (error) throw error;
-      
-      // Show success message
-      toast.success('Signed out.');
-      
-      // Navigate to login page
-      window.location.href = '/login';
-    } catch (error) {
-      toast.error('Sign out failed.');
-    }
-  };
-
   const resetPassword = async (email: string) => {
     try {
       const redirectTo = `${window.location.origin}/update-password`;
@@ -245,7 +211,6 @@ export const useAuth = () => {
     signIn,
     signUp,
     signInWithGoogle,
-    signOut,
     resetPassword,
     updatePassword,
     getUser,
