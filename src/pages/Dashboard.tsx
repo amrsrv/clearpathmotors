@@ -1,7 +1,7 @@
 import React, { useLayoutEffect, useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabaseClient';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../context/AuthContext';
 import { DashboardNavBar } from '../components/DashboardNavBar';
 import { NotificationCenter } from '../components/NotificationCenter';
 import { DocumentManager, UnifiedDocumentUploader } from '../components/DocumentManager';
@@ -33,7 +33,7 @@ function isUuid(value: string | null | undefined): boolean {
 const FALLBACK_UUID = '00000000-0000-0000-0000-000000000000';
 
 const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }) => {
-  const { user, initialized, loading: authLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [dashboardDataLoading, setDashboardDataLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,16 +52,16 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
 
   useEffect(() => {
     // Wait for auth to be initialized before loading data
-    if (initialized && !authLoading && user) {
+    if (!authLoading && user) {
       console.log('Dashboard: Auth initialized, loading dashboard data');
       loadDashboardData();
-    } else if (initialized && !authLoading) {
+    } else if (!authLoading && !user) {
       console.log('Dashboard: Auth initialized but no user, redirecting to login');
       navigate('/login');
-    } else if (!initialized || authLoading) {
+    } else if (authLoading) {
       console.log('Dashboard: Auth not yet initialized, waiting...');
     }
-  }, [initialized, authLoading, user, navigate]);
+  }, [authLoading, user, navigate]);
 
   // Add user to the dependency array to ensure data is reloaded when user changes
 

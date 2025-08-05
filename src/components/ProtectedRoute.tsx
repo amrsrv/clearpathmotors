@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../context/AuthContext';
 import { useUserRole } from '../hooks/useUserRole';
+import { AppSkeleton } from './AppSkeleton';
 import toast from 'react-hot-toast';
 import type { UserRole } from '../hooks/useUserRole';
 
@@ -15,30 +16,24 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   allowedRoles = [] 
 }) => {
   const location = useLocation();
-  const { user, loading, initialized } = useAuth();
+  const { user, loading } = useAuth();
   const { role, isLoading } = useUserRole();
 
   useEffect(() => {
     console.log('ProtectedRoute: Component mounted', {
       user: user ? { id: user.id, email: user.email } : 'null',
       loading,
-      initialized,
       role,
       isLoading,
       allowedRoles
     });
-  }, [user, loading, initialized, role, isLoading, allowedRoles]);
+  }, [user, loading, role, isLoading, allowedRoles]);
 
   // Show a more detailed loading state
-  if (loading || isLoading || !initialized) {
+  if (loading || isLoading) {
     console.log('ProtectedRoute: Still loading, showing loading state');
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="flex flex-col items-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent mb-4" />
-          <p className="text-gray-600">Verifying access...</p>
-        </div>
-      </div>
+      <AppSkeleton />
     );
   }
 

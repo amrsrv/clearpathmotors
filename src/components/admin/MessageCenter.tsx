@@ -12,7 +12,7 @@ import {
   Check
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-import { useAuth } from '../../hooks/useAuth';
+import { useAuth } from '../../context/AuthContext';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 

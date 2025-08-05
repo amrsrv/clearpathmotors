@@ -2,12 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Lock, AlertCircle } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 
 const AdminLogin = () => {
   const navigate = useNavigate();
-  const { user, signIn } = useAuth();
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -46,7 +46,10 @@ const AdminLogin = () => {
 
     try {
       // Sign in with Supabase Auth
-      const { error: signInError } = await signIn(formData.email, formData.password);
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password
+      });
       
       if (signInError) {
         throw new Error('Invalid email or password');

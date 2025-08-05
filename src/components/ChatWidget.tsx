@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MessageSquare, X, Send, Image, Smile, Paperclip, Loader2, Check, ChevronDown, ChevronUp, User } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../context/AuthContext';
 import { v4 as uuidv4 } from 'uuid';
 
 // Utility function to validate UUID format

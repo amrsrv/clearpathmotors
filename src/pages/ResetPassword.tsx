@@ -2,10 +2,9 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, AlertCircle, CheckCircle } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../lib/supabaseClient';
 
 const ResetPassword = () => {
-  const { resetPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -29,8 +28,10 @@ const ResetPassword = () => {
       const normalizedEmail = email.trim().toLowerCase();
       console.log('ResetPassword: Normalized email:', normalizedEmail);
       
-      console.log('ResetPassword: Calling resetPassword function');
-      const { error: resetError } = await resetPassword(normalizedEmail);
+      console.log('ResetPassword: Calling supabase resetPasswordForEmail');
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+        redirectTo: `${window.location.origin}/update-password`
+      });
       
       if (resetError) {
         console.error('ResetPassword: Reset error occurred:', resetError);

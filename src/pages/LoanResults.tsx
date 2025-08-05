@@ -5,7 +5,7 @@ import { Calendar, ArrowRight, CheckCircle, Shield, BadgeCheck, TrendingUp, File
 import { PreQualifiedBadge } from '../components/PreQualifiedBadge';
 import { LoanRangeBar } from '../components/LoanRangeBar';
 import { ScrollReveal } from '../components/ScrollReveal';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../context/AuthContext';
 
 interface LoanResultsProps {}
 

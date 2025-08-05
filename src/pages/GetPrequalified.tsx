@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import PreQualificationForm from '../components/PreQualificationForm';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 import toast from 'react-hot-toast';
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Menu as MenuIcon, X, User } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../context/AuthContext';
 import { Menu, MenuItem, ProductMenu, HoveredLink } from './Menu';
 import { supabase } from '../lib/supabaseClient';
 
@@ -9,12 +9,12 @@ const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [activeItem, setActiveItem] = useState<string | null>(null);
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const handleSignOut = async () => {
-    signOut();
+    await supabase.auth.signOut();
   };
 
   const handleAutoFinancingClick = async () => {

@@ -2,14 +2,14 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Lock, User, Phone, DollarSign, CreditCard, Briefcase, Calculator, AlertCircle } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 import { GoogleSignInButton } from '../components/GoogleSignInButton';
 
 const Signup = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signUp } = useAuth();
+  const { user } = useAuth();
   const { formData: prefillData, applicationId, tempUserId } = location.state || {};
   
   const [formData, setFormData] = useState({
@@ -89,7 +89,14 @@ const Signup = () => {
       console.log('Signup: Setting role to "customer" in app_metadata');
 
       // Sign up with Supabase Auth
-      const { data, error: signUpError } = await signUp(formData.email, formData.password);
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password,
+        options: {
+          data: { role: 'customer' },
+          emailRedirectTo: `${window.location.origin}/auth/callback`
+        }
+      });
       
       if (signUpError) {
         console.error('Signup: Error during signup:', signUpError);

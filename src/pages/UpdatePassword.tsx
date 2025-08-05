@@ -2,12 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Lock, AlertCircle, CheckCircle } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
 
 const UpdatePassword = () => {
   const navigate = useNavigate();
-  const { updatePassword } = useAuth();
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -45,7 +43,9 @@ const UpdatePassword = () => {
     }
 
     try {
-      const { error: updateError } = await updatePassword(password);
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: password
+      });
       
       if (updateError) {
         throw updateError;
