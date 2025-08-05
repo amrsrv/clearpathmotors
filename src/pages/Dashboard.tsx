@@ -643,7 +643,7 @@ const Dashboard: React.FC<DashboardProps> = ({ activeSection, setActiveSection }
               <UserApplicationsTable 
                 applications={userApplications}
                 onSelectApplication={handleSelectApplication}
-                isLoading={authLoading}
+                isLoading={dashboardDataLoading}
               />
             )}
             
