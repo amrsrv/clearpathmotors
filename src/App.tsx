@@ -2,7 +2,8 @@ import React, { useLayoutEffect, useEffect, useState } from 'react';
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { Toaster } from 'react-hot-toast';
-import { useAuth } from './hooks/useAuth'; 
+import { useAuth } from './context/AuthContext';
+import { AppSkeleton } from './components/AppSkeleton';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import Home from './pages/Home';
@@ -47,14 +48,12 @@ interface PrivateRouteProps {
 }
 
 const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, requiresAdmin }) => {
-  const { user, loading, initialized } = useAuth();
+  const { user, loading } = useAuth();
   const location = useLocation();
 
-  if (loading || !initialized) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent" />
-      </div>
+      <AppSkeleton />
     );
   }
 
@@ -72,7 +71,7 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children, requiresAdmin }) 
 
 const App = () => {
   const location = useLocation();
-  const { user, initialized } = useAuth();
+  const { user, loading } = useAuth();
   const [activeDashboardSection, setActiveDashboardSection] = useState('overview'); // New state for dashboard sections
 
   useLayoutEffect(() => {
@@ -94,6 +93,11 @@ const App = () => {
       // navigate('/dashboard'); 
     }
   };
+
+  // Show skeleton while loading
+  if (loading) {
+    return <AppSkeleton />;
+  }
 
   // Check if we should show the footer (hide on dashboard, admin pages, and get-prequalified)
   const shouldShowFooter = 

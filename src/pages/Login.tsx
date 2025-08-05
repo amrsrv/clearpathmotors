@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mail, Lock, ArrowRight, Eye, EyeOff, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabaseClient';
 import toast from 'react-hot-toast';
 import { GoogleSignInButton } from '../components/GoogleSignInButton';
@@ -12,7 +12,7 @@ const FORM_STORAGE_KEY = 'clearpath_prequalification_form_data';
 const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, signIn, loading } = useAuth();
+  const { user, loading } = useAuth();
   const [formData, setFormData] = useState({
     email: location.state?.email || new URLSearchParams(location.search).get('email') || '',
     password: ''
@@ -21,7 +21,6 @@ const Login = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
   const [hasSavedFormData, setHasSavedFormData] = useState(false);
 
   // Check for return URL in query params
@@ -35,48 +34,9 @@ const Login = () => {
     }
   }, []);
 
-  // Check authentication status on load
-  useEffect(() => {
-    const checkAuth = async () => {
-      console.log('Login: Checking authentication status');
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('Login: Error verifying auth:', error);
-        }
-        
-        setAuthChecked(true);
-        
-        // If user is logged in, redirect
-        if (session?.user) {
-          console.log('Login: User already logged in, redirecting');
-          
-          // If there's saved form data, redirect to the form page
-          if (hasSavedFormData && returnUrl.includes('/get-prequalified')) {
-            navigate('/get-prequalified');
-          } else {
-            navigate(returnUrl);
-          }
-        }
-      } catch (err) {
-        console.error('Login: Error in checkAuth:', err);
-        setAuthChecked(true);
-      }
-    };
-    
-    checkAuth();
-  }, [navigate, returnUrl, hasSavedFormData]);
-
   // Redirect if already logged in
   useEffect(() => {
-    console.log('Login: Component mounted, user =', user ? {
-      id: user.id,
-      email: user.email,
-      app_metadata: user.app_metadata
-    } : 'null', 'loading =', loading, 'authChecked =', authChecked);
-    
-    if (user && !loading && authChecked) {
+    if (user && !loading) {
       // If there's saved form data, redirect to the form page
       if (hasSavedFormData && returnUrl.includes('/get-prequalified')) {
         navigate('/get-prequalified');
@@ -84,7 +44,7 @@ const Login = () => {
         navigate(returnUrl);
       }
     }
-  }, [user, loading, authChecked, navigate, returnUrl, hasSavedFormData]);
+  }, [user, loading, navigate, returnUrl, hasSavedFormData]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
@@ -101,14 +61,17 @@ const Login = () => {
     console.log('Login: Form submitted with email:', formData.email);
 
     try {
-      const { error: signInError } = await signIn(formData.email, formData.password);
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password
+      });
       
       if (signInError) {
         console.error('Login: Error during sign in:', signInError);
         throw signInError;
       }
 
-      // Navigation will be handled by the useEffect hook when user state updates
+      // Navigation will be handled by the useEffect hook when session updates
       console.log('Login: Sign in successful, waiting for redirect');
     } catch (error: any) {
       console.error('Login: Error handling sign in result:', error);
@@ -118,8 +81,8 @@ const Login = () => {
     }
   };
 
-  // Don't render the login form if already logged in and we've checked auth status
-  if (user && authChecked) {
+  // Don't render the login form if already logged in
+  if (user && !loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <motion.div
@@ -129,22 +92,6 @@ const Login = () => {
         >
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent mb-4" />
           <p className="text-gray-600">You're already signed in. Redirecting...</p>
-        </motion.div>
-      </div>
-    );
-  }
-
-  // Show a loading state only if we haven't checked auth yet
-  if (!authChecked) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="flex flex-col items-center"
-        >
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#3BAA75] border-t-transparent mb-4" />
-          <p className="text-gray-600">Checking authentication status...</p>
         </motion.div>
       </div>
     );
