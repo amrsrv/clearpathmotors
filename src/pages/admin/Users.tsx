@@ -30,7 +30,6 @@ import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 import { useUserRole } from '../../hooks/useUserRole';
 import toast from 'react-hot-toast';
-import { slugify } from '../../utils/slugify';
 import RoleSelector from '../../components/RoleSelector';
 
 interface UserData {
@@ -74,12 +73,6 @@ const AdminUsers = () => {
   const [isProcessingUserAction, setIsProcessingUserAction] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [selectedRole, setSelectedRole] = useState<'super_admin' | 'dealer' | 'customer'>('customer');
-  const [newDealerData, setNewDealerData] = useState({
-    name: '',
-    email: '', 
-    phone: '',
-    password: ''
-  });
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
 
@@ -268,10 +261,6 @@ const AdminUsers = () => {
           await handleCreateDealer();
           return;
           
-        case 'change_role':
-          await updateUserRole(selectedUser.id, selectedRole);
-          toast.success(`${selectedUser.email}'s role has been updated to ${selectedRole}`);
-          break;
       }
       
       // Refresh the user list
@@ -291,70 +280,6 @@ const AdminUsers = () => {
     }
   };
 
-  const handleCreateDealer = async () => {
-    if (!newDealerData.name || !newDealerData.email || !newDealerData.password) {
-      toast.error('Dealer name, email, and password are required');
-      return;
-    }
-    
-    try {
-      setIsProcessingUserAction(true);
-      
-      // Get the current session
-      const session = await supabase.auth.getSession();
-      if (!session.data.session) {
-        throw new Error('No active session');
-      }
-      
-      // Call the create-dealer edge function
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-dealer`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session.data.session.access_token}`,
-            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
-          },
-          body: JSON.stringify({
-            name: newDealerData.name,
-            email: newDealerData.email,
-            phone: newDealerData.phone,
-            password: newDealerData.password
-          })
-        }
-      );
-      
-      if (!response.ok) {
-        let errorData;
-        try {
-          errorData = await response.json();
-        } catch (parseError) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        throw new Error(errorData.error || 'Failed to create dealer');
-      }
-      
-      const data = await response.json();
-      
-      toast.success(`Dealer ${newDealerData.name} created successfully`);
-      setNewDealerData({
-        name: '',
-        email: '',
-        phone: '',
-        password: ''
-      });
-      setShowUserActionModal(null);
-      
-      // Refresh the user list
-      await loadUsers(true);
-    } catch (error) {
-      console.error('Error creating dealer:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create dealer');
-    } finally {
-      setIsProcessingUserAction(false);
-    }
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -473,15 +398,6 @@ const AdminUsers = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className={`${stat.color} rounded-lg p-4 md:p-6`}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs md:text-sm text-gray-500">{stat.title}</p>
-                  <p className="text-xl md:text-2xl font-semibold mt-1">{stat.value}</p>
-                </div>
-                {stat.icon}
-              </div>
             </motion.div>
           ))}
         </div>
@@ -1018,74 +934,6 @@ const AdminUsers = () => {
               )}
               
               {/* Create Dealer Modal */}
-              {showUserActionModal === 'create_dealer' && (
-                <>
-                  <div className="flex items-center gap-3 text-[#3BAA75] mb-4">
-                    <Users className="h-6 w-6" />
-                    <h3 className="text-lg font-semibold">Create Dealer Account</h3>
-                  </div>
-                  
-                  <div className="space-y-4 mb-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Dealer Name
-                      </label>
-                      <input
-                        type="text"
-                        value={newDealerData.name}
-                        onChange={(e) => setNewDealerData({...newDealerData, name: e.target.value})}
-                        className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                        placeholder="Enter dealer name"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        value={newDealerData.email}
-                        onChange={(e) => setNewDealerData({...newDealerData, email: e.target.value})}
-                        className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                        placeholder="Enter dealer email"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Password
-                      </label>
-                      <input
-                        type="text"
-                        value={newDealerData.password}
-                        onChange={(e) => setNewDealerData({...newDealerData, password: e.target.value})}
-                        className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                        placeholder="Enter password"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Phone Number
-                      </label>
-                      <input
-                        type="tel"
-                        value={newDealerData.phone}
-                        onChange={(e) => setNewDealerData({...newDealerData, phone: e.target.value})}
-                        className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
-                        placeholder="Enter dealer phone number"
-                      />
-                    </div>
-                    
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <p className="text-sm text-blue-700">
-                        The dealer will use the provided email and password to log in.
-                      </p>
-                    </div>
-                  </div>
-                </>
-              )}
               
               <div className="flex justify-end gap-3">
                 <button
@@ -1126,7 +974,6 @@ const AdminUsers = () => {
                   {showUserActionModal === 'remove_admin' && 'Remove Admin'}
                   {showUserActionModal === 'disable_user' && 'Disable User'}
                   {showUserActionModal === 'delete_user' && 'Delete User'}
-                  {showUserActionModal === 'create_dealer' && 'Create Dealer'}
                   {showUserActionModal === 'make_super_admin' && 'Make Super Admin'}
                   {showUserActionModal === 'remove_super_admin' && 'Remove Super Admin'}
                   {showUserActionModal === 'change_role' && 'Update Role'}
