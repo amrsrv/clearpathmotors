@@ -199,6 +199,11 @@ const AdminUsers = () => {
     }
   };
 
+  const handleCreateDealer = async () => {
+    // Implementation for creating dealer
+    toast.success('Dealer creation functionality would be implemented here');
+  };
+
   const handleUserAction = async (action: string) => {
     if (!selectedUser && action !== 'create_dealer') return;
     
@@ -255,6 +260,11 @@ const AdminUsers = () => {
         case 'remove_super_admin':
           await updateUserRole(selectedUser.id, 'customer');
           toast.success(`Super Admin privileges removed from ${selectedUser.email}`);
+          break;
+          
+        case 'change_role':
+          await updateUserRole(selectedUser.id, selectedRole);
+          toast.success(`Role updated for ${selectedUser.email}`);
           break;
           
         case 'create_dealer':
@@ -398,6 +408,15 @@ const AdminUsers = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
+              className={`${stat.color} p-4 rounded-lg`}
+            >
+              <div className="flex items-center">
+                {stat.icon}
+                <div className="ml-3">
+                  <p className="text-sm font-medium text-gray-600">{stat.title}</p>
+                  <p className="text-2xl font-semibold text-gray-900">{stat.value}</p>
+                </div>
+              </div>
             </motion.div>
           ))}
         </div>
@@ -934,6 +953,54 @@ const AdminUsers = () => {
               )}
               
               {/* Create Dealer Modal */}
+              {showUserActionModal === 'create_dealer' && (
+                <>
+                  <div className="flex items-center gap-3 text-[#3BAA75] mb-4">
+                    <Plus className="h-6 w-6" />
+                    <h3 className="text-lg font-semibold">Create Dealer Account</h3>
+                  </div>
+                  
+                  <p className="text-gray-700 mb-6">
+                    Create a new dealer account with administrative privileges for managing vehicle inventory and customer applications.
+                  </p>
+                  
+                  <div className="space-y-4 mb-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Email Address
+                      </label>
+                      <input
+                        type="email"
+                        className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        placeholder="dealer@example.com"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Dealer Name
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        placeholder="Dealer Name"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Initial Password
+                      </label>
+                      <input
+                        type="password"
+                        className="w-full rounded-lg border-gray-300 focus:ring-[#3BAA75] focus:border-[#3BAA75]"
+                        placeholder="Temporary password"
+                        minLength={8}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
               
               <div className="flex justify-end gap-3">
                 <button
@@ -967,6 +1034,7 @@ const AdminUsers = () => {
                       {showUserActionModal === 'remove_admin' && <Shield className="h-4 w-4" />}
                       {showUserActionModal === 'disable_user' && <UserX className="h-4 w-4" />}
                       {showUserActionModal === 'delete_user' && <Trash2 className="h-4 w-4" />}
+                      {showUserActionModal === 'create_dealer' && <Plus className="h-4 w-4" />}
                     </>
                   )}
                   {showUserActionModal === 'reset_password' && 'Reset Password'}
@@ -977,6 +1045,7 @@ const AdminUsers = () => {
                   {showUserActionModal === 'make_super_admin' && 'Make Super Admin'}
                   {showUserActionModal === 'remove_super_admin' && 'Remove Super Admin'}
                   {showUserActionModal === 'change_role' && 'Update Role'}
+                  {showUserActionModal === 'create_dealer' && 'Create Dealer'}
                 </button>
               </div>
             </motion.div>
