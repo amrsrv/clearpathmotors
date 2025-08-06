@@ -36,7 +36,7 @@ const formSchema = z.object({
   city: z.string().min(1, 'City is required'),
   province: z.string().min(1, 'Province is required'),
   postal_code: z.string().min(1, 'Postal code is required')
-    .regex(/^[A-Za-z]\d[A-Za-z][ -]?\d[A-Za-z]\d$/, 'Please enter a valid postal code'),
+    .regex(/^[A-Za-z]d[A-Za-z][ -]?d[A-Za-z]d$/, 'Please enter a valid postal code'),
   housing_status: z.string().min(1, 'Housing status is required'),
   housing_payment: z.number().min(0, 'Housing payment must be a positive number'),
   
